@@ -1,6 +1,6 @@
 # ICSH website
 
-Next.js 16, React 19, TypeScript and Tailwind CSS. The approved ICSH prototype’s actual visual tokens, layout, photography treatment, cards and footer styling form the design foundation. British English throughout.
+Next.js 16, React 19, TypeScript and Tailwind CSS. The approved ICSH prototype’s layout, typography, photography treatment, cards and footer styling form the design foundation. The owner’s new logo and palette (#4C6259 green, #F8F7F2 ivory, #AD925A gold) supplied on 15 October 2026 are applied throughout. British English throughout.
 
 ## Run
 
