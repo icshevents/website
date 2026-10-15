@@ -1,0 +1,30 @@
+[
+  {
+    "id": "norwegian-fjords-cruise-2026",
+    "title": "Norwegian Fjords Cruise 2026",
+    "start": "2026-08-29",
+    "end": "2026-09-05",
+    "time": null,
+    "location": "Southampton · MSC Virtuosa",
+    "description": "Seven nights together, visiting Haugesund, Olden, Ålesund and Kristiansand before returning to Southampton.",
+    "price": null,
+    "bookingUrl": null,
+    "membershipRequirements": null,
+    "image": "/assets/cruise/cruise-100-1600.webp",
+    "blogSlug": "norwegian-fjords-cruise-2026",
+    "gallerySlug": "norwegian-fjords-cruise-2026"
+  },
+  {
+    "id": "ladies-health-wellbeing-2026",
+    "title": "Ladies Health & Wellbeing",
+    "start": "2026-05-10",
+    "end": "2026-05-10",
+    "time": "12:00",
+    "location": "51 Ickenham Road, Ruislip HA4 7BZ",
+    "description": "A women’s health and wellbeing session with Dr Hina Shahid, followed by light snacks and time to catch up.",
+    "price": "Free for paid ICSH members",
+    "bookingUrl": null,
+    "membershipRequirements": "Paid ICSH members",
+    "image": "/assets/source-4.webp"
+  }
+]

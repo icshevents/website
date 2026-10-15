@@ -1,0 +1,182 @@
+[
+  {
+    "slug": "norwegian-fjords-cruise-2026",
+    "title": "Norwegian Fjords Cruise 2026",
+    "date": "29 August – 5 September 2026",
+    "description": "Friendship, shared adventures and the extraordinary beauty of Norway. Nineteen moments from our seven-night voyage aboard MSC Virtuosa.",
+    "cover": "/assets/cruise/cruise-100-1600.webp",
+    "photos": [
+      {
+        "id": "cruise-005",
+        "src": "/assets/cruise/cruise-005-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-005-640.webp",
+        "alt": "An evening together aboard MSC Virtuosa",
+        "caption": "An evening together aboard MSC Virtuosa",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-010",
+        "src": "/assets/cruise/cruise-010-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-010-640.webp",
+        "alt": "Exploring the Norwegian coast together",
+        "caption": "Exploring the Norwegian coast together",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-030",
+        "src": "/assets/cruise/cruise-030-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-030-640.webp",
+        "alt": "A shared moment beside the waterfront",
+        "caption": "A shared moment beside the waterfront",
+        "width": 3000,
+        "height": 4000
+      },
+      {
+        "id": "cruise-039",
+        "src": "/assets/cruise/cruise-039-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-039-640.webp",
+        "alt": "A pause in the sunshine during a day ashore",
+        "caption": "A pause in the sunshine during a day ashore",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-043",
+        "src": "/assets/cruise/cruise-043-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-043-640.webp",
+        "alt": "Exploring a Norwegian coastal town",
+        "caption": "Exploring a Norwegian coastal town",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-049",
+        "src": "/assets/cruise/cruise-049-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-049-640.webp",
+        "alt": "A walk beside the rushing river",
+        "caption": "A walk beside the rushing river",
+        "width": 3000,
+        "height": 4000
+      },
+      {
+        "id": "cruise-056",
+        "src": "/assets/cruise/cruise-056-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-056-640.webp",
+        "alt": "Good company on a sightseeing excursion",
+        "caption": "Good company on a sightseeing excursion",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-065",
+        "src": "/assets/cruise/cruise-065-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-065-640.webp",
+        "alt": "The group gathers before a sightseeing trip",
+        "caption": "The group gathers before a sightseeing trip",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-070",
+        "src": "/assets/cruise/cruise-070-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-070-640.webp",
+        "alt": "Mountain scenery and a still, turquoise lake",
+        "caption": "Mountain scenery and a still, turquoise lake",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-100",
+        "src": "/assets/cruise/cruise-100-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-100-640.webp",
+        "alt": "A quiet moment on the water",
+        "caption": "A quiet moment on the water",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-111",
+        "src": "/assets/cruise/cruise-111-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-111-640.webp",
+        "alt": "Conversation over a shared meal aboard ship",
+        "caption": "Conversation over a shared meal aboard ship",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-114",
+        "src": "/assets/cruise/cruise-114-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-114-640.webp",
+        "alt": "Around the table with the ICSH community",
+        "caption": "Around the table with the ICSH community",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-122",
+        "src": "/assets/cruise/cruise-122-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-122-640.webp",
+        "alt": "Norway’s coastal landscape from above",
+        "caption": "Norway’s coastal landscape from above",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-139",
+        "src": "/assets/cruise/cruise-139-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-139-640.webp",
+        "alt": "A community group photograph during a day ashore",
+        "caption": "A community group photograph during a day ashore",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-164",
+        "src": "/assets/cruise/cruise-164-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-164-640.webp",
+        "alt": "The ICSH group gathered aboard ship",
+        "caption": "The ICSH group gathered aboard ship",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-172",
+        "src": "/assets/cruise/cruise-172-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-172-640.webp",
+        "alt": "A cheerful moment at the bowling lanes",
+        "caption": "A cheerful moment at the bowling lanes",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-175",
+        "src": "/assets/cruise/cruise-175-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-175-640.webp",
+        "alt": "Making the most of time aboard MSC Virtuosa",
+        "caption": "Making the most of time aboard MSC Virtuosa",
+        "width": 4000,
+        "height": 3000
+      },
+      {
+        "id": "cruise-203",
+        "src": "/assets/cruise/cruise-203-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-203-640.webp",
+        "alt": "Together on board, at the end of a memorable day",
+        "caption": "Together on board, at the end of a memorable day",
+        "width": 3000,
+        "height": 4000
+      },
+      {
+        "id": "cruise-207",
+        "src": "/assets/cruise/cruise-207-1600.webp",
+        "thumbnail": "/assets/cruise/cruise-207-640.webp",
+        "alt": "A shared moment in the ship’s glittering atrium",
+        "caption": "A shared moment in the ship’s glittering atrium",
+        "width": 3000,
+        "height": 4000
+      }
+    ]
+  }
+]
