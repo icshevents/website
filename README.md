@@ -20,7 +20,7 @@ pnpm start
 - `content/posts/*.md`: blog articles. Duplicate an article, change its filename and front matter, then write Markdown. No page code needed. Lists automatically show the most recent articles, up to three on Home. Only one real article is currently available.
 - `content/events.json`: confirmed events; date-only `YYYY-MM-DD`, optional time, price, booking URL, requirements, poster/image, blog and gallery links. Events automatically archive after the end date, using London time.
 - `content/galleries.json`: albums and accessible photo descriptions. Add an album record and its images to create a new route automatically. Do not publish empty albums.
-- `content/committee.json`: current 2026–28 committee supplied by the owner on 15 October 2026. Photos intentionally use consistent placeholders. To add an approved photo, add its path as `image`.
+- `content/committee.json`: current 2026–28 committee supplied by the owner on 15 October 2026. Six returning members have portraits matched by the names on the existing ICSH website (verified 16 October 2026); the six members without a matching labelled portrait retain placeholders. The old website spells Roohi Mohammed as “Roohi Mohammad”; the supplied 2026–28 committee name is retained. Source evidence is recorded in `content/committee-photo-sources.json`. To add an approved photo, add its path as `image`.
 
 Markdown is rendered as sanitised HTML. Keep author as ICSH unless an article has an approved named author.
 

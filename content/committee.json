@@ -2,12 +2,12 @@
   {
     "name": "Rizwan Ahmed",
     "role": "President",
-    "image": null
+    "image": "/assets/committee/rizwan-ahmed.webp"
   },
   {
     "name": "Masood Farooqi",
     "role": "Vice President",
-    "image": null
+    "image": "/assets/committee/masood-farooqi.webp"
   },
   {
     "name": "Saba Syed",
@@ -42,21 +42,21 @@
   {
     "name": "Azra Maqbul",
     "role": "Committee member",
-    "image": null
+    "image": "/assets/committee/azra-maqbul.webp"
   },
   {
     "name": "Roohi Mohammed",
     "role": "Committee member",
-    "image": null
+    "image": "/assets/committee/roohi-mohammed.webp"
   },
   {
     "name": "Farooq Rizki",
     "role": "Committee member",
-    "image": null
+    "image": "/assets/committee/farooq-rizki.webp"
   },
   {
     "name": "Javaid Shahid",
     "role": "Committee member",
-    "image": null
+    "image": "/assets/committee/javaid-shahid.webp"
   }
 ]
