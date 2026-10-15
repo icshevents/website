@@ -61,3 +61,7 @@ No unconfirmed future events, invented blog posts, testimonials or additional hi
 ## Membership invitation
 
 The approved prototype’s two-panel membership invitation is restored with the current brand palette and £20/12-month policy. It opens after seven seconds on Home, About or Events, once per continuous visit, and can be reopened using “Discover membership”. Join/Renew selections lead to the relevant membership guidance and the existing registration service. It collects no personal details and creates no membership or payment. Close, Escape, “Maybe later”, backdrop click, focus handling and mobile scrolling are supported. The blog cover uses the smiling bowling-lane group photo from the supplied cruise album, shared by the article, listings and social metadata.
+
+## Community wording
+
+The header and footer display ICSH with “Society of Harrow - Est. 1976”. Visitor-facing copy, metadata and share images use inclusive community language and welcome people from all backgrounds, following the owner’s 16 October 2026 direction. This is a website copy update; no external organisation records or services were changed.

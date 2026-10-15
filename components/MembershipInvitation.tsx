@@ -6,13 +6,13 @@ import {usePathname, useRouter} from 'next/navigation';
 const highlights = [
   ['cruise', 'Community trips'],
   ['heart', 'Friendship & connection'],
-  ['moon', 'Ramadan gatherings'],
-  ['spark', 'Eid celebrations'],
+  ['people', 'Community gatherings'],
+  ['spark', 'Cultural celebrations'],
   ['heart', 'Social & charity events'],
 ] as const;
 const paths = {
   cruise: 'M3 15l9 5 9-5-3-2H6zM7 13V7h10v6M10 7V4h4v3M12 13v7M3 22c2-2 4 2 6 0s4 2 6 0 4 2 6 0',
-  moon: 'M19 14a8 8 0 01-9-11A9 9 0 1020 14zM18 3v4M16 5h4',
+  people: 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M16 3a4 4 0 010 8M22 21v-2a4 4 0 00-3-3.87M13 7a4 4 0 11-8 0 4 4 0 018 0z',
   spark: 'M12 3l2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7z',
   heart: 'M20.8 5.6a5 5 0 00-7.1 0L12 7.3l-1.7-1.7a5 5 0 00-7.1 7.1L12 21l8.8-8.3a5 5 0 000-7.1z',
 };
@@ -75,7 +75,7 @@ export default function MembershipInvitation({fee, months}:{fee:string; months:n
         <div className="invite-side">
           <img className="invite-image" src="/assets/source-6.webp" alt="The ICSH community gathered together" width="900" height="600"/>
           <div className="invite-side-copy">
-            <span className="invite-small">FAITH · FRIENDSHIP · BELONGING</span>
+            <span className="invite-small">COMMUNITY · FRIENDSHIP · BELONGING</span>
             <h3>Life is richer<br/>when it’s shared.</h3>
             <p>Make ICSH part of your story.</p>
             <span className="invite-year">{months}-month membership <strong>{fee}</strong></span>
@@ -84,7 +84,7 @@ export default function MembershipInvitation({fee, months}:{fee:string; months:n
         <div className="invite-copy">
           <span className="tag">You’re invited</span>
           <h2 id={titleId}>Your next chapter<br/>starts with community.</h2>
-          <p id={descriptionId}>Join ICSH for shared experiences, new friendships and moments that bring us closer.</p>
+          <p id={descriptionId}>Everyone is welcome at ICSH. Join us for shared experiences, new friendships and moments that bring us closer.</p>
           <div className="invite-highlights">
             {highlights.map(([icon, title]) => <div className="invite-highlight" key={title}>
               <span className="invite-highlight-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[icon]}/></svg></span>
