@@ -57,3 +57,7 @@ The verified general address is events@icsh.org.uk. Contact actions open the vis
 - Committee: owner’s screenshot of the 2026–28 committee, supplied 15 October 2026; supersedes the old website.
 
 No unconfirmed future events, invented blog posts, testimonials or additional historical claims are published. The cruise and 10 May 2026 health session are past events. Review the privacy text, gallery selection and registration system before public launch. Lighthouse targets are goals; no score is claimed without measurement.
+
+## Membership invitation
+
+The approved prototype’s two-panel membership invitation is restored with the current brand palette and £20/12-month policy. It opens after seven seconds on Home, About or Events, once per continuous visit, and can be reopened using “Discover membership”. Join/Renew selections lead to the relevant membership guidance and the existing registration service. It collects no personal details and creates no membership or payment. Close, Escape, “Maybe later”, backdrop click, focus handling and mobile scrolling are supported. The blog cover uses the smiling bowling-lane group photo from the supplied cruise album, shared by the article, listings and social metadata.

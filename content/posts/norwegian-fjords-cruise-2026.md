@@ -3,8 +3,8 @@ title: "An Unforgettable Journey Together: The ICSH Norwegian Fjords Cruise 2026
 date: "2026-10-15"
 author: "ICSH"
 excerpt: "Seven nights, four beautiful Norwegian destinations, and one wonderful ICSH community experience. We look back at our 2026 voyage through the spectacular Norwegian Fjords aboard MSC Virtuosa."
-image: "/assets/cruise/cruise-100-1600.webp"
-imageAlt: "ICSH members enjoying mountain scenery from a boat during the Norwegian Fjords Cruise"
+image: "/assets/cruise/cruise-172-1600.webp"
+imageAlt: "A group of smiling ICSH community members together at the bowling lanes aboard MSC Virtuosa"
 gallery: "norwegian-fjords-cruise-2026"
 ---
 
