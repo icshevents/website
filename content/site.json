@@ -11,7 +11,13 @@
     "durationMonths": 12,
     "registrationUrl": "https://zfrmz.eu/oovk3j9ncZ265ImJpKtG",
     "platformVerified": false,
-    "platformStatus": "The existing registration service is being updated to reflect our rolling membership policy. Please contact ICSH before making payment."
+    "platformStatus": "The proposed categories are preview-only and await ICSH approval. Live registration, CRM records and payment pricing remain unchanged.",
+    "ratesStatus": "proposed",
+    "registrationMode": "preview-only",
+    "pensionerFee": 15,
+    "pensionerMinimumAge": 66,
+    "studentFee": 0,
+    "studentMaximumAgeExclusive": 21
   },
   "socials": {
     "facebook": "https://www.facebook.com/ICSHLondon",

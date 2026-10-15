@@ -15,7 +15,7 @@ pnpm start
 
 ## Maintain content
 
-- `content/site.json`: organisation, email, social links and the single membership fee/duration configuration.
+- `content/site.json`: organisation, email, social links and membership proposal status, reference rates and duration.
 - `content/announcements.json`: homepage membership announcement.
 - `content/posts/*.md`: blog articles. Duplicate an article, change its filename and front matter, then write Markdown. No page code needed. Lists automatically show the most recent articles, up to three on Home. Only one real article is currently available.
 - `content/events.json`: confirmed events; date-only `YYYY-MM-DD`, optional time, price, booking URL, requirements, poster/image, blog and gallery links. Events automatically archive after the end date, using London time.
@@ -28,7 +28,7 @@ Markdown is rendered as sanitised HTML. Keep author as ICSH unless an article ha
 
 Nineteen photographs were curated from all 207 entries in the owner-supplied cruise album. Videos, duplicates and weaker photographs were excluded. Full-resolution originals are retained separately in the handover. The website has 640px and 1600px WebP derivatives with orientation corrected and metadata stripped; Next.js also provides responsive delivery. No generated or stock cruise images, facial changes or invented identities are used. Selected images receive restrained exposure brightening (0–4%) where needed and subtle output sharpening. Colour balance and saturation are preserved to protect natural skin tones; no generative edits, face/body changes or object additions are used.
 
-**The public GitHub repository excludes all photograph and logo binaries pending owner approval for that public destination.** The complete private handover and direct Vercel preview include them. Restore `public/assets/` from the supplied source archive for a full local checkout. After owner approval, remove that ignore entry and commit only the approved assets before using Git-triggered deployments. Image descriptions deliberately do not identify participants. To remove a photo, remove the matching record from the album and its files, then deploy. The contact page provides a removal request email.
+**The public GitHub repository excludes all photograph and logo binaries pending owner approval for that public destination.** The complete private handover and direct Vercel preview include them. The owner has approved a public review link for the preview, including community imagery. Restore `public/assets/` from the supplied source archive for a full local checkout. After owner approval, remove that ignore entry and commit only the approved assets before using Git-triggered deployments. Image descriptions deliberately do not identify participants. To remove a photo, remove the matching record from the album and its files, then deploy. The contact page provides a removal request email.
 
 ## Preview and launch
 
@@ -38,11 +38,13 @@ All builds default to noindex. Metadata and robots permit indexing only with `SI
 
 The connected Vercel account does not currently have the GitHub Login Connection required to link `icshevents/website`. Complete that connection in Vercel, then link this existing project to the repository; do not create a duplicate project. Keep the production branch and official domain disconnected until approved. The initial review build is uploaded directly.
 
-## Membership launch blocker
+## Proposed membership preview
 
-Confirmed policy is **£20 for 12 months from joining or renewal**, including existing members based on their latest joining or renewal date. The external Zoho form at the existing registration URL was inspected on 15 October 2026 and still specifies a £15 payment and calendar-year terms. It is not administratively accessible through the connected tools. No payment or member record has been changed. The site links to the existing service with a visible instruction to contact ICSH before payment if the form differs.
+The 16 October 2026 owner request introduces proposed standard £20, pensioner £15 (age 66+) and free student (under 21 in full-time education with declaration) categories, all twelve months. The owner chose to continue with the preview first. Rates are not formally approved. Existing live registration, CRM workflows and payment pricing are unchanged.
 
-Before launch, the form owner must update the fee and terms; validate expiry calculations and renewal automations; reconcile existing members; and test the complete registration/payment workflow. After verification, set `membership.platformVerified` to true and remove/update the temporary operational message. Do not collect card details on this website.
+`lib/membership.ts` contains the calculation rules and cards, `components/MembershipForm.tsx` the custom form, and `app/api/membership/preview/route.ts` the server-validated demonstration. The route uses temporary sample records and has no live CRM or payment adapter. Under-18 registration and early renewals remain blocked pending approved processes. The public existing form uses Zoho Checkout and calendar-year terms; no address/DOB/student fields were visible. No form submissions were made there.
+
+Run `node --test tests/membership.test.mjs` on Node 24. Read [the membership handover](docs/MEMBERSHIP-PREVIEW.md) for inspected fields, mapping preparation, test fixtures, renewal decisions and the secure integration/launch requirements. Authenticated Bigin and merchant tests remain pending authorised test access.
 
 ## Contact
 
@@ -60,7 +62,7 @@ No unconfirmed future events, invented blog posts, testimonials or additional hi
 
 ## Membership invitation
 
-The approved prototype’s two-panel membership invitation is restored with the current brand palette and £20/12-month policy. It opens after seven seconds on Home, About or Events, once per continuous visit, and can be reopened using “Discover membership”. Join/Renew selections lead to the relevant membership guidance and the existing registration service. It collects no personal details and creates no membership or payment. Close, Escape, “Maybe later”, backdrop click, focus handling and mobile scrolling are supported. The blog cover uses the smiling bowling-lane group photo from the supplied cruise album, shared by the article, listings and social metadata.
+The approved prototype’s two-panel membership invitation is restored with the current brand palette and proposed £0–£20/12-month options. It opens after seven seconds on Home, About or Events, once per continuous visit, and can be reopened using “Discover membership”. Join/Renew selections lead to the custom membership preview. The invitation itself collects no details; the membership preview asks for sample information and never creates a real membership or payment. Close, Escape, “Maybe later”, backdrop click, focus handling and mobile scrolling are supported. The blog cover uses the smiling bowling-lane group photo from the supplied cruise album, shared by the article, listings and social metadata.
 
 ## Community wording
 

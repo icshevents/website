@@ -17,7 +17,7 @@ const paths = {
   heart: 'M20.8 5.6a5 5 0 00-7.1 0L12 7.3l-1.7-1.7a5 5 0 00-7.1 7.1L12 21l8.8-8.3a5 5 0 000-7.1z',
 };
 
-export default function MembershipInvitation({fee, months}:{fee:string; months:number}) {
+export default function MembershipInvitation({months}:{months:number}) {
   const pathname = usePathname();
   const router = useRouter();
   const titleId = useId();
@@ -78,7 +78,7 @@ export default function MembershipInvitation({fee, months}:{fee:string; months:n
             <span className="invite-small">COMMUNITY · FRIENDSHIP · BELONGING</span>
             <h3>Life is richer<br/>when it’s shared.</h3>
             <p>Make ICSH part of your story.</p>
-            <span className="invite-year">{months}-month membership <strong>{fee}</strong></span>
+            <span className="invite-year">Proposed membership rates <strong>£0–£20</strong></span>
           </div>
         </div>
         <div className="invite-copy">
@@ -91,7 +91,7 @@ export default function MembershipInvitation({fee, months}:{fee:string; months:n
               <strong>{title}</strong>
             </div>)}
           </div>
-          <p className="invite-availability">A full {months} months from joining or renewal. Event dates, availability and separate charges may vary.</p>
+          <p className="invite-availability">Proposed: £20 standard · £15 age 66+ · FREE for under-21s in full-time education. Each category lasts {months} months. Event dates and separate charges may vary.</p>
           <form onSubmit={event => {
             event.preventDefault();
             closeInvitation();
@@ -102,10 +102,10 @@ export default function MembershipInvitation({fee, months}:{fee:string; months:n
               <label><input type="radio" name="invite-category" value="new" checked={category === 'new'} onChange={() => setCategory('new')}/> Join ICSH</label>
               <label><input type="radio" name="invite-category" value="renewal" checked={category === 'renewal'} onChange={() => setCategory('renewal')}/> Renew membership</label>
             </fieldset>
-            <button className="button invite-cta" type="submit">Explore the membership form <span aria-hidden="true">→</span></button>
+            <button className="button invite-cta" type="submit">Explore membership options <span aria-hidden="true">→</span></button>
           </form>
           <button className="invite-later" type="button" onClick={closeInvitation}>Maybe later</button>
-          <span className="invite-service-note">Registration and payment are handled by the existing ICSH membership service.</span>
+          <span className="invite-service-note">Preview only. Rates await approval; no registration or payment is processed.</span>
         </div>
       </div>
     </dialog>
