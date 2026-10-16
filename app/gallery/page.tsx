@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import {PageHero,Photo,Arrow,CTA} from '@/components/Shared';
+import albums from '@/content/galleries.json';
+export const metadata={title:'Photo Gallery',description:'Explore real ICSH community photographs, beginning with the Norwegian Fjords Cruise 2026.',alternates:{canonical:'/gallery'}};
+export default function GalleryIndex(){return <><PageHero label="Our photo gallery" title={<>Little moments.<br/>Lasting memories.</>} description="A collection of the people, places and shared experiences that make our community special."/><section className="section white"><div className="wrap blog-grid">{albums.map(a=><article className="event-card" key={a.slug}><Link className="event-image" href={'/gallery/'+a.slug}><Photo src={a.cover} alt="ICSH members enjoying the Norwegian landscape from a boat"/></Link><div className="event-body"><span className="meta">{a.date} · {a.photos.length} photographs</span><h2><Link href={'/gallery/'+a.slug}>{a.title}</Link></h2><p>{a.description}</p><Link className="text-link" href={'/gallery/'+a.slug}>Explore the album <Arrow/></Link></div></article>)}</div></section><CTA/></>}

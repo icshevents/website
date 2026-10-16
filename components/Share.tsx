@@ -1,0 +1,3 @@
+'use client';
+import {useState} from 'react';
+export default function Share({title}:{title:string}){const [message,setMessage]=useState('');async function share(){try{if(navigator.share)await navigator.share({title,url:location.href});else{await navigator.clipboard.writeText(location.href);setMessage('Story link copied.');}}catch(e){if(e instanceof Error&&e.name!=='AbortError')setMessage('Copy the page address from your browser to share this story.');}}return <div className="share-row"><button className="button outline" onClick={share}>Share this story <span aria-hidden="true">↗</span></button><span role="status">{message}</span></div>}
