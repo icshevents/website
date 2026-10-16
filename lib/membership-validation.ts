@@ -2,7 +2,7 @@ import {MEMBERSHIP_PRICING} from './membership-pricing.ts';
 import {britishToIso,quoteMembership,type Education,type MembershipQuote} from './membership.ts';
 export type MembershipAnswers={kind:''|'new'|'renewal';firstName:string;lastName:string;dob:string;mobile:string;email:string;education:Education;studentDeclaration:boolean;terms:boolean;accuracy:boolean};
 export type FieldErrors=Partial<Record<keyof MembershipAnswers,string>>;
-export const EMPTY_ANSWERS:MembershipAnswers={kind:'',firstName:'',lastName:'',dob:'',mobile:'',email:'',education:'',studentDeclaration:false,terms:false,accuracy:false};
+export const EMPTY_ANSWERS:MembershipAnswers={kind:'',firstName:'',lastName:'',dob:'',mobile:'',email:'',education:'no',studentDeclaration:false,terms:false,accuracy:false};
 export function getQuote(values:MembershipAnswers,on:string):MembershipQuote|null {
  const dob=britishToIso(values.dob);if(!dob)return null;try{return quoteMembership(dob,values.education,on)}catch{return null}
 }
@@ -17,7 +17,6 @@ export function validateStep(values:MembershipAnswers,step:number,on:string):Fie
  }
  if(step===2){
   if(!quote)errors.dob='Enter a valid date of birth in Personal details first.';
-  if(quote&&quote.age<MEMBERSHIP_PRICING.studentMaximumAgeExclusive&&!['yes','no'].includes(values.education))errors.education='Choose Yes or No for full-time education.';
   if(quote?.declarationRequired&&values.studentDeclaration!==true)errors.studentDeclaration='Confirm the full-time education declaration to continue with free membership.';
  }
  if(step===3&&values.terms!==true)errors.terms='Please confirm that you understand and agree to the membership terms.';
@@ -27,7 +26,7 @@ export function validateStep(values:MembershipAnswers,step:number,on:string):Fie
 export function validateApplication(values:MembershipAnswers,on:string):FieldErrors {return Object.assign({},...[1,2,3,4].map(step=>validateStep(values,step,on)));}
 export function updateAnswer<K extends keyof MembershipAnswers>(values:MembershipAnswers,key:K,value:MembershipAnswers[K],on:string):MembershipAnswers {
  const next={...values,[key]:value,...(key!=='accuracy'?{accuracy:false}:{})};
- if(key==='dob'||key==='education'){next.studentDeclaration=false;const quote=getQuote(next,on);if(key==='dob'&&(!quote||quote.age>=MEMBERSHIP_PRICING.studentMaximumAgeExclusive))next.education='';}
+ if(key==='dob'||key==='education'){next.studentDeclaration=false;const quote=getQuote(next,on);if(key==='dob'&&(!quote||quote.age>=MEMBERSHIP_PRICING.studentMaximumAgeExclusive))next.education='no';}
  return next;
 }
 export function errorStep(key:keyof MembershipAnswers):number {return key==='education'||key==='studentDeclaration'?2:key==='terms'?3:key==='accuracy'?4:1;}
