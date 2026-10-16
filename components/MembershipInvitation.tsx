@@ -78,7 +78,7 @@ export default function MembershipInvitation({months}:{months:number}) {
             <span className="invite-small">COMMUNITY · FRIENDSHIP · BELONGING</span>
             <h3>Life is richer<br/>when it’s shared.</h3>
             <p>Make ICSH part of your story.</p>
-            <span className="invite-year">Proposed membership rates <strong>£0–£20</strong></span>
+            <span className="invite-year">Annual membership rates <strong>£0–£20</strong></span>
           </div>
         </div>
         <div className="invite-copy">
@@ -91,7 +91,7 @@ export default function MembershipInvitation({months}:{months:number}) {
               <strong>{title}</strong>
             </div>)}
           </div>
-          <p className="invite-availability">Proposed: £20 standard · £15 age 66+ · FREE for under-21s in full-time education. Each category lasts {months} months. Event dates and separate charges may vary.</p>
+          <p className="invite-availability">£20 standard · £15 age 66+ · FREE for under-21s in full-time education. Each category lasts {months} months from activation or renewal. Event dates and separate charges may vary.</p>
           <form onSubmit={event => {
             event.preventDefault();
             closeInvitation();
@@ -105,7 +105,7 @@ export default function MembershipInvitation({months}:{months:number}) {
             <button className="button invite-cta" type="submit">Explore membership options <span aria-hidden="true">→</span></button>
           </form>
           <button className="invite-later" type="button" onClick={closeInvitation}>Maybe later</button>
-          <span className="invite-service-note">Preview only. Rates await approval; no registration or payment is processed.</span>
+          <span className="invite-service-note">Online submissions and payments are not yet available. Complete your membership form on screen only.</span>
         </div>
       </div>
     </dialog>

@@ -6,18 +6,13 @@
   "email": "events@icsh.org.uk",
   "location": "Harrow, London, United Kingdom",
   "membership": {
-    "annualFee": 20,
     "currency": "GBP",
     "durationMonths": 12,
     "registrationUrl": "https://zfrmz.eu/oovk3j9ncZ265ImJpKtG",
     "platformVerified": false,
-    "platformStatus": "The proposed categories are preview-only and await ICSH approval. Live registration, CRM records and payment pricing remain unchanged.",
-    "ratesStatus": "proposed",
-    "registrationMode": "preview-only",
-    "pensionerFee": 15,
-    "pensionerMinimumAge": 66,
-    "studentFee": 0,
-    "studentMaximumAgeExclusive": 21
+    "platformStatus": "Online membership submissions and payments are not yet available through this website.",
+    "ratesStatus": "confirmed",
+    "registrationMode": "interface-only"
   },
   "socials": {
     "facebook": "https://www.facebook.com/ICSHLondon",

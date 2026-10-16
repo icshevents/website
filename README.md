@@ -15,7 +15,7 @@ pnpm start
 
 ## Maintain content
 
-- `content/site.json`: organisation, email, social links and membership proposal status, reference rates and duration.
+- `content/site.json`: organisation, email, social links and organisation and membership interface status; confirmed rates and thresholds are in lib/membership-pricing.ts.
 - `content/announcements.json`: homepage membership announcement.
 - `content/posts/*.md`: blog articles. Duplicate an article, change its filename and front matter, then write Markdown. No page code needed. Lists automatically show the most recent articles, up to three on Home. Only one real article is currently available.
 - `content/events.json`: confirmed events; date-only `YYYY-MM-DD`, optional time, price, booking URL, requirements, poster/image, blog and gallery links. Events automatically archive after the end date, using London time.
@@ -30,21 +30,21 @@ Nineteen photographs were curated from all 207 entries in the owner-supplied cru
 
 **The public GitHub repository excludes all photograph and logo binaries pending owner approval for that public destination.** The complete private handover and direct Vercel preview include them. The owner has approved a public review link for the preview, including community imagery. Restore `public/assets/` from the supplied source archive for a full local checkout. After owner approval, remove that ignore entry and commit only the approved assets before using Git-triggered deployments. Image descriptions deliberately do not identify participants. To remove a photo, remove the matching record from the album and its files, then deploy. The contact page provides a removal request email.
 
-## Preview and launch
+## Website and launch
 
-The Vercel project is `icsh-website-preview`. Use preview deployments only until owner approval. Never connect `icsh.org.uk` or `www.icsh.org.uk`, promote to production or replace the existing live site without express approval.
+The existing development website is https://website-nine-beta-11.vercel.app/, Vercel project `website` (`prj_DCOHiPxvqSLB5or751jMeLsDeYzr`) in the ICSH account, with source in `icshevents/website`. Update this same website; do not create another website, repository or separate preview project. The official site at icsh.org.uk remains unchanged. The current site is still under development and is not officially launched.
 
-All builds default to noindex. Metadata and robots permit indexing only with `SITE_LAUNCHED=true` outside Vercel’s preview environment. After approval, set `NEXT_PUBLIC_SITE_URL` to the chosen canonical official origin and `SITE_LAUNCHED=true` for production only. Sitemap, canonical links, Open Graph and structured data are included. No secret credentials are required by the website.
+Deploy tested source to the existing project's production alias. Do not connect the official domain or enable indexing without approval. All builds default to noindex, with indexing enabled only by SITE_LAUNCHED=true outside a Vercel preview environment. No secret credentials are required for the current disconnected form.
 
-The connected Vercel account does not currently have the GitHub Login Connection required to link `icshevents/website`. Complete that connection in Vercel, then link this existing project to the repository; do not create a duplicate project. Keep the production branch and official domain disconnected until approved. The initial review build is uploaded directly.
+## Membership form
 
-## Proposed membership preview
+Confirmed pricing: £20 standard; £15 pensioner from age 66; FREE for under-21s in full-time education with the required student declaration; twelve months from confirmed activation or renewal. No activation or expiry dates are calculated in this phase.
 
-The 16 October 2026 owner request introduces proposed standard £20, pensioner £15 (age 66+) and free student (under 21 in full-time education with declaration) categories, all twelve months. The owner chose to continue with the preview first. Rates are not formally approved. Existing live registration, CRM workflows and payment pricing are unchanged.
+The five-step form retains the inspected original required personal questions, new/renewal options, UK +44 mobile selection, original terms declaration and conditional renewal guidance. New required DOB, conditional education/student declaration and universal accuracy declaration follow the owner’s 16 October brief. All answers stay in React component memory; no native form submission, endpoint, network request, cookies, analytics or browser/database storage is used. Final completion is on screen only. No memberships, payments, emails or numbers are generated. Back/edit retains answers; leaving, reloading or returning from completion clears the form.
 
-`lib/membership.ts` contains the calculation rules and cards, `components/MembershipForm.tsx` the custom form, and `app/api/membership/preview/route.ts` the server-validated demonstration. The route uses temporary sample records and has no live CRM or payment adapter. Under-18 registration and early renewals remain blocked pending approved processes. The public existing form uses Zoho Checkout and calendar-year terms; no address/DOB/student fields were visible. No form submissions were made there.
+Maintain logic in `lib/membership-pricing.ts`, `lib/membership.ts` and `lib/membership-validation.ts`; interface in `components/MembershipForm.tsx`. The future integration boundary is types only in `lib/membership-integration.ts`. Do not connect Zoho Bigin, Zoho Forms, OAuth, payments or submission systems yet. The previous sample records, payment/CRM simulations and API endpoint are removed.
 
-Run `node --test tests/membership.test.mjs` on Node 24. Read [the membership handover](docs/MEMBERSHIP-PREVIEW.md) for inspected fields, mapping preparation, test fixtures, renewal decisions and the secure integration/launch requirements. Authenticated Bigin and merchant tests remain pending authorised test access.
+Run `node --test tests/membership.test.mjs` on Node 24. See [original form inventory and implementation](docs/MEMBERSHIP-FORM.md) for every inspected question/option, preserved declarations, authorised policy changes and launch decisions. The public form was read only; no real applicant information was entered there. Parent/guardian, safeguarding, privacy retention, communication preferences, CRM identity/duplicate handling, field mapping, payment verification and early-renewal date rules need review before a later integration phase.
 
 ## Contact
 
@@ -62,7 +62,7 @@ No unconfirmed future events, invented blog posts, testimonials or additional hi
 
 ## Membership invitation
 
-The approved prototype’s two-panel membership invitation is restored with the current brand palette and proposed £0–£20/12-month options. It opens after seven seconds on Home, About or Events, once per continuous visit, and can be reopened using “Discover membership”. Join/Renew selections lead to the custom membership preview. The invitation itself collects no details; the membership preview asks for sample information and never creates a real membership or payment. Close, Escape, “Maybe later”, backdrop click, focus handling and mobile scrolling are supported. The blog cover uses the smiling bowling-lane group photo from the supplied cruise album, shared by the article, listings and social metadata.
+The two-panel invitation retains the approved palette and opens after seven seconds on Home, About or Events, once per continuous visit. Discover membership reopens it. Join/Renew leads to the same redesigned form and preserves only the requested new/renewal choice. It collects no data itself and takes no payment. The invitation now reflects the confirmed £0–£20 membership options and clearly states that submissions are not enabled. Close, Escape, Maybe later, backdrop, focus and mobile scrolling are supported. The blog cover remains the smiling bowling-lane group.
 
 ## Community wording
 
