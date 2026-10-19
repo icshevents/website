@@ -1,0 +1,13 @@
+# Our Events and event-form workspace
+
+The main development website's `/events` route is now titled Our Events. Header/footer navigation and homepage event links use the same wording. The page retains past-event stories and photographs; the calendar remains available in a collapsed disclosure.
+
+Current event forms are loaded server-side from the public, no-store endpoint `https://icsh-event-forms.vercel.app/api/directory`. It contains only event title, dates, venue, public description and form links/prices. No applicant information, private notes, access keys, CRM configuration or session cookies cross into the main website. The main website has no organiser secrets. `lib/event-directory.ts` validates the response, restricts form destinations to the existing event application and returns a clear portal fallback when the feed is unavailable. Requests have a six-second timeout; each new page load requests fresh published information.
+
+Harrow Food Festival's two forms are grouped under one event: Cook, donate or volunteer, and Apply for a stall. Stall prices follow current published settings in the organiser workspace. Draft, closed and archived forms are excluded from the public directory. The page marks current forms as test mode and simulated payments; this change does not enable real registrations, Stripe, Zoho or emails. The parser intentionally requires the current test-mode contract; a later live launch needs an approved contract/notice update.
+
+Organiser sign in buttons near the event heading and below the calendar link to `https://icsh-event-forms.vercel.app/admin`. This is the existing password-protected dashboard. The main website grants no new permissions or credential and does not expose editing controls publicly. Event organisers can edit published form details/prices and manage applications there; published directory changes appear on a fresh visit to Our Events without rebuilding the website. Existing records remain in the separate private event application.
+
+The forms can later move under an ICSH address or same-domain routing. At present the native main-website event page links to the separate form application; there is no iframe, data-store migration or DNS change. Existing private confirmation links and signups remain valid.
+
+Validation: 35 main-website tests (membership plus public-feed parsing/fallback), TypeScript and production build pass. The event application has 21 passing tests, including grouped directory output with private-data exclusion. Desktop browser preview confirmed the Our Events navigation, grouped festival, correct £65 default, form links and organiser sign-in destination. Deployment verification is recorded in the workspace handover.

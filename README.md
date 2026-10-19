@@ -67,3 +67,7 @@ The two-panel invitation retains the approved palette and opens after seven seco
 ## Community wording
 
 The header and footer display ICSH with “Society of Harrow - Est. 1976”. Visitor-facing copy, metadata and share images use inclusive community language and welcome people from all backgrounds, following the owner’s 16 October 2026 direction. This is a website copy update; no external organisation records or services were changed.
+
+## Our Events
+
+The `/events` page now displays published registration forms from the standalone ICSH event workspace, with a secured Organiser sign in link. Administrators continue to manage event forms and applications in the existing workspace; public event details and stall rates are fetched afresh when this page is visited. The calendar and past-event stories remain available. See `docs/OUR-EVENTS.md` for the public data contract, outage fallback, test-mode notices and later integration options. Run `pnpm test` to include membership and event-directory checks.
