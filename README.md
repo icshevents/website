@@ -71,3 +71,7 @@ The header and footer display ICSH with “Society of Harrow - Est. 1976”. Vis
 ## Our Events
 
 The `/events` page now displays published registration forms from the standalone ICSH event workspace, with a secured Organiser sign in link. Administrators continue to manage event forms and applications in the existing workspace; public event details and stall rates are fetched afresh when this page is visited. The calendar and past-event stories remain available. See `docs/OUR-EVENTS.md` for the public data contract, outage fallback, test-mode notices and later integration options. Run `pnpm test` to include membership and event-directory checks.
+
+## Supabase organiser login
+
+The main website now has `/admin/sign-in` and a private `/admin` connection dashboard using Supabase Auth. It requires the two public Supabase connection settings and the reviewed, owner-run `database/organiser-setup.sql` before access can be activated. See `docs/SUPABASE-SETUP.md`. Existing forms and registrations are not yet migrated; they remain in the previous application. The new dashboard explicitly distinguishes new website records from existing signups. Bigin membership verification and real payments remain disabled. Run `pnpm test` for the organiser-access security cases as well as the existing checks.

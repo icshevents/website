@@ -60,7 +60,7 @@ export default function MembershipInvitation({months}:{months:number}) {
 
   useEffect(() => () => { document.body.style.overflow = previousOverflow.current; }, []);
 
-  if (pathname === '/membership') return null;
+  if (pathname === '/membership' || pathname === '/admin' || pathname.startsWith('/admin/')) return null;
   return <>
     <button ref={trigger} className="membership-invite-trigger" type="button" onClick={openInvitation} aria-haspopup="dialog">
       <span aria-hidden="true">✧</span> Discover membership <span aria-hidden="true">↗</span>
