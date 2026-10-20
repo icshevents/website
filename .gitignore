@@ -4,6 +4,7 @@ out/
 .env*
 !.env.example
 .vercel/
+.local/
 *.tsbuildinfo
 # Cruise photographs are held for owner review before public release.
 public/assets/

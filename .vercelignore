@@ -3,6 +3,7 @@ node_modules/
 out/
 .git/
 .vercel/
+.local/
 .env*
 *.tsbuildinfo
 .DS_Store

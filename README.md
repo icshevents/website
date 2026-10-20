@@ -34,7 +34,7 @@ Nineteen photographs were curated from all 207 entries in the owner-supplied cru
 
 The existing development website is https://website-nine-beta-11.vercel.app/, Vercel project `website` (`prj_DCOHiPxvqSLB5or751jMeLsDeYzr`) in the ICSH account, with source in `icshevents/website`. Update this same website; do not create another website, repository or separate preview project. The official site at icsh.org.uk remains unchanged. The current site is still under development and is not officially launched.
 
-Deploy tested source to the existing project's production alias. Do not connect the official domain or enable indexing without approval. All builds default to noindex, with indexing enabled only by SITE_LAUNCHED=true outside a Vercel preview environment. No secret credentials are required for the current disconnected form.
+Deploy tested source to the existing project's production alias. Do not connect the official domain or enable indexing without approval. All builds default to noindex, with indexing enabled only by SITE_LAUNCHED=true outside a Vercel preview environment. Event forms require the protected server-only Supabase setting described below; the membership demonstration remains disconnected.
 
 ## Membership form
 
@@ -68,10 +68,10 @@ The two-panel invitation retains the approved palette and opens after seven seco
 
 The header and footer display ICSH with “Society of Harrow - Est. 1976”. Visitor-facing copy, metadata and share images use inclusive community language and welcome people from all backgrounds, following the owner’s 16 October 2026 direction. This is a website copy update; no external organisation records or services were changed.
 
-## Our Events
+## Our Events and organiser workspace
 
-The `/events` page now displays published registration forms from the standalone ICSH event workspace, with a secured Organiser sign in link. Administrators continue to manage event forms and applications in the existing workspace; public event details and stall rates are fetched afresh when this page is visited. The calendar and past-event stories remain available. See `docs/OUR-EVENTS.md` for the public data contract, outage fallback, test-mode notices and later integration options. Run `pnpm test` to include membership and event-directory checks.
+The `/events` page and its two public Harrow forms now run within this main website, with form definitions and submissions in Supabase. `/admin/sign-in` uses Supabase Auth; `/admin` links to participants, stalls, the form builder and CSV exports. The server-only Supabase key stays in protected Vercel Production settings. Browser access uses the publishable key and RLS; organiser access also requires the database-owned allowlist. The previous shared organiser password is not used.
 
-## Supabase organiser login
+Ten existing records and five form settings were migrated after explicit owner approval on 20 October 2026. Three example ticket forms stay closed and archived; only Harrow participation and stall applications appear publicly. Test submissions add two clearly fictional verification records. Bigin membership verification, real Stripe payments and email delivery remain disabled. The membership form remains the separate on-screen demonstration described above.
 
-The main website now has `/admin/sign-in` and a private `/admin` connection dashboard using Supabase Auth. It requires the two public Supabase connection settings and the reviewed, owner-run `database/organiser-setup.sql` before access can be activated. See `docs/SUPABASE-SETUP.md`. Existing forms and registrations are not yet migrated; they remain in the previous application. The new dashboard explicitly distinguishes new website records from existing signups. Bigin membership verification and real payments remain disabled. Run `pnpm test` for the organiser-access security cases as well as the existing checks.
+See `docs/OUR-EVENTS.md` and `docs/SUPABASE-SETUP.md` for routes, migration evidence, access controls, operational limits and retirement of the old project. `pnpm test` runs 59 application checks. The hosted verification script creates one fictional stall record and must only be run intentionally against an authorised test deployment. Private import files and credentials in `.local/` are excluded from both Git and Vercel uploads.
