@@ -4,8 +4,8 @@ Owner-supplied photographs, 21 October 2026. Originals remain unchanged. Web ass
 
 | Original filename | Asset in public/assets/about | Placement | Brightness / contrast / saturation |
 | --- | --- | --- | --- |
-| 20251101_210313.jpg | about-friends.webp | Society story | 1.08 / 1.01 / 1.02 |
-| 20250810_144326.jpg | about-picnic-games.webp | Activities | 1.025 / 1.025 / 1.015 |
+| 20251101_210313.jpg | about-friends.webp | Activities | 1.08 / 1.01 / 1.02 |
+| 20250810_144326.jpg | about-picnic-games.webp | Society story (first photo) | 1.025 / 1.025 / 1.015 |
 | 20260901_101634.jpg | about-lakeside.webp | Shared experiences, left | 1.045 / 1.045 / 1.055 |
 | IMG-20251102-WA0098.jpg | about-cultural-visit.webp | Shared experiences, left | 1.10 / 0.98 / 0.96 |
 | 20260831_110538.jpg | about-coastal-day.webp | Shared experiences, right | 1.06 / 1.02 / 1.015 |
