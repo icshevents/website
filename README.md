@@ -18,8 +18,8 @@ pnpm start
 - `content/site.json`: organisation, email, social links and organisation and membership interface status; confirmed rates and thresholds are in lib/membership-pricing.ts.
 - `content/announcements.json`: homepage membership announcement.
 - `content/posts/*.md`: blog articles. Duplicate an article, change its filename and front matter, then write Markdown. No page code needed. Lists automatically show the most recent articles, up to three on Home. Only one real article is currently available.
-- `content/events.json`: confirmed events; date-only `YYYY-MM-DD`, optional time, price, booking URL, requirements, poster/image, blog and gallery links. Events automatically archive after the end date, using London time.
-- `content/galleries.json`: albums and accessible photo descriptions. Add an album record and its images to create a new route automatically. Do not publish empty albums.
+- `content/events.json`: confirmed events; date-only `YYYY-MM-DD`, optional time, price, booking URL, requirements, poster/image, feature article links. Events automatically archive after the end date, using London time.
+- Features uses the existing `/blog` URLs. Add a small `photos` list in an article’s front matter (src, alt, caption) to show selected photographs as responsive, lazy-loaded images. There is no dedicated photo-gallery page or client-side photo viewer.
 - `content/committee.json`: current 2026–28 committee supplied by the owner on 15 October 2026. Six returning members have portraits matched by the names on the existing ICSH website (verified 16 October 2026); the six members without a matching labelled portrait retain placeholders. The old website spells Roohi Mohammed as “Roohi Mohammad”; the supplied 2026–28 committee name is retained. Source evidence is recorded in `content/committee-photo-sources.json`. To add an approved photo, add its path as `image`.
 
 Markdown is rendered as sanitised HTML. Keep author as ICSH unless an article has an approved named author.
@@ -58,7 +58,7 @@ The verified general address is events@icsh.org.uk. Contact actions open the vis
 - Cruise article/itinerary, membership changes and official social links: owner’s project brief.
 - Committee: owner’s screenshot of the 2026–28 committee, supplied 15 October 2026; supersedes the old website.
 
-No unconfirmed future events, invented blog posts, testimonials or additional historical claims are published. The cruise and 10 May 2026 health session are past events. Review the privacy text, gallery selection and registration system before public launch. Lighthouse targets are goals; no score is claimed without measurement.
+No unconfirmed future events, invented blog posts, testimonials or additional historical claims are published. The cruise and 10 May 2026 health session are past events. Review the privacy text, selected article photos and registration system before public launch. Lighthouse targets are goals; no score is claimed without measurement.
 
 ## Membership invitation
 
@@ -79,3 +79,7 @@ See `docs/OUR-EVENTS.md` and `docs/SUPABASE-SETUP.md` for routes, migration evid
 ## Owner-selected picnic photos — 21 October 2026
 
 The homepage hero uses `public/assets/homepage-picnic.webp` (IMG-20250811-WA0010.jpg); its second photo uses `public/assets/homepage-community-games.webp` (IMG-20250811-WA0014.jpg); the membership invitation uses `public/assets/membership-picnic.webp` (IMG-20250811-WA0007.jpg). These are web-sized copies of the owner-supplied photographs, with orientation applied and metadata stripped. They are included in the authorised Vercel website deployment and full source handover. Photograph binaries remain excluded from the public GitHub repository under the existing destination-specific approval policy.
+
+## Features and photography — 21 October 2026
+
+News & Stories is now labelled Features across navigation, the homepage, article links and metadata. The dedicated gallery pages, homepage highlights, gallery navigation/sitemap entries and client photo viewer have been removed. Old gallery URLs redirect to Features or the corresponding cruise article. The cruise feature retains its cover and three selected, lazy-loaded photos with captions. The original image files remain available for future editorial use and in the source handover.

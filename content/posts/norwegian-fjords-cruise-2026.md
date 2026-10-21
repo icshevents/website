@@ -5,7 +5,16 @@ author: "ICSH"
 excerpt: "Seven nights, four beautiful Norwegian destinations, and one wonderful ICSH community experience. We look back at our 2026 voyage through the spectacular Norwegian Fjords aboard MSC Virtuosa."
 image: "/assets/cruise/cruise-172-1600.webp"
 imageAlt: "A group of smiling ICSH community members together at the bowling lanes aboard MSC Virtuosa"
-gallery: "norwegian-fjords-cruise-2026"
+photos:
+  - src: "/assets/cruise/cruise-005-1600.webp"
+    alt: "An evening together aboard MSC Virtuosa"
+    caption: "An evening together aboard MSC Virtuosa"
+  - src: "/assets/cruise/cruise-070-1600.webp"
+    alt: "Mountain scenery and a still, turquoise lake"
+    caption: "Mountain scenery and a still, turquoise lake"
+  - src: "/assets/cruise/cruise-139-1600.webp"
+    alt: "A community group photograph during a day ashore"
+    caption: "A community group photograph during a day ashore"
 ---
 
 ## An Unforgettable Journey Together
