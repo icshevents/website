@@ -3,6 +3,8 @@
 import {useEffect, useId, useRef, useState} from 'react';
 import {usePathname, useRouter} from 'next/navigation';
 
+const invitationSeenKey = 'icsh-homepage-membership-invitation-seen';
+
 const highlights = [
   ['cruise', 'Community trips'],
   ['heart', 'Friendship & connection'],
@@ -33,6 +35,7 @@ export default function MembershipInvitation({months}:{months:number}) {
     const modal = dialog.current;
     if (!modal || modal.open || document.querySelector('dialog[open]')) return;
     shown.current = true;
+    try { window.sessionStorage.setItem(invitationSeenKey, '1'); } catch { /* Keep the in-memory fallback when storage is unavailable. */ }
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : trigger.current;
     previousOverflow.current = document.body.style.overflow;
     modal.showModal();
@@ -49,7 +52,8 @@ export default function MembershipInvitation({months}:{months:number}) {
 
   useEffect(() => {
     dialog.current?.close();
-    if (shown.current || !['/', '/about', '/events'].includes(pathname)) return;
+    if (shown.current || pathname !== '/') return;
+    try { if (window.sessionStorage.getItem(invitationSeenKey) === '1') return; } catch { /* The in-memory flag still prevents repeat prompts during navigation. */ }
     const modal = dialog.current;
     const timer = window.setTimeout(openInvitation, 7000);
     return () => {
@@ -60,7 +64,7 @@ export default function MembershipInvitation({months}:{months:number}) {
 
   useEffect(() => () => { document.body.style.overflow = previousOverflow.current; }, []);
 
-  if (pathname === '/membership' || pathname === '/admin' || pathname.startsWith('/admin/')) return null;
+  if (pathname !== '/') return null;
   return <>
     <button ref={trigger} className="membership-invite-trigger" type="button" onClick={openInvitation} aria-haspopup="dialog">
       <span aria-hidden="true">✧</span> Discover membership <span aria-hidden="true">↗</span>

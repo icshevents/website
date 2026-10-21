@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Calendar from '@/components/Calendar';
 import {PageHero,Photo,Arrow,CTA} from '@/components/Shared';
 import {displayDate} from '@/lib/content';
 import {getEventDirectory,londonDate,londonTime} from '@/lib/event-directory';
@@ -13,7 +12,6 @@ export default async function Events(){
  const upcomingForms=directory.events.filter(e=>new Date(e.endsAt).toLocaleDateString('en-CA',{timeZone:'Europe/London'})>=today);
  const upcoming=events.filter(e=>e.end>=today).sort((a,b)=>a.start.localeCompare(b.start));
  const past=events.filter(e=>e.end<today).sort((a,b)=>b.start.localeCompare(a.start));
- const calendarEvents=[...events,...upcomingForms.map(e=>({id:'registration-'+e.id,title:e.title+' · test forms',start:new Date(e.startsAt).toLocaleDateString('en-CA',{timeZone:'Europe/London'}),end:new Date(e.endsAt).toLocaleDateString('en-CA',{timeZone:'Europe/London'}),time:londonTime(e.startsAt),location:e.venue}))];
  return <>
   <PageHero label="ICSH · Events & community" title="Our Events" description="Find your next gathering, support a good cause and discover ways to get involved with ICSH."/>
   <section className="section white our-events-section"><div className="wrap">
@@ -26,7 +24,6 @@ export default async function Events(){
     <div className="our-event-forms"><h4>Get involved</h4>{e.forms.map(form=><div className="our-event-form" key={form.url}><a className={'button '+(form.kind==='stall'?'outline':'')} href={form.url}>{form.label} <Arrow/></a><p>{form.kind==='participation'?'Free to complete · cooks, donors and volunteers welcome':form.kind==='stall'?`Stall hire from ${gbp(form.feeFromPence??0)} · application subject to approval`:form.feeFromPence!==undefined?`Tickets from ${gbp(form.feeFromPence)} · test rates`:''}</p></div>)}</div>
    </article>)}</div>
    {upcoming.map(e=><article className="panel" id={e.id} key={e.id}><h3>{e.title}</h3><p>{displayDate(e.start)} · {e.location}</p><p>{e.description}</p>{e.bookingUrl&&<a className="button" href={e.bookingUrl}>Book this event <Arrow/></a>}</article>)}
-   <details className="our-event-calendar"><summary>View the events calendar</summary><Calendar events={calendarEvents}/></details>
    <p className="our-event-admin-note">For ICSH organisers: <Link className="text-link" href="/admin">Organiser sign in <Arrow/></Link>. Manage form settings and review registrations in the website’s private workspace.</p>
   </div></section>
   <section className="section"><div className="wrap"><div className="eyebrow">Together, throughout the year</div><h2>The activities that<br/>bring us together.</h2><p>Our programme includes community gatherings, cultural celebrations, shared lunches, food festivals and charity fundraising, summer picnics, sports outings and quiz nights.</p></div></section>

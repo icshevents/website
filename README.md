@@ -62,7 +62,7 @@ No unconfirmed future events, invented blog posts, testimonials or additional hi
 
 ## Membership invitation
 
-The two-panel invitation retains the approved palette and opens after seven seconds on Home, About or Events, once per continuous visit. Discover membership reopens it. Join/Renew leads to the same redesigned form and preserves only the requested new/renewal choice. It collects no data itself and takes no payment. The invitation now reflects the confirmed £0–£20 membership options and clearly states that submissions are not enabled. Close, Escape, Maybe later, backdrop, focus and mobile scrolling are supported. The blog cover remains the smiling bowling-lane group.
+The two-panel invitation retains the approved palette and opens after seven seconds on the homepage only, once per tab session, including across refreshes. A non-personal sessionStorage flag remembers that it has appeared; if storage is unavailable, the in-memory flag prevents repeat prompts during navigation. Discover membership on the homepage can reopen it intentionally. The promotion is not rendered on other pages. Join/Renew leads to the same redesigned form and preserves only the requested new/renewal choice. It collects no data itself and takes no payment. The invitation now reflects the confirmed £0–£20 membership options and clearly states that submissions are not enabled. Close, Escape, Maybe later, backdrop, focus and mobile scrolling are supported. The blog cover remains the smiling bowling-lane group.
 
 ## Community wording
 
@@ -97,3 +97,7 @@ The homepage hero now uses a single gold border directly around the photo, repla
 The owner confirmed that both joining and renewal forms block applicants aged 16 and below. Their membership is automatically free, regardless of education; the quote shows FREE and the DOB error explains that the form is for ages 17 and above. This message appears immediately for a valid DOB in the blocked range, on blur, on Continue, and at final validation. The user must correct the date to an eligible age to continue. No automatic enrolment or record is created.
 
 Student eligibility is ages 17–21 inclusive in full-time education, with the unchecked standard-rate option and required student declaration retained. Controls hide and reset below 17 or from the 22nd birthday. The student declaration wording now reflects this authorised range; the general accuracy declaration is unchanged. The under-17 and student notice appears below the pricing cards, in the homepage announcement, invitation and membership privacy copy. Event participation and stall forms are outside this change, as the owner explicitly confirmed.
+
+## Homepage promotion and events — 21 October 2026
+
+The membership promotion is now exclusive to the homepage and appears automatically once per tab session. Closing, refreshing or navigating away and back does not show it again automatically. The events calendar and its client component import have been removed from Our Events; event listings, application links and past events remain. No event records or application data were changed.
