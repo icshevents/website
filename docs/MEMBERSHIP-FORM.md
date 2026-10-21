@@ -40,7 +40,7 @@ Original communication policy, retained: “By completing the membership registr
 
 ## Implementation
 
-- `lib/membership-pricing.ts`: single confirmed configuration, £20 standard / £15 from age 66 / £0 for under-21 full-time students; twelve months.
+- `lib/membership-pricing.ts`: single confirmed configuration, £20 standard / £15 from age 65 / £0 for under-21 full-time students; twelve months.
 - `lib/membership.ts`: strict calendar parsing, DD/MM/YYYY conversion, complete-birthday age calculation, eligibility, GBP presentation and exact owner-supplied declaration texts. No activation or expiry calculation.
 - `lib/membership-validation.ts`: required field, per-step and final validation; answer updates clear stale student/accuracy declarations. The education confirmation checkbox sits directly below DOB, starts unchecked (No), and is available only below 21. Unchecked is a valid standard-rate answer. The existing Yes/No education question in step 2 is retained and synchronised with the checkbox. DOB changes to 21 or above, invalid or blank reset education to No. Both controls immediately update the shared price summary; the existing student and accuracy declarations remain unchanged. A 200ms collapse/fade transition respects reduced-motion preferences.
 - `components/MembershipForm.tsx`: personal details → eligibility → membership information → review/declaration → on-screen completion. Back and edit actions preserve answers in component state. No HTML form submission, fetch, API, CRM, payment, analytics, storage or cookie writes. Inputs disable autocomplete. Completing only changes local state. Return to Membership Page, leaving the page or reload resets the session.
