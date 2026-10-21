@@ -73,7 +73,7 @@ export default function MembershipInvitation({months}:{months:number}) {
       <button className="close-dialog" type="button" aria-label="Close membership invitation" onClick={closeInvitation} autoFocus>×</button>
       <div className="invite-layout">
         <div className="invite-side">
-          <img className="invite-image" src="/assets/source-6.webp" alt="The ICSH community gathered together" width="900" height="600"/>
+          <img className="invite-image picnic-invitation" src="/assets/membership-picnic.webp" alt="ICSH community members sharing food at a picnic buffet" width="750" height="1000"/>
           <div className="invite-side-copy">
             <span className="invite-small">COMMUNITY · FRIENDSHIP · BELONGING</span>
             <h3>Life is richer<br/>when it’s shared.</h3>
