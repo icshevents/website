@@ -54,6 +54,18 @@ test('Campaigns handles empty accounts and both direct and nested metadata envel
   }
 });
 
+test('Campaigns reads the fieldnames wrapper without exposing extra metadata or accepting a malformed collection', async () => {
+  const fixtures = responses();
+  fixtures[paths.fields] = { response: { code: 0, message: 'success', fieldnames: { fieldname: [
+    { FIELD_NAME: 'synthetic_field', DISPLAY_NAME: 'Synthetic field', FIELD_ID: 42, IS_MANDATORY: false },
+  ] } } };
+  const result = await checkCampaignsConnection(async (path) => fixtures[path]);
+  assert.deepEqual(result.fields, [{ apiName: 'synthetic_field', label: 'Synthetic field' }]);
+  assert.equal(result.status, 'connected');
+  fixtures[paths.fields].response.fieldnames.fieldname = { FIELD_NAME: 'invalid_collection' };
+  await assert.rejects(() => checkCampaignsConnection(async (path) => fixtures[path]), { code: 'ZOHO_INVALID_RESPONSE' });
+});
+
 test('Campaigns follows list and topic pagination and keeps large string IDs intact', async () => {
   const fixtures = responses(), indices = { lists: [], topics: [] };
   const result = await checkCampaignsConnection(async (path, params) => {

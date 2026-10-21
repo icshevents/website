@@ -66,8 +66,12 @@ function records(value: unknown, key: string, allowEmptyLists = false): unknown[
   const payload = root.response === undefined ? root : object(root.response);
   checkEnvelope(payload, allowEmptyLists);
   if (allowEmptyLists && [code(root.code), code(payload.code)].includes('2401')) return [];
-  if (!Array.isArray(payload[key])) throw new ZohoError('ZOHO_INVALID_RESPONSE');
-  return payload[key];
+  // Some accounts wrap the field array in response.fieldnames.fieldname.
+  const collection = key === 'fieldname' && payload[key] === undefined && payload.fieldnames !== undefined
+    ? object(payload.fieldnames)[key]
+    : payload[key];
+  if (!Array.isArray(collection)) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+  return collection;
 }
 
 async function readNamedPages(

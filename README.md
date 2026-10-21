@@ -105,6 +105,6 @@ The membership promotion is now exclusive to the homepage and appears automatica
 
 ## Zoho connection setup — 22 October 2026
 
-The organiser workspace now links to `/admin/connections` for protected, read-only Bigin and Campaigns connection checks. The checks refresh OAuth credentials on the server, verify the configured data centre, and discover Bigin organisation/field metadata and Campaigns lists/topics/fields. Credentials must be saved in the existing Vercel project before a real account check can succeed.
+The organiser workspace now links to `/admin/connections` for protected, read-only Bigin and Campaigns connection checks. The checks refresh OAuth credentials on the server, verify the configured data centre, and discover Bigin organisation/field metadata and Campaigns lists/topics/fields. The approved EU credentials are saved privately in the existing Vercel project's Production environment. Real metadata discovery confirmed Bigin organisation `icshportal` with 26 Contacts fields and the ICSH Campaigns account with 5 lists, 1 topic and 24 contact fields.
 
 The public forms retain their current test behavior: this initial setup does not read membership contacts, change CRM records, subscribe contacts, activate workflows or deliver email. See [Zoho connection setup](docs/ZOHO-CONNECTIONS.md) for exact environment names, minimum read scopes, account authorisation, field mapping and the remaining signup integration work.

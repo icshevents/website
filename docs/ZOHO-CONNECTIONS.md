@@ -6,7 +6,14 @@ The existing website has an organiser-only connection page at `/admin/connection
 
 The website remains the existing Vercel project `website`, team `icsh`, with the existing `icsh-website-preview` branch. Its name is historical; it is the actual website under development. Do not create a separate website or change DNS for this connection work.
 
-**Account authorisation is still required.** A successful application build or mocked API test is not evidence that the real Zoho account is connected. The page only says “Connection verified” after a successful response from that account.
+**The approved read-only account authorisations are configured.** Separate Bigin and Campaigns refresh tokens are saved in the existing Vercel project's Production environment, using the confirmed EU data centre. Bigin's real OAuth refresh and metadata reads passed through the application adapter. Campaigns' real OAuth refresh and three metadata reads succeeded; its captured responses also passed through the application's client, parser and check handler after accommodating the account's nested field-definition response. The organiser page only says “Connection verified” after its own successful live check.
+
+| Service | Confirmed account | Metadata discovered |
+| --- | --- | --- |
+| Bigin | `icshportal` | 26 Contacts field definitions |
+| Campaigns | Islamic and Cultural Society of Harrow | 5 mailing lists, 1 topic, 24 contact field definitions; inventory not truncated |
+
+The Campaigns lists include **ICSH Members 2026**, **ICSH Membership Record Search** and **ICSH Events TestList**. The returned topic is **Marketing**. These names are an inventory, not an instruction to subscribe contacts or run existing automations. The correct membership/event destinations and their consent behaviour still need to be selected before any write integration.
 
 ## 1. Obtain account authorisation securely
 
@@ -26,7 +33,7 @@ For Campaigns, authorise a separate service grant with:
 ZohoCampaigns.contact.READ
 ```
 
-Use the account's supported [OAuth flow](https://www.zoho.com/campaigns/help/developers/access-token.html). A web-server flow needs its registered redirect URI and `access_type=offline`; complete the returned code exchange securely. Keep Campaigns and Bigin grants separate even if the account reuses a client ID. Campaigns' API origin is the **Campaigns** host, not the generic `zohoapis` domain that an OAuth response may return.
+Use the account's supported [OAuth flow](https://www.zoho.com/campaigns/help/developers/access-token.html). The configured ICSH connection uses a separate Campaigns authorisation-code grant from the same Zoho Self Client, selecting **Islamic and Cultural Society of Harrow** in the Campaigns portal selector. This Self Client flow does not require a callback URL. If instead using a web-server client, use its registered redirect URI and request offline access. Keep Campaigns and Bigin grants separate even if the account reuses a client ID. Campaigns' API origin is the **Campaigns** host, not the generic `zohoapis` domain that an OAuth response may return.
 
 Never put client secrets, access tokens, refresh tokens, authorization codes or token response bodies in chat, GitHub, screenshots, frontend code or application logs. A ChatGPT Zoho connector authorises the assistant; it does not itself configure the deployed website's runtime credentials.
 
@@ -68,6 +75,8 @@ The website verifies the organiser's current identity and the existing `icsh_org
 
 ### Bigin membership checks and registration
 
+- The verified Contacts schema already contains `Member_ID`, `Membership_Status`, `Payment_Status` and `Member_Year`, all as free-text fields, plus `Email` and the boolean `Email_Opt_Out`. Field metadata does not establish actual status values, email uniqueness, or how membership validity is calculated.
+- This Contacts schema does not contain dedicated membership-category, date-of-birth, membership-start, renewal or expiry-date fields. These may be stored in another module or related record. Do not infer rolling validity from `Member_Year` or repurpose record-created/modified timestamps as membership dates.
 - Identify the actual fields/modules for email, date of birth, membership status, membership category, full-time-education eligibility, start date and expiry date. Do not create substitute fields until the current schema is reviewed.
 - Review the latest approved membership decision log. The repository contains dated 21 October changes to age thresholds that differ from earlier project notes; retain the existing website's rules while connecting, and resolve that discrepancy before applying CRM classification or rewriting existing records.
 - Verify the visitor's identity before revealing existing member status or awarding a discount. An arbitrary-email lookup can expose personal membership information; an unauthenticated submission must not overwrite an existing member's contact.
@@ -86,7 +95,7 @@ The website verifies the organiser's current identity and the existing `icsh_org
 
 ## Verification and limitations
 
-Offline tests cover OAuth request construction, regional validation, token caching, redacted failures, metadata response parsing, access control and service dispatch. A production build verifies the server/client boundary. Actual account authorisation, real schema/list discovery, membership classification, CRM writes, Campaigns subscriptions, workflow delivery and end-to-end signup tests remain separate verification steps.
+Offline tests cover OAuth request construction, regional validation, token caching, redacted failures, metadata response parsing, access control and service dispatch. A production build verifies the server/client boundary. Real account authorisation and metadata discovery are complete for both services; the Campaigns regression fixture uses synthetic data and covers the observed `response.fieldnames.fieldname` wrapper. Anonymous production requests have been verified to require organiser sign-in. A signed-in check on the deployed organiser page remains separate from the successful provider/adapter verification. Membership classification, CRM writes, Campaigns subscriptions, workflow delivery and end-to-end signup tests are still pending.
 
 Useful primary references:
 
