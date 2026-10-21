@@ -6,7 +6,7 @@ export const STUDENT_DECLARATION='I confirm that I am currently enrolled in full
 export const ACCURACY_DECLARATION='I confirm that all the information I have provided in this membership application is true, accurate, and complete to the best of my knowledge. I understand that providing false or misleading information may affect my eligibility for ICSH membership.';
 export const MEMBERSHIP_RATES=[
  {id:'standard',name:'Standard Membership',fee:prices.standardFee,badge:'A year of connection',eligibility:'For members who do not qualify for a concession.',benefits:['Full 12-month ICSH membership','Access to ICSH community activities','Eligibility for applicable members-only events and benefits']},
- {id:'pensioner',name:'Pensioner Membership',fee:prices.pensionerFee,badge:'Concessionary Rate',eligibility:`For members aged ${prices.pensionerMinimumAge} and above.`,benefits:['Full 12-month ICSH membership','Same membership benefits as standard members','Reduced annual membership fee']},
+ {id:'pensioner',name:'Pensioner Membership',fee:prices.pensionerFee,badge:'Senior Member Rate',eligibility:`For members aged ${prices.pensionerMinimumAge} and above.`,benefits:['Full 12-month ICSH membership','Same membership benefits as standard members','Reduced annual membership fee']},
  {id:'student',name:'Student Membership',fee:prices.studentFee,badge:'Free Membership',eligibility:`For applicants under ${prices.studentMaximumAgeExclusive} who are enrolled in full-time education.`,benefits:['Full 12-month ICSH membership','Access to applicable ICSH community activities','Same general membership benefits, subject to existing eligibility rules']},
 ] as const;
 export function londonDate(now=new Date()):string {
