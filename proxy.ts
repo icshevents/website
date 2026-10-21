@@ -27,4 +27,4 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/admin/:path*', '/api/event-forms/:path*'] };
+export const config = { matcher: ['/admin/:path*', '/api/event-forms/:path*', '/api/zoho/:path*'] };

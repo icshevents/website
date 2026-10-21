@@ -101,3 +101,10 @@ Student eligibility is ages 17–21 inclusive in full-time education, with the u
 ## Homepage promotion and events — 21 October 2026
 
 The membership promotion is now exclusive to the homepage and appears automatically once per tab session. Closing, refreshing or navigating away and back does not show it again automatically. The events calendar and its client component import have been removed from Our Events; event listings, application links and past events remain. No event records or application data were changed.
+
+
+## Zoho connection setup — 22 October 2026
+
+The organiser workspace now links to `/admin/connections` for protected, read-only Bigin and Campaigns connection checks. The checks refresh OAuth credentials on the server, verify the configured data centre, and discover Bigin organisation/field metadata and Campaigns lists/topics/fields. Credentials must be saved in the existing Vercel project before a real account check can succeed.
+
+The public forms retain their current test behavior: this initial setup does not read membership contacts, change CRM records, subscribe contacts, activate workflows or deliver email. See [Zoho connection setup](docs/ZOHO-CONNECTIONS.md) for exact environment names, minimum read scopes, account authorisation, field mapping and the remaining signup integration work.
