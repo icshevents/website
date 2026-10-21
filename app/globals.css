@@ -55,3 +55,18 @@ body{background:var(--ivory)}.brand img{width:64px;height:64px;border-radius:5px
 @media(max-width:650px){.invite-image.picnic-invitation{object-position:50% 30%}}
 
 .feature-photos{display:grid;gap:34px;margin-top:28px}.feature-photos figure{margin:0}.feature-photos img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:8px}.feature-photos figcaption{font-size:12px;line-height:1.7;color:var(--muted);padding-top:10px}
+
+/* One shared outline keeps the homepage photo flush with its frame. */
+.hero-photo.picnic-hero{padding:0;border:1px solid var(--gold);border-radius:220px 220px 8px 8px}.hero-photo.picnic-hero::before{content:none}.hero-photo.picnic-hero img{display:block;border-radius:inherit;width:100%;height:100%}
+/* About Us photographs follow the story, with natural proportions and no photo viewer. */
+.about-story-photo{margin:0;min-width:0}.about-story-photo img{display:block;width:100%;height:auto;border-radius:9px}.about-story-photo figcaption{padding:12px 0 0;font-size:12px;line-height:1.7;color:var(--muted)}.about-activities{display:grid;grid-template-columns:1fr 1.1fr;gap:65px;align-items:center}.about-memories-heading{display:flex;justify-content:space-between;align-items:end;gap:45px;margin-bottom:36px}.about-memories-heading h2{margin-bottom:0}.about-memories-heading>p{max-width:365px;margin:0;font-size:14px}.about-memory-columns{display:grid;grid-template-columns:1.1fr 1fr;gap:28px;align-items:start}.about-memory-column{display:grid;gap:32px;min-width:0}.about-memory-column:first-child{padding-top:35px}
+@media(max-width:850px){.about-activities{gap:35px}.about-memories-heading{display:block}.about-memories-heading>p{margin-top:20px;max-width:560px}.about-memory-columns{gap:22px}.about-memory-column{gap:24px}}
+@media(max-width:650px){.about-activities,.about-memory-columns{grid-template-columns:1fr}.about-activities{gap:28px}.about-memory-column:first-child{padding-top:0}.about-memory-columns{gap:25px}.about-memory-column{gap:25px}.about-memories-heading{margin-bottom:28px}.about-story-photo figcaption{font-size:12px}.hero-photo.picnic-hero{padding:0}}
+
+/* Gentle display adjustments preserve the original people and scenes. */
+.about-photo-friends{filter:brightness(1.08) contrast(1.01) saturate(1.02)}
+.about-photo-picnic{filter:brightness(1.025) contrast(1.025) saturate(1.015)}
+.about-photo-lake{filter:brightness(1.045) contrast(1.045) saturate(1.055)}
+.about-photo-visit{filter:brightness(1.1) contrast(.98) saturate(.96)}
+.about-photo-coast{filter:brightness(1.06) contrast(1.02) saturate(1.015)}
+.about-photo-bus{filter:brightness(1.025) contrast(1.035) saturate(1.015)}
