@@ -109,7 +109,7 @@ export default function MembershipInvitation({months}:{months:number}) {
             <button className="button invite-cta" type="submit">Explore membership options <span aria-hidden="true">→</span></button>
           </form>
           <button className="invite-later" type="button" onClick={closeInvitation}>Maybe later</button>
-          <span className="invite-service-note">Fictional test applications only. The website confirms saved applications with a reference; Bigin delivery requires organiser action. No membership is activated, payment taken or email sent.</span>
+          <span className="invite-service-note">Applications are open. New applications are saved to Bigin as inactive while awaiting payment or confirmed activation. Online payments are not yet available.</span>
         </div>
       </div>
     </dialog>

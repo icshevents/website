@@ -1,5 +1,6 @@
 // Import via lib/zoho/server.ts in application code. This injectable module
 // performs no persistence; the caller owns the durable application and lease.
+import { membershipMobileKey } from '../membership-eligibility.ts';
 import {
   BiginContactCreateError, ZohoError, createBiginContact, getBiginContact, searchBiginContactsByEmail,
   type BiginContact, type BiginContactSearch, type BiginPendingContactCreate, type ZohoEnvironment, type ZohoErrorCode,
@@ -8,8 +9,8 @@ import {
 export type BiginMembershipApplication = {
   id: string;
   kind: 'new' | 'renewal';
-  mode: 'test';
-  testData: true;
+  mode: 'test' | 'live';
+  testData: boolean;
   applicant: { firstName: string; lastName: string; email: string; mobile: string };
   /** Server-calculated pounds, never a fee trusted from the submitted browser. */
   annualFee: 0 | 15 | 20;
@@ -38,7 +39,7 @@ const validId = (value: unknown): value is string => typeof value === 'string' &
 const safeCode = (error: unknown): ZohoErrorCode => error instanceof ZohoError ? error.code : 'ZOHO_UNAVAILABLE';
 
 function validApplication(value: BiginMembershipApplication): boolean {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || value.mode !== 'test' || value.testData !== true ||
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !['test', 'live'].includes(value.mode) || value.testData !== (value.mode === 'test') ||
     typeof value.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(value.id) ||
     !['new', 'renewal'].includes(value.kind) || ![0, 15, 20].includes(value.annualFee) ||
     (value.creationAttempted !== undefined && typeof value.creationAttempted !== 'boolean') ||
@@ -49,7 +50,7 @@ function validApplication(value: BiginMembershipApplication): boolean {
     if (typeof name !== 'string' || !name.trim() || name.trim().length > 80 || /[<>\u0000-\u001f]/.test(name)) return false;
   }
   if (typeof applicant.email !== 'string' || applicant.email.length > 254 || /[\u0000-\u001f]/.test(applicant.email) ||
-    !/^[^\s@<>]+@example\.invalid$/i.test(applicant.email.trim())) return false;
+    !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/i.test(applicant.email.trim()) || (value.mode === 'test' && !applicant.email.trim().toLowerCase().endsWith('@example.invalid'))) return false;
   if (typeof applicant.mobile !== 'string' || applicant.mobile.length > 25 || !/^[\d() .+-]+$/.test(applicant.mobile) ||
     applicant.mobile.replace(/\D/g, '').length < 7 || applicant.mobile.replace(/\D/g, '').length > 15) return false;
   return true;
@@ -58,12 +59,13 @@ function validApplication(value: BiginMembershipApplication): boolean {
 function contactMatches(contact: BiginContact, id: string, payload: BiginPendingContactCreate): boolean {
   return Boolean(contact && contact.id === id && contact.email === payload.Email &&
     contact.firstName?.trim() === payload.First_Name && contact.lastName?.trim() === payload.Last_Name &&
-    typeof contact.mobile === 'string' && contact.mobile.replace(/\D/g, '') === payload.Mobile.replace(/\D/g, '') &&
-    contact.membershipStatus === payload.Membership_Status && contact.paymentStatus === payload.Payment_Status && contact.emailOptOut === true);
+    typeof contact.mobile === 'string' && membershipMobileKey(contact.mobile) === membershipMobileKey(payload.Mobile) &&
+    contact.membershipStatus === payload.Membership_Status && contact.paymentStatus === payload.Payment_Status && contact.emailOptOut === true &&
+    contact.membershipDate === null && contact.membershipExpiry === null);
 }
 
 /**
- * Deliver one stored, fictional application. The caller must hold a durable
+ * Deliver one stored application as an inactive Contact. The caller must hold a durable
  * lease and persist the outcome. An existing Contact is never updated. The
  * result is for organisers/server code and must not be forwarded wholesale to
  * an anonymous applicant (which would disclose existing-member information).
@@ -82,7 +84,7 @@ export async function syncTestMembershipApplication(
   const payload: BiginPendingContactCreate = {
     First_Name: application.applicant.firstName.trim(), Last_Name: application.applicant.lastName.trim(),
     Email: application.applicant.email.trim().toLowerCase(), Mobile: application.applicant.mobile.trim(),
-    Membership_Status: 'Pending application', Payment_Status: application.annualFee === 0 ? 'Not required' : 'Awaiting payment', Email_Opt_Out: true,
+    Membership_Status: 'Inactive', Payment_Status: application.annualFee === 0 ? 'Not required' : 'Awaiting payment', Email_Opt_Out: true,
   };
   const savedContactId = application.biginContactId;
   const verify = async (id: string): Promise<BiginMembershipSyncOutcome> => {

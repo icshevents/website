@@ -9,7 +9,7 @@ const configured = () => ({
 });
 const payload = () => ({
   First_Name: 'Test', Last_Name: 'Applicant', Email: 'applicant@example.invalid', Mobile: '+447700900001',
-  Membership_Status: 'Pending application', Payment_Status: 'Awaiting payment', Email_Opt_Out: true,
+  Membership_Status: 'Inactive', Payment_Status: 'Awaiting payment', Email_Opt_Out: true,
 });
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 const token = () => json({ access_token: 'fixture-token', expires_in: 3600, api_domain: 'https://www.zohoapis.eu' });
@@ -29,10 +29,10 @@ test('Contact creation requires the explicit server flag before OAuth or writes'
   }
 });
 
-test('Contact payload permits only the complete pending test-contact allowlist', async () => {
+test('Contact payload permits only the complete inactive contact allowlist', async () => {
   const bad = [
     { ...payload(), Created_Time: '2026-01-01' }, { ...payload(), Member_ID: 'injected' }, { ...payload(), Description: 'details' },
-    { ...payload(), trigger: ['workflow'] }, { ...payload(), Email: 'real@example.com' }, { ...payload(), Email_Opt_Out: false },
+    { ...payload(), trigger: ['workflow'] }, { ...payload(), Email: 'not-an-email' }, { ...payload(), Email_Opt_Out: false },
     { ...payload(), Membership_Status: 'Active' }, { ...payload(), Payment_Status: 'Paid' },
     { ...payload(), Payment_Status: new String('Awaiting payment') }, { ...payload(), First_Name: '<script>' },
     { ...payload(), Last_Name: ' ' }, { ...payload(), First_Name: 123 }, { ...payload(), Mobile: 'abcdefg' },
@@ -116,11 +116,11 @@ test('individual Contact reads allow only numeric IDs and a fixed field selectio
   }
   assert.equal(calls.length, 0);
   const read = await client.getBiginContact('123');
-  assert.deepEqual(read, { id: '123', email: 'applicant@example.invalid', firstName: 'Test', lastName: 'Applicant', mobile: '+447700900001', membershipStatus: 'Pending application', paymentStatus: 'Awaiting payment', emailOptOut: true });
+  assert.deepEqual(read, { id: '123', email: 'applicant@example.invalid', firstName: 'Test', lastName: 'Applicant', mobile: '+447700900001', membershipStatus: 'Inactive', paymentStatus: 'Awaiting payment', emailOptOut: true, membershipDate: null, membershipExpiry: null });
   const url = new URL(calls[1].url);
   assert.equal(url.pathname, '/bigin/v2/Contacts/123');
   assert.deepEqual([...url.searchParams.keys()], ['fields']);
-  assert.equal(url.searchParams.get('fields'), 'First_Name,Last_Name,Email,Mobile,Membership_Status,Payment_Status,Email_Opt_Out');
+  assert.equal(url.searchParams.get('fields'), 'First_Name,Last_Name,Email,Mobile,Membership_Status,Payment_Status,Email_Opt_Out,Membership_Date,Expiry_Date');
 });
 
 test('Contact creation validates each record result and treats ambiguous outcomes as non-retryable', async () => {

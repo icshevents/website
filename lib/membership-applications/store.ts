@@ -24,18 +24,18 @@ const timestamp = z.string().datetime({ offset: true });
 const answers = z.object({
   kind: z.enum(['new', 'renewal']), firstName: z.string().min(1).max(80), lastName: z.string().min(1).max(80),
   dob: z.string().min(1).max(10), mobile: z.string().min(1).max(25),
-  email: z.string().max(254).regex(/^[^\s@<>]+@example\.invalid$/),
+  email: z.string().max(254).regex(/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/),
   education: z.enum(['', 'yes', 'no']), studentDeclaration: z.boolean(), terms: z.literal(true), accuracy: z.literal(true),
 }).strict();
 const saveInput = z.object({
-  id: uuid, requestHash: hash, capabilityHash: hash, answers,
+  id: uuid, mode: z.enum(['test', 'live']).default('test'), requestHash: hash, capabilityHash: hash, answers,
   category: z.enum(['standard', 'pensioner', 'student']), feePence: z.number().int().min(0).max(1000000),
   paymentStatus: z.enum(['awaiting_payment', 'not_required']),
-}).strict().refine(input => input.feePence === 0 ? input.paymentStatus === 'not_required' : input.paymentStatus === 'awaiting_payment');
+}).strict().refine(input => input.mode === 'live' || input.answers.email.endsWith('@example.invalid')).refine(input => input.feePence === 0 ? input.paymentStatus === 'not_required' : input.paymentStatus === 'awaiting_payment');
 const row = z.object({
   id: uuid, reference: z.string().regex(/^TEST-MEM-[A-F0-9]{32}$/), request_hash: hash, capability_hash: hash,
   answers, category: z.enum(['standard', 'pensioner', 'student']), fee_pence: z.number().int().min(0).max(1000000),
-  currency: z.literal('GBP'), mode: z.literal('test'), test_data: z.literal(true),
+  currency: z.literal('GBP'), mode: z.enum(['test', 'live']), test_data: z.boolean(),
   payment_status: z.enum(['awaiting_payment', 'not_required']), application_status: z.literal('received'),
   start_date: z.null(), expiry_date: z.null(), bigin_sync_status: z.enum(MEMBERSHIP_SYNC_STATUSES),
   bigin_record_id: recordId.nullable(), bigin_synced_at: timestamp.nullable(),
@@ -82,9 +82,11 @@ function application(value: unknown): MembershipApplication {
   const parsed = row.safeParse(value);
   if (!parsed.success) throw invalidResponse();
   const r = parsed.data;
+  if (r.test_data !== (r.mode === 'test')) throw invalidResponse();
+  if (r.mode === 'test' && !r.answers.email.endsWith('@example.invalid')) throw invalidResponse();
   if (r.reference !== `TEST-MEM-${r.id.replaceAll('-', '').toUpperCase()}`) throw invalidResponse();
   return {
-    id: r.id, reference: r.reference, requestHash: r.request_hash, capabilityHash: r.capability_hash,
+    id: r.id, reference: r.mode === 'live' ? r.reference.replace(/^TEST-/, '') : r.reference, requestHash: r.request_hash, capabilityHash: r.capability_hash,
     answers: r.answers, category: r.category, feePence: r.fee_pence, currency: r.currency, mode: r.mode, testData: r.test_data,
     paymentStatus: r.payment_status, applicationStatus: r.application_status, startDate: null, expiryDate: null,
     biginSyncStatus: r.bigin_sync_status, biginRecordId: r.bigin_record_id, biginSyncedAt: r.bigin_synced_at,
@@ -99,7 +101,7 @@ export async function saveMembershipApplication(input: SaveMembershipApplication
   if (!parsed.success) throw invalidInput();
   const value = parsed.data, db = database(supplied);
   const raw = await result(() => db.rpc('icsh_membership_application_save', {
-    p_id: value.id, p_request_hash: value.requestHash, p_capability_hash: value.capabilityHash,
+    p_id: value.id, p_mode: value.mode, p_request_hash: value.requestHash, p_capability_hash: value.capabilityHash,
     p_answers: value.answers, p_category: value.category, p_fee_pence: value.feePence, p_payment_status: value.paymentStatus,
   }));
   if (!raw || typeof raw !== 'object' || !('application' in raw) || !('created' in raw) || typeof raw.created !== 'boolean') throw invalidResponse();

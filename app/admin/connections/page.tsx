@@ -20,7 +20,7 @@ export default async function ConnectionsPage() {
     <PageHero label="ICSH · Organisers" title="Zoho connections" description="Connect membership records and email preferences to your ICSH website."/>
     <section className="section white"><div className="wrap">
       <Link className="text-link" href="/admin">← Organiser workspace</Link>
-      <div className={`notice ${styles.introduction}`}><strong>Connection checks · read access only</strong><p>These checks read organisation settings and field definitions. Member records, subscriptions and email delivery are not changed. Website forms stay in their current test mode while the connections are verified.</p></div>
+      <div className={`notice ${styles.introduction}`}><strong>Connection checks · read access only</strong><p>These checks read organisation settings and field definitions. Member records, subscriptions and email delivery are not changed. Public forms accept live submissions. New membership applications use a separate delivery step to create Inactive Bigin contacts.</p></div>
       <div className={styles.grid}>
         <ConnectionCheck service="bigin" configuration={getZohoConfiguration('bigin')}/>
         <ConnectionCheck service="campaigns" configuration={getZohoConfiguration('campaigns')}/>

@@ -10,7 +10,7 @@ const application = () => ({
 });
 const contact = () => ({
   id: '123', email: 'applicant@example.invalid', firstName: 'Test', lastName: 'Applicant', mobile: '+447700900001',
-  membershipStatus: 'Pending application', paymentStatus: 'Awaiting payment', emailOptOut: true,
+  membershipStatus: 'Inactive', paymentStatus: 'Awaiting payment', emailOptOut: true, membershipDate: null, membershipExpiry: null,
 });
 function fakeClient(overrides = {}) {
   const calls = [];
@@ -48,7 +48,7 @@ test('new paid application searches, creates pending data, then verifies the sav
   assert.deepEqual(calls.map(call => call[0]), ['search', 'create', 'get']);
   assert.deepEqual(calls[1][1], {
     First_Name: 'Test', Last_Name: 'Applicant', Email: 'applicant@example.invalid', Mobile: '+44 7700 900001',
-    Membership_Status: 'Pending application', Payment_Status: 'Awaiting payment', Email_Opt_Out: true,
+    Membership_Status: 'Inactive', Payment_Status: 'Awaiting payment', Email_Opt_Out: true,
   });
   assert.equal(JSON.stringify(input), original);
   assert.doesNotMatch(JSON.stringify(calls[1][1]), /Created_Time|Member_ID|Member_Year|DOB|Description|expiry|activation|category/i);
@@ -58,7 +58,7 @@ test('free applications remain pending and explicitly record no payment requirem
   const { calls, client } = fakeClient({ get: () => ({ ...contact(), paymentStatus: 'Not required' }) });
   assert.deepEqual(await syncTestMembershipApplication({ ...application(), annualFee: 0 }, { client, env: enabled }), { status: 'synced', contactId: '123' });
   assert.equal(calls[1][1].Payment_Status, 'Not required');
-  assert.equal(calls[1][1].Membership_Status, 'Pending application');
+  assert.equal(calls[1][1].Membership_Status, 'Inactive');
 });
 
 test('renewals never search, create or overwrite an existing membership', async () => {
@@ -133,4 +133,19 @@ test('pre-POST transport errors can be retried after configuration is corrected'
     const { client } = fakeClient({ create: () => { throw new ZohoError(code); } });
     assert.deepEqual(await syncTestMembershipApplication(application(), { client, env: enabled }), code === 'ZOHO_MEMBERSHIP_WRITES_DISABLED' ? { status: 'writes_disabled' } : { status: 'failed', code });
   }
+});
+
+test('live real-email delivery creates only an inactive contact and verifies UK-normalised phone readback',async()=>{
+ const input={...application(),mode:'live',testData:false,applicant:{...application().applicant,email:'member@example.com',mobile:'07700900001'}};
+ const {client,calls}=fakeClient({get:()=>({...contact(),email:'member@example.com',mobile:'+447700900001'})});
+ assert.deepEqual(await syncTestMembershipApplication(input,{client,env:enabled}),{status:'synced',contactId:'123'});
+ assert.equal(calls[1][1].Membership_Status,'Inactive');assert.equal(calls[1][1].Payment_Status,'Awaiting payment');assert.equal(calls[1][1].Email_Opt_Out,true);
+ assert.doesNotMatch(JSON.stringify(calls[1][1]),/Membership_Date|Expiry_Date|Member_Year|Member_ID/);
+});
+
+test('readback must confirm blank membership dates and inactive status before reporting delivery success',async()=>{
+ for(const changes of [{membershipDate:'2026-10-22'},{membershipExpiry:'2027-10-22'},{membershipStatus:'Active'}]){
+  const {client}=fakeClient({get:()=>({...contact(),...changes})});
+  assert.deepEqual(await syncTestMembershipApplication(application(),{client,env:enabled}),{status:'created_unverified',contactId:'123',code:'CONTACT_VERIFICATION_MISMATCH'});
+ }
 });

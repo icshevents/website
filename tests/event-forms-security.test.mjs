@@ -30,7 +30,7 @@ test('migration preserves original IDs, hashes, snapshots, notes and archived re
   const id = randomUUID(), config = defaultFestivalConfig(), stall = defaultStallConfig();
   const record = { id, idempotencyKey: randomUUID(), createdAt: '2026-10-19T00:00:00Z', mode: 'test', capabilityHash: 'private-hash', review: { notes: 'Private note' }, eventSnapshot: { title: 'Original wording' } };
   const state = { festivalConfig: config, festivalRegistrations: [record], stallForms: [stall], stallApplications: [], events: [], registrations: [], audit: [] };
-  const result = prepareLegacyImport(state);
+  const result = prepareLegacyImport({...state,festivalConfig:{...state.festivalConfig,mode:'test'},stallForms:state.stallForms.map(c=>({...c,mode:'test'})),events:state.events.map(c=>({...c,mode:'test'}))});
   assert.equal(result.submissions[0].id, id);
   assert.equal(result.submissions[0].form_id, FESTIVAL_FORM_ID);
   assert.deepEqual(result.submissions[0].answers.record, record);

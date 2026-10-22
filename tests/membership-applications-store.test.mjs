@@ -55,7 +55,7 @@ test('saving uses one atomic RPC and accepts only a confirmed durable result', a
   assert.equal(saved.application.expiryDate, null);
   assert.equal(saved.application.testData, true);
   assert.deepEqual(calls, [['rpc', 'icsh_membership_application_save', {
-    p_id: id, p_request_hash: input().requestHash, p_capability_hash: input().capabilityHash,
+    p_id: id, p_mode: 'test', p_request_hash: input().requestHash, p_capability_hash: input().capabilityHash,
     p_answers: input().answers, p_category: 'standard', p_fee_pence: 2000, p_payment_status: 'awaiting_payment',
   }]]);
 });
@@ -77,7 +77,7 @@ test('invalid or non-test data cannot reach the database', async () => {
     input({ answers: { ...input().answers, terms: false } }),
     input({ answers: { ...input().answers, email: 'test@example.invalid\n' } }),
     input({ category: 'minor' }), input({ feePence: 0 }), input({ feePence: 2000, paymentStatus: 'not_required' }),
-    input({ activationDate: '2026-10-22' }), input({ mode: 'live' }),
+    input({ activationDate: '2026-10-22' }), input({ mode: 'invalid' }),
   ]) await assert.rejects(() => saveMembershipApplication(value, db), error => error instanceof MembershipStoreError && error.status === 400);
   assert.equal(calls.length, 0);
 });
@@ -175,4 +175,12 @@ test('fixed API and adapter review codes survive storage for organiser diagnosis
   const { db, calls } = database(row({ bigin_sync_status: 'failed', last_error_code: 'MEMBERSHIP_SYNC_FAILED' }));
   await completeMembershipBiginSync(id, claimId, { status: 'failed', errorCode: 'UNRECOGNISED_PROVIDER_MESSAGE' }, db);
   assert.equal(calls[0][2].p_error_code, 'MEMBERSHIP_SYNC_FAILED');
+});
+
+test('live storage accepts real email domains, sends mode to the atomic save, and exposes a live reference',async()=>{
+ const realAnswers={...input().answers,email:'member@example.com'};
+ const fixture=database({application:row({mode:'live',test_data:false,answers:realAnswers}),created:true});
+ const saved=await saveMembershipApplication(input({mode:'live',answers:realAnswers}),fixture.db);
+ assert.equal(fixture.calls[0][2].p_mode,'live');assert.equal(saved.application.testData,false);assert.match(saved.application.reference,/^MEM-/);assert.doesNotMatch(saved.application.reference,/TEST/);
+ assert.equal(saved.application.startDate,null);assert.equal(saved.application.expiryDate,null);
 });

@@ -32,7 +32,7 @@ test('a valid member booking saves only the public membership result and server-
  const saved=f.tables.icsh_submissions[0].answers.record;
  assert.equal(saved.attendees[0].membership.verified,true);
  assert.doesNotMatch(JSON.stringify(saved.attendees),/member@example.invalid|447700|membershipIdentity|10001/);
- assert.equal(result.body.registration.paymentProvider,'simulated');
+ assert.equal(result.body.registration.paymentProvider,'not_connected');
 });
 
 test('forms with membership checks disabled never contact Bigin or require attendee contact fields',async t=>{
@@ -56,4 +56,15 @@ test('provider failures and direct requests without identity cannot claim the me
 
 test('a form changed during verification requires a new review before saving',async t=>{
  freezeDate(t);const f=fixture();const result=await call(f,'registrations',input(),async()=>{f.tables.icsh_forms.find(r=>r.id===event.id).configuration.version=2;return {records:[contact],hasMore:false};});assert.equal(result.status,409);assert.match(result.body.error,/checked again/);assert.equal(f.writes,0);
+});
+
+test('public simulated ticket and stall payment endpoints are disabled even for historical records',async()=>{
+ const f=fixture();for(const path of ['registrations/'+randomUUID()+'/simulate','stalls/applications/'+randomUUID()+'/simulate']){
+  const r=await call(f,path,{outcome:'success'},async()=>{throw Error('must not query');});assert.equal(r.status,503);assert.match(r.body.error,/No payment has been taken/);
+ }assert.equal(f.writes,0);
+});
+
+test('live ticket bookings accept real email domains and cannot forge activation or payment success',async()=>{
+ const f=fixture({...event,mode:'live',membershipCheckRequired:false}),body=input();body.contact.email='member@example.com';body.testData=false;body.status='simulated_paid';body.paymentProvider='stripe';
+ const r=await call(f,'registrations',body,async()=>{throw Error('must not query');});assert.equal(r.status,201);assert.equal(r.body.registration.mode,'live');assert.equal(r.body.registration.status,'pending');assert.equal(r.body.registration.paymentProvider,'not_connected');assert.match(r.body.registration.reference,/^EVT-/);
 });

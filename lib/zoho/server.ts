@@ -1,5 +1,6 @@
 import 'server-only';
 import { createZohoClient } from './client';
+import { syncTestMembershipApplication as deliverTestApplication, type BiginMembershipApplication } from './membership-applications';
 
 export { getZohoConfiguration } from './client';
 export { checkBiginConnection } from './bigin';
@@ -14,8 +15,13 @@ const memberLookupClient = createZohoClient({
   ZOHO_BIGIN_CLIENT_ID: process.env.ZOHO_BIGIN_LOOKUP_CLIENT_ID,
   ZOHO_BIGIN_CLIENT_SECRET: process.env.ZOHO_BIGIN_LOOKUP_CLIENT_SECRET,
   ZOHO_BIGIN_REFRESH_TOKEN: process.env.ZOHO_BIGIN_LOOKUP_REFRESH_TOKEN,
+  ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED: process.env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED,
 });
 export const searchBiginMembershipRecords = memberLookupClient.searchBiginMembershipRecords;
 export const lookupBiginMembership = memberLookupClient.lookupBiginMembership;
-export { syncTestMembershipApplication } from './membership-applications';
+// Use the approved grant that already supports Contact search/read/create.
+// The original registration connection remains unchanged.
+export function syncTestMembershipApplication(application: BiginMembershipApplication) {
+  return deliverTestApplication(application, { client: memberLookupClient });
+}
 export type { BiginMembershipApplication, BiginMembershipSyncOutcome } from './membership-applications';

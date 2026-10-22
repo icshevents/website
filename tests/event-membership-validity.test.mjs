@@ -18,9 +18,9 @@ test('Bigin saved dates and status govern member eligibility at signup, even for
  assert.equal(quote.attendees[0].membership.status,'active');
  assert.equal(quote.attendees[0].membership.membershipDate,'2026-01-19');
  assert.equal(quote.attendees[0].membership.membershipExpiry,'2027-01-19');
- assert.equal(quote.total,500);assert.equal(quote.mode,'test');
+ assert.equal(quote.total,500);assert.equal(quote.mode,'live');
  const saved=register({events:[event],registrations:[]},data,'test-capability',checks);
- assert.equal(saved.total,500);assert.equal(saved.paymentProvider,'simulated');
+ assert.equal(saved.total,500);assert.equal(saved.paymentProvider,'not_connected');
  assert.doesNotMatch(JSON.stringify(saved.attendees),/alex@example|447700|membershipIdentity|10001|Created_Time|Member_Year/);
 });
 

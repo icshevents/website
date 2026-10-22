@@ -43,14 +43,14 @@ export class BiginContactCreateError extends ZohoError {
   }
 }
 
-// These are deliberately new values for controlled website test applications,
+// These are deliberately inactive values for new website applications,
 // not inferred values from existing members. No activation/date fields are sent.
 export type BiginPendingContactCreate = {
   First_Name: string;
   Last_Name: string;
   Email: string;
   Mobile: string;
-  Membership_Status: 'Pending application';
+  Membership_Status: 'Inactive';
   Payment_Status: 'Awaiting payment' | 'Not required';
   Email_Opt_Out: true;
 };
@@ -67,6 +67,8 @@ export type BiginContact = {
   membershipStatus: string | null;
   paymentStatus: string | null;
   emailOptOut: boolean | null;
+  membershipDate: string | null;
+  membershipExpiry: string | null;
 };
 
 function contactId(value: unknown): value is string {
@@ -85,15 +87,15 @@ function pendingContactPayload(value: unknown): BiginPendingContactCreate {
     !keys.every(key => Object.prototype.hasOwnProperty.call(value, key))) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
   const safeName = (name: unknown): name is string => typeof name === 'string' && name.trim().length > 0 && name.trim().length <= 80 && !/[<>\u0000-\u001f]/.test(name);
   const email = contactEmail(value.Email);
-  if (!safeName(value.First_Name) || !safeName(value.Last_Name) || !email || !email.endsWith('@example.invalid') ||
+  if (!safeName(value.First_Name) || !safeName(value.Last_Name) || !email ||
     typeof value.Mobile !== 'string' || value.Mobile.length > 25 || !/^[\d() .+-]+$/.test(value.Mobile) ||
     value.Mobile.replace(/\D/g, '').length < 7 || value.Mobile.replace(/\D/g, '').length > 15 ||
-    value.Membership_Status !== 'Pending application' || (value.Payment_Status !== 'Awaiting payment' && value.Payment_Status !== 'Not required') ||
+    value.Membership_Status !== 'Inactive' || (value.Payment_Status !== 'Awaiting payment' && value.Payment_Status !== 'Not required') ||
     value.Email_Opt_Out !== true) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
   // Copy before any await: callers cannot mutate the validated body in flight.
   return {
     First_Name: value.First_Name.trim(), Last_Name: value.Last_Name.trim(), Email: email, Mobile: value.Mobile.trim(),
-    Membership_Status: 'Pending application', Payment_Status: value.Payment_Status as BiginPendingContactCreate['Payment_Status'], Email_Opt_Out: true,
+    Membership_Status: 'Inactive', Payment_Status: value.Payment_Status as BiginPendingContactCreate['Payment_Status'], Email_Opt_Out: true,
   };
 }
 
@@ -366,7 +368,7 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
 
   async function getBiginContact(id: string): Promise<BiginContact> {
     if (!contactId(id)) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
-    const fields = 'First_Name,Last_Name,Email,Mobile,Membership_Status,Payment_Status,Email_Opt_Out';
+    const fields = 'First_Name,Last_Name,Email,Mobile,Membership_Status,Payment_Status,Email_Opt_Out,Membership_Date,Expiry_Date';
     const response = await biginRecordGet(`/bigin/v2/Contacts/${id}`, new URLSearchParams({ fields }));
     const body = response.data;
     if (!object(body) || !Array.isArray(body.data) || body.data.length !== 1 || !object(body.data[0])) throw new ZohoError('ZOHO_INVALID_RESPONSE');
@@ -382,6 +384,7 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     return {
       id, email, firstName: optionalText(record.First_Name), lastName: optionalText(record.Last_Name), mobile: optionalText(record.Mobile),
       membershipStatus: optionalText(record.Membership_Status), paymentStatus: optionalText(record.Payment_Status), emailOptOut: record.Email_Opt_Out ?? null,
+      membershipDate: optionalText(record.Membership_Date), membershipExpiry: optionalText(record.Expiry_Date),
     };
   }
 

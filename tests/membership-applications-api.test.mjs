@@ -31,14 +31,14 @@ function answers(changes = {}) {
   };
 }
 function submission(changes = {}) {
-  return { requestKey: id, receiptToken, answers: answers(), testData: true, website: '', ...changes };
+  return { requestKey: id, receiptToken, answers: answers(), testData: false, website: '', ...changes };
 }
 function application(input = {}, changes = {}) {
   return {
     id, requestHash: 'b'.repeat(64), capabilityHash: hash(receiptToken), answers: answers(),
     category: 'standard', feePence: 2000, paymentStatus: 'awaiting_payment', ...input,
-    reference: `TEST-MEM-${(input.id ?? id).replaceAll('-', '').toUpperCase()}`,
-    createdAt: time, updatedAt: time, currency: 'GBP', mode: 'test', testData: true,
+    reference: `MEM-${(input.id ?? id).replaceAll('-', '').toUpperCase()}`,
+    createdAt: time, updatedAt: time, currency: 'GBP', mode: input.mode ?? 'live', testData: (input.mode ?? 'live') === 'test',
     applicationStatus: 'received', startDate: null, expiryDate: null,
     biginSyncStatus: 'awaiting_authorisation', biginRecordId: null, biginSyncedAt: null,
     lastErrorCode: null, syncAttempts: 0, syncClaimId: null, syncLeaseUntil: null, ...changes,
@@ -126,11 +126,11 @@ function privateReceipt(receipt) {
   assert.doesNotMatch(serialized, /example\.invalid|07700900000|01\/01\/1990|capabilityHash|requestHash|biginRecordId|syncClaimId|syncLeaseUntil|lastErrorCode/);
 }
 
-test('bootstrap reports actual storage availability and issues a protected, uncached test session', async () => {
+test('bootstrap reports actual storage availability and issues a protected, uncached live session', async () => {
   for (const url of [endpoint, 'http://localhost:3000/api/membership/applications']) {
     const context = harness();
     const auth = await bootstrap(context, url);
-    assert.deepEqual({ ...auth.body, csrf: 'redacted' }, { ok: true, mode: 'test', available: true, csrf: 'redacted' });
+    assert.deepEqual({ ...auth.body, csrf: 'redacted' }, { ok: true, mode: 'live', available: true, csrf: 'redacted' });
     assert.match(auth.csrf, /^[a-f0-9]{64}$/);
     const cookie = auth.response.headers.get('set-cookie');
     assert.match(cookie, /; Path=\/; HttpOnly; SameSite=Strict; Max-Age=28800/);
@@ -202,7 +202,7 @@ test('strict submission schemas reject financial, activation and CRM fields supp
   const context = harness();
   const auth = await bootstrap(context);
   const invalid = [
-    submission({ testData: false }), submission({ mode: 'live' }), submission({ website: 'bot' }),
+    submission({ testData: true }), submission({ mode: 'live' }), submission({ website: 'bot' }),
     submission({ requestKey: 'not-a-uuid' }), submission({ receiptToken: 'short' }),
     submission({ feePence: 0 }), submission({ paymentStatus: 'paid' }),
     submission({ startDate: '2026-10-22' }), submission({ expiryDate: '2027-10-22' }),
@@ -231,10 +231,10 @@ test('malformed, absent and oversized JSON fail before a durable save', async ()
   assert.deepEqual(context.calls.save, []);
 });
 
-test('only the exact reserved test email domain is accepted and rejection does not echo addresses', async () => {
+test('live applications validate email format without restricting the domain or echoing rejected addresses', async () => {
   const context = harness();
   const auth = await bootstrap(context);
-  for (const email of ['private@example.com', 'test@sub.example.invalid', 'test@example.invalid.evil', 'test@@example.invalid', 'test @example.invalid']) {
+  for (const email of ['test@@example.invalid', 'test @example.invalid', 'missing-domain@', 'not-an-email']) {
     const response = await handleMembershipApplications(post(auth, submission({ answers: answers({ email }) })), context.deps);
     const body = await json(response, 400);
     assert.equal(body.error.code, 'VALIDATION_FAILED');
@@ -242,9 +242,9 @@ test('only the exact reserved test email domain is accepted and rejection does n
     assert.equal(JSON.stringify(body).includes(email), false);
   }
   assert.deepEqual(context.calls.save, []);
-  const response = await handleMembershipApplications(post(auth, submission({ answers: answers({ email: '  MEMBER+TEST@EXAMPLE.INVALID  ' }) })), context.deps);
+  const response = await handleMembershipApplications(post(auth, submission({ answers: answers({ email: '  MEMBER+LIVE@EXAMPLE.COM  ' }) })), context.deps);
   await json(response, 201);
-  assert.equal(context.calls.save[0][0].answers.email, 'member+test@example.invalid');
+  assert.equal(context.calls.save[0][0].answers.email, 'member+live@example.com');
 });
 
 test('paid submission saves the server quote, normalized answers and hashed receipt capability without activation', async () => {
@@ -675,7 +675,7 @@ test('conflicting identifiers, missing records for renewal and provider outages 
 });
 
 test('a retry can recover the same saved receipt if membership became active after saving', async () => {
-  const stored = application({ requestHash: hash(JSON.stringify({ answers: answers(), mode: 'test', policy: '2026-10-22' })) });
+  const stored = application({ requestHash: hash(JSON.stringify({ answers: answers(), mode: 'live', policy: '2026-10-22-live' })) });
   const context = harness({ checkIdentity: async () => ({ status: 'active', membershipDate: '2026-10-22', membershipExpiry: '2027-10-22', daysUntilExpiry: 365 }), get: async () => stored });
   const auth = await bootstrap(context);
   const response = await json(await handleMembershipApplications(post(auth), context.deps), 200);
@@ -695,4 +695,46 @@ test('database contact uniqueness conflicts stay private and never return a rece
     assert.equal(response.application, undefined);
     assert.doesNotMatch(JSON.stringify(response), /private email/);
   }
+});
+
+test('live submission saves first, then claims and verifies automatic Bigin delivery', async()=>{
+ const order=[];const context=harness({writesEnabled:true,
+  save:async input=>{order.push('save');assert.equal(input.mode,'live');return {application:application(input),created:true};},
+  claim:async(_id,claimId)=>{order.push('claim');return application({}, {biginSyncStatus:'syncing',syncClaimId:claimId});},
+  sync:async claimed=>{order.push('sync');assert.equal(claimed.biginSyncStatus,'syncing');return {status:'synced',biginRecordId:contactId};},
+  complete:async(_id,_claim,outcome)=>{order.push('complete');return application({}, {biginSyncStatus:outcome.status,biginRecordId:contactId,biginSyncedAt:time});}
+ });
+ const body=await json(await handleMembershipApplications(post(await bootstrap(context)),context.deps),201);
+ assert.deepEqual(order,['save','claim','sync','complete']);assert.equal(body.application.mode,'live');assert.equal(body.application.biginSyncStatus,'synced');privateReceipt(body.application);
+});
+
+test('delivery failures never turn a confirmed website save into an unsaved application',async()=>{
+ for(const outcome of [{status:'failed',errorCode:'ZOHO_UNAVAILABLE'},{status:'outcome_unknown',errorCode:'SYNC_INTERRUPTED'},{status:'review_required',errorCode:'RENEWAL'}]){
+  const context=harness({writesEnabled:true,sync:async()=>outcome});
+  const body=await json(await handleMembershipApplications(post(await bootstrap(context)),context.deps),201);
+  assert.equal(body.application.biginSyncStatus,outcome.status);privateReceipt(body.application);
+ }
+ const thrown=harness({writesEnabled:true,sync:async()=>{throw Error('private token');}});
+ const body=await json(await handleMembershipApplications(post(await bootstrap(thrown)),thrown.deps),201);
+ assert.equal(body.application.biginSyncStatus,'outcome_unknown');assert.doesNotMatch(JSON.stringify(body),/private token/);
+});
+
+test('automatic delivery never creates again for synced, reviewed, or unknown creations without an ID',async()=>{
+ for(const status of ['synced','review_required','outcome_unknown']){
+  const context=harness({writesEnabled:true,save:async input=>({application:application(input,{biginSyncStatus:status}),created:false})});
+  const body=await json(await handleMembershipApplications(post(await bootstrap(context)),context.deps),200);
+  assert.equal(body.application.biginSyncStatus,status);noProviderCalls(context);
+ }
+});
+
+test('a concurrent lease holder prevents another automatic provider call',async()=>{
+ const context=harness({writesEnabled:true,claim:async()=>null,get:async()=>application({}, {biginSyncStatus:'syncing'})});
+ const body=await json(await handleMembershipApplications(post(await bootstrap(context)),context.deps),201);
+ assert.equal(body.application.biginSyncStatus,'syncing');assert.equal(context.calls.claim.length,1);assert.equal(context.calls.sync.length,0);
+});
+
+test('a delivery acknowledgement failure returns confirmed storage state without claiming success',async()=>{
+ const context=harness({writesEnabled:true,complete:async()=>{throw Error('storage unavailable');},get:async()=>application({}, {biginSyncStatus:'syncing'})});
+ const body=await json(await handleMembershipApplications(post(await bootstrap(context)),context.deps),201);
+ assert.equal(body.application.biginSyncStatus,'syncing');assert.equal(context.calls.sync.length,1);
 });

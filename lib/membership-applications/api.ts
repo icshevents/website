@@ -38,7 +38,7 @@ const answersSchema = z.object({
 }).strict();
 const submissionSchema = z.object({
   requestKey: uuid, receiptToken: token, answers: answersSchema,
-  testData: z.literal(true), website: z.literal(''),
+  testData: z.literal(false).optional().default(false), website: z.literal(''),
 }).strict();
 
 class ApiError extends Error {
@@ -80,7 +80,7 @@ function checkOrigin(request: Request) {
 }
 
 function publicSession(request: Request, secret: string) {
-  if (secret.length < 32) throw new ApiError(503, 'MEMBERSHIP_SETUP_REQUIRED', 'Membership test submissions are not available yet. Your answers have not been sent.');
+  if (secret.length < 32) throw new ApiError(503, 'MEMBERSHIP_SETUP_REQUIRED', 'Membership submissions are not available yet. Your answers have not been sent.');
   const secure = new URL(request.url).protocol === 'https:';
   const cookieName = secure ? '__Host-icsh-membership' : 'icsh-membership';
   const cookie = request.headers.get('cookie')?.split(';').map(value => value.trim()).find(value => value.startsWith(cookieName + '='))?.slice(cookieName.length + 1);
@@ -125,14 +125,36 @@ export function membershipReceipt(application: MembershipApplication) {
   };
 }
 
+/** Save is confirmed before delivery starts. A durable lease prevents duplicate
+ * Contact POSTs; interrupted or unknown creations must be reconciled, not retried. */
+export async function deliverSavedMembershipApplication(application: MembershipApplication, deps: MembershipApiDependencies): Promise<MembershipApplication> {
+  if (!deps.writesEnabled || application.biginSyncStatus === 'synced' || application.biginSyncStatus === 'review_required' ||
+    (application.biginSyncStatus === 'outcome_unknown' && !application.biginRecordId)) return application;
+  let claimed: MembershipApplication | null = null;
+  try {
+    const claimId = randomUUID();
+    claimed = await deps.claim(application.id, claimId);
+    if (!claimed) return await deps.get(application.id) ?? application;
+    let outcome: MembershipBiginSyncOutcome;
+    try { outcome = await deps.sync(claimed); }
+    catch { outcome = { status: 'outcome_unknown', errorCode: 'SYNC_INTERRUPTED' }; }
+    return await deps.complete(application.id, claimId, outcome) ?? claimed;
+  } catch {
+    // The application is durably saved even if delivery or its acknowledgement
+    // is interrupted. Show only confirmed storage state, never invent success.
+    try { return await deps.get(application.id) ?? claimed ?? application; }
+    catch { return claimed ?? application; }
+  }
+}
+
 export async function handleMembershipApplications(request: Request, deps: MembershipApiDependencies): Promise<Response> {
   try {
     if (!['GET', 'POST'].includes(request.method)) throw new ApiError(405, 'METHOD_NOT_ALLOWED', 'Use the membership form to submit an application.');
     const session = publicSession(request, deps.secret);
     if (request.method === 'GET') {
       if (request.headers.get('sec-fetch-site') === 'cross-site') throw new ApiError(403, 'ORIGIN_NOT_ALLOWED', 'Open the membership form on the ICSH website.');
-      if (!await deps.available()) throw new ApiError(503, 'MEMBERSHIP_SETUP_REQUIRED', 'Membership test submissions are not available yet. Your answers have not been sent.');
-      return Response.json({ ok: true, mode: 'test', available: true, csrf: session.csrf }, { headers: {
+      if (!await deps.available()) throw new ApiError(503, 'MEMBERSHIP_SETUP_REQUIRED', 'Membership submissions are not available yet. Your answers have not been sent.');
+      return Response.json({ ok: true, mode: 'live', available: true, csrf: session.csrf }, { headers: {
         ...headers,
         'Set-Cookie': `${session.cookieName}=${session.cookie}; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800${session.secure ? '; Secure' : ''}`,
       } });
@@ -141,7 +163,7 @@ export async function handleMembershipApplications(request: Request, deps: Membe
     if (session.existing !== session.cookie || !equal(request.headers.get('x-csrf-token') ?? '', session.csrf)) throw new ApiError(403, 'SESSION_CHANGED', 'Your form session changed. Retry without closing this form.');
     await limit(request, deps, 'submit', 20);
     const parsed = submissionSchema.safeParse(await readJson(request));
-    if (!parsed.success) throw new ApiError(400, 'INVALID_SUBMISSION', 'Review all required answers and confirm that you are using fictional test details.');
+    if (!parsed.success) throw new ApiError(400, 'INVALID_SUBMISSION', 'Review all required answers before submitting.');
     const answers: MembershipAnswers = {
       ...parsed.data.answers,
       firstName: parsed.data.answers.firstName.trim(), lastName: parsed.data.answers.lastName.trim(),
@@ -152,7 +174,7 @@ export async function handleMembershipApplications(request: Request, deps: Membe
     if (Object.keys(fields).length) throw new ApiError(400, 'VALIDATION_FAILED', 'Please correct the highlighted answers.', fields);
     const quote = getQuote(answers, on);
     if (!quote || quote.age < MEMBERSHIP_PRICING.registrationMinimumAge) throw new ApiError(400, 'VALIDATION_FAILED', 'Membership applications are available from age 17.');
-    const requestHash = hash(JSON.stringify({ answers, mode: 'test', policy: '2026-10-22' }));
+    const requestHash = hash(JSON.stringify({ answers, mode: 'live', policy: '2026-10-22-live' }));
     // This fresh server check cannot be skipped by bypassing the form or by
     // changing a browser's previous eligibility result.
     let eligibility: MembershipEligibility;
@@ -160,25 +182,23 @@ export async function handleMembershipApplications(request: Request, deps: Membe
       eligibility = publicMembershipEligibility(await deps.checkIdentity({ kind: answers.kind as 'new' | 'renewal', firstName: answers.firstName, lastName: answers.lastName, email: answers.email, mobile: answers.mobile }));
     } catch {
       const saved = await deps.get(parsed.data.requestKey.toLowerCase());
-      if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(saved) }, { headers });
+      if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(await deliverSavedMembershipApplication(saved, deps)) }, { headers });
       throw new ApiError(503, 'MEMBERSHIP_CHECK_UNAVAILABLE', 'We could not check your current membership. Please try again later. No new application has been saved.');
     }
     if (eligibility.status !== 'allowed') {
       // Recover a previously confirmed save with its private receipt capability,
       // even if membership changed while an uncertain submission was retried.
       const saved = await deps.get(parsed.data.requestKey.toLowerCase());
-      if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(saved) }, { headers });
+      if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(await deliverSavedMembershipApplication(saved, deps)) }, { headers });
       return Response.json({ ok: false, error: { code: 'MEMBERSHIP_CHECK_BLOCKED', message: membershipEligibilityMessage(eligibility) }, eligibility }, { status: 409, headers });
     }
-    // The check runs before the fictional-email restriction, so active members
-    // get their membership information rather than a misleading test-form error.
-    if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@example\.invalid$/i.test(answers.email)) throw new ApiError(400, 'VALIDATION_FAILED', 'Please correct the highlighted answers.', { email: 'For this test, use an address such as member-test@example.invalid.' });
     const result = await deps.save({
-      id: parsed.data.requestKey.toLowerCase(), requestHash, capabilityHash: hash(parsed.data.receiptToken),
+      id: parsed.data.requestKey.toLowerCase(), mode: 'live', requestHash, capabilityHash: hash(parsed.data.receiptToken),
       answers, category: quote.category, feePence: quote.fee * 100,
       paymentStatus: quote.fee > 0 ? 'awaiting_payment' : 'not_required',
     });
-    return Response.json({ ok: true, application: membershipReceipt(result.application) }, { status: result.created ? 201 : 200, headers });
+    const delivered = await deliverSavedMembershipApplication(result.application, deps);
+    return Response.json({ ok: true, application: membershipReceipt(delivered) }, { status: result.created ? 201 : 200, headers });
   } catch (error) { return membershipFailure(error); }
 }
 

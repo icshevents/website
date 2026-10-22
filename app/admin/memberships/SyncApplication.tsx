@@ -22,6 +22,6 @@ export default function SyncApplication({ id, disabled, verifyOnly = false, inte
       router.refresh();
     } finally { setPending(false); }
   }
-  return <div><button type="button" className="button outline" disabled={disabled || pending} onClick={sync}>{pending ? 'Checking…' : interrupted ? 'Review interrupted Bigin check' : verifyOnly ? 'Verify saved Bigin contact' : 'Send test application to Bigin'}</button>{message ? <p role="status">{message}</p> : null}</div>;
+  return <div><button type="button" className="button outline" disabled={disabled || pending} onClick={sync}>{pending ? 'Checking…' : interrupted ? 'Review interrupted Bigin check' : verifyOnly ? 'Verify saved Bigin contact' : 'Retry Bigin delivery'}</button>{message ? <p role="status">{message}</p> : null}</div>;
 }
 

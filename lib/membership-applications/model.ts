@@ -10,6 +10,7 @@ export type MembershipApplicationPaymentStatus = 'awaiting_payment' | 'not_requi
 
 export type SaveMembershipApplicationInput = {
   id: string;
+  mode: 'test' | 'live';
   requestHash: string;
   capabilityHash: string;
   answers: MembershipAnswers;
@@ -24,8 +25,8 @@ export type MembershipApplication = SaveMembershipApplicationInput & {
   createdAt: string;
   updatedAt: string;
   currency: 'GBP';
-  mode: 'test';
-  testData: true;
+  mode: 'test' | 'live';
+  testData: boolean;
   applicationStatus: 'received';
   startDate: null;
   expiryDate: null;
