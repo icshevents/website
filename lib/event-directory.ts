@@ -3,12 +3,12 @@ import {eventDirectory} from './event-forms/directory.js';
 export const eventWorkspace='https://website-nine-beta-11.vercel.app';
 export type EventForm={label:string;url:string;kind:'participation'|'stall'|'tickets';feeFromPence?:number};
 export type DirectoryEvent={id:string;title:string;startsAt:string;endsAt:string;venue:string;description:string;forms:EventForm[]};
-export type Directory={available:boolean;mode:'test';events:DirectoryEvent[]};
+export type Directory={available:boolean;mode:'live';events:DirectoryEvent[]};
 const object=(v:unknown):v is Record<string,unknown>=>Boolean(v)&&typeof v==='object'&&!Array.isArray(v);
 const text=(v:unknown,max=6000):v is string=>typeof v==='string'&&v.length>0&&v.length<=max;
 const timestamp=(v:unknown):v is string=>text(v,40)&&Number.isFinite(Date.parse(v));
 export function parseEventDirectory(payload:unknown):DirectoryEvent[]{
- if(!object(payload)||payload.mode!=='test'||!Array.isArray(payload.events)||payload.events.length>100)throw new Error('Invalid event directory.');
+ if(!object(payload)||payload.mode!=='live'||!Array.isArray(payload.events)||payload.events.length>100)throw new Error('Invalid event directory.');
  return payload.events.map((entry):DirectoryEvent=>{
   if(!object(entry)||!text(entry.id,1000)||!text(entry.title,220)||!text(entry.venue,240)||!text(entry.description)||!timestamp(entry.startsAt)||!timestamp(entry.endsAt)||Date.parse(entry.endsAt)<Date.parse(entry.startsAt)||!Array.isArray(entry.forms)||entry.forms.length<1||entry.forms.length>24)throw new Error('Invalid public event.');
   const forms=entry.forms.map((form):EventForm=>{
@@ -28,8 +28,8 @@ export async function getEventDirectory():Promise<Directory>{
   if(result.error)throw new Error('Directory unavailable');
   const state={festivalConfig:null as unknown,stallForms:[] as unknown[],events:[] as unknown[]};
   for(const form of result.data){if(form.kind==='participation')state.festivalConfig=form.configuration;else if(form.kind==='stall')state.stallForms.push(form.configuration);else state.events.push(form.configuration);}
-  return {available:true,mode:'test',events:parseEventDirectory(eventDirectory(state))};
- }catch{return {available:false,mode:'test',events:[]};}
+  return {available:true,mode:'live',events:parseEventDirectory(eventDirectory(state))};
+ }catch{return {available:false,mode:'live',events:[]};}
 }
 export function londonDate(value:string){return new Intl.DateTimeFormat('en-GB',{dateStyle:'full',timeZone:'Europe/London'}).format(new Date(value));}
 export function londonTime(value:string){return new Intl.DateTimeFormat('en-GB',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'Europe/London'}).format(new Date(value));}
