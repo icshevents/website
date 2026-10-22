@@ -128,4 +128,7 @@ server-only Supabase rate limits enforce 15 searches per network address and 500
 globally per ten minutes. Only a keyed address hash and count are retained. No
 search details or CRM results are stored in browser storage or application records.
 This feature performs no Bigin writes, registration, payment or event eligibility
-changes. Existing OAuth credentials and stored date fields are reused.
+changes. The supplied approved OAuth grant is configured under separate server-only
+ZOHO_BIGIN_LOOKUP_* variables. Existing registration credentials stay unchanged.
+The lookup code permits only fixed Contact GET searches; it cannot update or
+delete records. Stored Bigin date fields are reused.

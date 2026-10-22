@@ -1,9 +1,20 @@
 import 'server-only';
+import { createZohoClient } from './client';
 
 export { getZohoConfiguration } from './client';
 export { checkBiginConnection } from './bigin';
 export { checkCampaignsConnection } from './campaigns';
 export { handleZohoCheck } from './check';
-export { searchBiginContactsByEmail, getBiginContact, createBiginContact, lookupBiginMembership } from './client';
+export { searchBiginContactsByEmail, getBiginContact, createBiginContact } from './client';
+// Separate lookup credentials preserve the existing registration connection.
+// A partial configuration fails closed; never mix two OAuth clients or grants.
+const memberLookupClient = createZohoClient({
+  ZOHO_BIGIN_ACCOUNTS_URL: process.env.ZOHO_BIGIN_LOOKUP_ACCOUNTS_URL,
+  ZOHO_BIGIN_API_DOMAIN: process.env.ZOHO_BIGIN_LOOKUP_API_DOMAIN,
+  ZOHO_BIGIN_CLIENT_ID: process.env.ZOHO_BIGIN_LOOKUP_CLIENT_ID,
+  ZOHO_BIGIN_CLIENT_SECRET: process.env.ZOHO_BIGIN_LOOKUP_CLIENT_SECRET,
+  ZOHO_BIGIN_REFRESH_TOKEN: process.env.ZOHO_BIGIN_LOOKUP_REFRESH_TOKEN,
+});
+export const lookupBiginMembership = memberLookupClient.lookupBiginMembership;
 export { syncTestMembershipApplication } from './membership-applications';
 export type { BiginMembershipApplication, BiginMembershipSyncOutcome } from './membership-applications';

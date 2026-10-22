@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { MemberSearchInputError, parseMemberSearch, type MemberSearchInput, type MemberSearchResult } from './member-search.ts';
+import { ZohoError } from './zoho/client.ts';
 
 export type MemberSearchDependencies = {
   secret: string;
@@ -42,6 +43,9 @@ export async function handleMemberSearch(request: Request, deps: MemberSearchDep
     return reply({ status: result.status });
   } catch (error) {
     if (error instanceof MemberSearchInputError) return reply({ error: error.message }, 400);
+    // Log only a fixed diagnostic code; never the search, URL, provider body,
+    // exception message or member data.
+    console.warn('Member search unavailable:', error instanceof ZohoError ? error.code : 'SEARCH_PROTECTION_UNAVAILABLE');
     return reply({ error: 'Member search is temporarily unavailable. Please try again later or contact ICSH.' }, 503);
   }
 }
