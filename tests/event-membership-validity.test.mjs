@@ -1,118 +1,107 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { members, verifyMembership, quoteRegistration, register, registrationSchema } from '../lib/event-forms/domain.js';
+import { quoteRegistration, register, registrationSchema, eventSchema } from '../lib/event-forms/domain.js';
+import { lookupEventAttendee, prepareEventMembershipChecks, EventMembershipError } from '../lib/event-forms/membership.ts';
+const on='2026-10-22';
+const event={id:'11111111-1111-4111-8111-111111111111',version:1,title:'Membership check test',status:'published',startsAt:'2028-11-01T12:00:00Z',capacity:12,questions:[],membershipCheckRequired:true,rates:{member:500,nonmember:1000,pensioner:400,student:0}};
+const member=(changes={})=>({id:'10001',fullName:'Alex Smith',email:'alex@example.invalid',mobile:'+447700900123',membershipStatus:'Active',paymentStatus:'Completed',membershipDate:'2026-01-19',membershipExpiry:'2027-01-19',Created_Time:'2020-01-01T12:00:00Z',Member_Year:'2020',...changes});
+const attendee=(changes={})=>({name:'Alex Smith',ticket:'member',membershipIdentity:{method:'email',value:'alex@example.invalid'},...changes});
+const lookup=records=>async()=>({records,hasMore:false});
+const input=(attendees=[attendee()])=>registrationSchema.parse({eventId:event.id,idempotencyKey:randomUUID(),contact:{name:'Fictional Group Contact',email:'group@example.invalid',phone:''},attendees,answers:{},consent:true,testData:true,website:''});
+function freezeDate(t,date=on+'T12:00:00Z'){t.mock.timers.enable({apis:['Date'],now:new Date(date)});}
 
-const event = {
-  id: '11111111-1111-4111-8111-111111111111', title: 'Synthetic membership test', status: 'published',
-  startsAt: '2028-11-01T12:00:00Z', capacity: 12, questions: [],
-  rates: { member: 500, nonmember: 1000, pensioner: 400, student: 0 },
-};
-function inputFor(membershipId = 'TEST-MEMBER-001') {
-  return {
-    eventId: event.id, idempotencyKey: randomUUID(),
-    contact: { name: 'Synthetic Tester', email: 'synthetic@example.test', phone: '' },
-    attendees: [{ name: 'Synthetic Member', ticket: 'member', membershipId }],
-    answers: {}, consent: true, testData: true, website: '',
-  };
-}
-const stateFor = () => ({ events: [event], registrations: [] });
-
-test('synthetic member checks expose provisional calendar dates without claiming a live lookup', () => {
-  for (const [id, startDate, expiryDate] of [
-    ['test-member-001', '2026-10-01', '2027-10-01'],
-    ['TEST-MEMBER-002', '2026-09-15', '2027-09-15'],
-  ]) {
-    assert.deepEqual(verifyMembership(id, '2026-10-22'), {
-      mode: 'test', verified: true,
-      validity: { status: 'current', startDate, expiryDate, source: 'bigin_created_time', provisional: true },
-      source: 'Synthetic fixture; live member lookup is not enabled',
-    });
-  }
+test('Bigin saved dates and status govern member eligibility at signup, even for a later event',async t=>{
+ freezeDate(t);
+ const data=input(),checks=await prepareEventMembershipChecks(event,data.attendees,lookup([member()]),on);
+ const quote=quoteRegistration(event,data,checks);
+ assert.equal(quote.attendees[0].membership.status,'active');
+ assert.equal(quote.attendees[0].membership.membershipDate,'2026-01-19');
+ assert.equal(quote.attendees[0].membership.membershipExpiry,'2027-01-19');
+ assert.equal(quote.total,500);assert.equal(quote.mode,'test');
+ const saved=register({events:[event],registrations:[]},data,'test-capability',checks);
+ assert.equal(saved.total,500);assert.equal(saved.paymentProvider,'simulated');
+ assert.doesNotMatch(JSON.stringify(saved.attendees),/alex@example|447700|membershipIdentity|10001|Created_Time|Member_Year/);
 });
 
-test('synthetic verification includes the start day and excludes the expiry anniversary', () => {
-  for (const [on, status, verified] of [
-    ['2026-09-30', 'not_started', false],
-    ['2026-10-01', 'current', true],
-    ['2027-09-30', 'current', true],
-    ['2027-10-01', 'expired', false],
-    ['2027-10-02', 'expired', false],
-  ]) {
-    const result = verifyMembership('TEST-MEMBER-001', on);
-    assert.equal(result.validity.status, status, on);
-    assert.equal(result.verified, verified, on);
-  }
+test('membership check off makes no provider calls and leaves the configured prices unchanged',async t=>{
+ freezeDate(t);let calls=0;const off={...event,membershipCheckRequired:false};
+ const data=input([{name:'Any Guest',ticket:'member'},{name:'Other Guest',ticket:'nonmember'}]);
+ assert.equal(await prepareEventMembershipChecks(off,data.attendees,async()=>{calls++;throw new Error('must not call');}),null);
+ const quote=quoteRegistration(off,data);assert.equal(calls,0);assert.equal(quote.total,1500);
+ assert.ok(quote.attendees.every(a=>a.membership===null));
 });
 
-test('expiry, inactive status, unpaid status and unresolved dates each prevent verification', () => {
-  assert.equal(members['TEST-EXPIRED-001'].active, true);
-  assert.equal(members['TEST-EXPIRED-001'].paid, true);
-  for (const [id, status] of [
-    ['TEST-EXPIRED-001', 'expired'],
-    ['TEST-INACTIVE-001', 'current'],
-    ['TEST-UNPAID-001', 'current'],
-    ['UNKNOWN-MEMBER', 'unresolved'],
-  ]) {
-    const result = verifyMembership(id, '2026-10-22');
-    assert.equal(result.validity.status, status, id);
-    assert.equal(result.verified, false, id);
-  }
-  const invalidReference = verifyMembership('TEST-MEMBER-001', '2026-02-30');
-  assert.equal(invalidReference.validity.status, 'unresolved');
-  assert.equal(invalidReference.verified, false);
+test('nonmember, pensioner and student tickets keep their existing rules without checking Bigin',async t=>{
+ freezeDate(t);let calls=0;const data=input(['nonmember','pensioner','student'].map(ticket=>({name:ticket+' guest',ticket})));
+ assert.equal(await prepareEventMembershipChecks(event,data.attendees,async()=>{calls++;}),null);
+ assert.equal(quoteRegistration(event,data).total,1400);assert.equal(calls,0);
 });
 
-test('quote and final registration use the same current membership result and unchanged event rates', t => {
-  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-22T12:00:00Z') });
-  const input = registrationSchema.parse({ ...inputFor(), attendees: [
-    ...inputFor().attendees,
-    { name: 'Synthetic Nonmember', ticket: 'nonmember' },
-    { name: 'Synthetic Pensioner', ticket: 'pensioner' },
-    { name: 'Synthetic Student', ticket: 'student' },
-  ] });
-  const quote = quoteRegistration(event, input);
-  assert.equal(quote.total, 1900);
-  assert.deepEqual(quote.attendees.map(a => a.unitAmount), [500, 1000, 400, 0]);
-  assert.deepEqual(quote.attendees[0].membership, verifyMembership('TEST-MEMBER-001', '2026-10-22'));
-  assert.ok(quote.attendees.slice(1).every(a => a.membership === null));
-  const state = stateFor();
-  const saved = register(state, input, 'synthetic-capability-hash');
-  assert.equal(saved.total, quote.total);
-  assert.deepEqual(saved.attendees, quote.attendees);
-  assert.equal(saved.mode, 'test');
-  assert.equal(saved.paymentProvider, 'simulated');
-  assert.equal(state.registrations.length, 1);
+test('mixed groups check each member ticket independently and do not reuse the group contact',async t=>{
+ freezeDate(t);const calls=[];const data=input([attendee(),{name:'Nonmember guest',ticket:'nonmember'},{name:'Student guest',ticket:'student'}]);
+ const checks=await prepareEventMembershipChecks(event,data.attendees,async q=>{calls.push(q);return {records:[member()],hasMore:false};},on);
+ assert.deepEqual(calls,[{method:'email',email:'alex@example.invalid'}]);
+ const quote=quoteRegistration(event,data,checks);assert.deepEqual(quote.attendees.map(a=>a.unitAmount),[500,1000,0]);
+ assert.equal(quote.attendees[0].membership.verified,true);assert.equal(quote.attendees[1].membership,null);
 });
 
-test('final registration rechecks a membership that expired after its quote at London midnight', t => {
-  t.mock.timers.enable({ apis: ['Date'], now: new Date('2027-09-30T22:30:00Z') });
-  const input = registrationSchema.parse(inputFor());
-  assert.equal(quoteRegistration(event, input).attendees[0].membership.verified, true);
-  t.mock.timers.setTime(new Date('2027-09-30T23:30:00Z').getTime());
-  const state = stateFor();
-  assert.throws(() => register(state, input, 'synthetic-capability-hash'), /active test membership ID/);
-  assert.equal(state.registrations.length, 0);
+test('duplicate full names are resolved by unique contact details; shared identifiers stay ambiguous',async t=>{
+ freezeDate(t);const second=member({id:'10002',email:'second@example.invalid',mobile:'+447700900124'});
+ const data=input([attendee(),attendee({membershipIdentity:{method:'email',value:'second@example.invalid'}})]);
+ const checks=await prepareEventMembershipChecks(event,data.attendees,lookup([member(),second]),on);
+ assert.equal(quoteRegistration(event,data,checks).total,1000);
+ const ambiguous=await lookupEventAttendee(attendee(),lookup([member(),member({id:'10002'})]),on);
+ assert.equal(ambiguous.result.status,'ambiguous');assert.equal(ambiguous.contactId,undefined);
 });
 
-test('submitted membership dates and status cannot override server fixtures at quote or registration', t => {
-  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-22T12:00:00Z') });
-  for (const membershipId of ['TEST-EXPIRED-001', 'TEST-INACTIVE-001', 'TEST-UNPAID-001', 'UNKNOWN-MEMBER']) {
-    const submitted = inputFor(membershipId);
-    submitted.on = '2025-09-01';
-    submitted.attendees[0] = {
-      ...submitted.attendees[0], active: true, paid: true,
-      Created_Time: '2026-10-01T12:00:00+01:00', correctedStartDate: '2026-10-01',
-      membership: { verified: true, validity: { status: 'current', expiryDate: '2099-01-01' } },
-    };
-    const parsed = registrationSchema.parse(submitted);
-    assert.ok(!('on' in parsed));
-    assert.deepEqual(Object.keys(parsed.attendees[0]).sort(), ['membershipId', 'name', 'ticket']);
-    for (const input of [submitted, parsed]) {
-      assert.throws(() => quoteRegistration(event, input), /active test membership ID/, membershipId);
-      const state = stateFor();
-      assert.throws(() => register(state, input, 'synthetic-capability-hash'), /active test membership ID/, membershipId);
-      assert.equal(state.registrations.length, 0);
-    }
-  }
+test('one Bigin contact cannot qualify two attendees for member tickets',async()=>{
+ await assert.rejects(()=>prepareEventMembershipChecks(event,[attendee(),attendee()],lookup([member()]),on),/different member/);
+});
+
+test('phone formats and name case normalize without accepting another attendee’s identity',async()=>{
+ const checked=await lookupEventAttendee(attendee({name:' ALEX   SMITH ',membershipIdentity:{method:'mobile',value:'07700 900123'}}),lookup([member()]),on);
+ assert.equal(checked.result.status,'active');
+ const mismatch=await lookupEventAttendee(attendee({name:'Other Person'}),lookup([member()]),on);
+ assert.deepEqual(mismatch.result,{status:'identity_mismatch',verified:false,checkedOn:on});
+});
+
+test('inactive, expired, future and undated memberships cannot qualify for member tickets',async()=>{
+ for(const [changes,reason] of [[{membershipExpiry:on},'expired'],[{membershipStatus:'Inactive'},'inactive'],[{paymentStatus:'Processing'},'inactive'],[{membershipDate:'2026-12-01'},'not_started'],[{membershipDate:null},'expired_undated'],[{membershipExpiry:''},'expired_undated']]){
+  const result=await lookupEventAttendee(attendee(),lookup([member(changes)]),on);assert.equal(result.result.status,'inactive');assert.equal(result.result.reason,reason);
+  await assert.rejects(()=>prepareEventMembershipChecks(event,[attendee()],lookup([member(changes)]),on),error=>error instanceof EventMembershipError&&error.status===409&&error.attendeeIndex===0);
+ }
+ const invalid=await lookupEventAttendee(attendee(),lookup([member({membershipExpiry:'2027-02-30'})]),on);assert.equal(invalid.result.status,'review_required');
+ assert.equal((await lookupEventAttendee(attendee(),lookup([member({membershipDate:on,paymentStatus:'Not required'})]),on)).result.status,'active');
+});
+
+test('not found, truncated results and connection errors never grant member pricing',async()=>{
+ assert.equal((await lookupEventAttendee(attendee(),lookup([]),on)).result.status,'not_found');
+ assert.equal((await lookupEventAttendee(attendee(),async()=>({records:[member()],hasMore:true}),on)).result.status,'ambiguous');
+ await assert.rejects(()=>lookupEventAttendee(attendee(),async()=>{throw new Error('private token and URL');},on),error=>error.status===503&&!error.message.includes('private'));
+});
+
+test('client flags, copied proof JSON and a synthetic test membership ID cannot authorize a member rate',async t=>{
+ freezeDate(t);const data=input([{name:'Alex Smith',ticket:'member',membershipId:'TEST-MEMBER-001',membership:{verified:true},active:true}]);
+ assert.equal('membership' in data.attendees[0],false);
+ assert.throws(()=>quoteRegistration(event,data,{verified:true}),/checked again/);
+ const checks=await prepareEventMembershipChecks(event,[attendee()],lookup([member()]),on);
+ assert.throws(()=>quoteRegistration(event,input(),JSON.parse(JSON.stringify(checks))),/checked again/);
+ await assert.rejects(()=>prepareEventMembershipChecks(event,data.attendees,lookup([member()]),on),/own email address or phone/);
+});
+
+test('proof cannot be reused for a different attendee, event version or calendar date',async t=>{
+ freezeDate(t);const data=input(),checks=await prepareEventMembershipChecks(event,data.attendees,lookup([member()]),on);
+ assert.throws(()=>quoteRegistration({...event,version:2},data,checks),/checked again/);
+ assert.throws(()=>quoteRegistration({...event,id:randomUUID()},data,checks),/checked again/);
+ assert.throws(()=>quoteRegistration(event,input([attendee({name:'Other Person'})]),checks),/checked again/);
+ t.mock.timers.setTime(new Date('2026-10-23T12:00:00Z').getTime());
+ assert.throws(()=>quoteRegistration(event,data,checks),/checked again/);
+});
+
+test('event settings default to no required check and only accept an explicit boolean',()=>{
+ const base={title:'Example event',slug:'example-event',description:'Example description',venue:'Test venue',startsAt:'2028-11-01T12:00:00Z',endsAt:'2028-11-01T15:00:00Z',capacity:12,status:'draft',rates:event.rates,questions:[]};
+ assert.equal(eventSchema.parse(base).membershipCheckRequired,false);
+ assert.equal(eventSchema.parse({...base,membershipCheckRequired:true}).membershipCheckRequired,true);
+ assert.throws(()=>eventSchema.parse({...base,membershipCheckRequired:'true'}));
 });
