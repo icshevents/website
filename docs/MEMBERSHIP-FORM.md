@@ -98,3 +98,34 @@ Missing or invalid dates return `unresolved`; a future start returns `not_starte
 The existing event test checker now uses fixed synthetic Contact creation dates and requires a current date window alongside its active/paid flags for the member ticket. It recalculates both when quoting and at final registration, including expiry between those operations. The test fixtures do not renew themselves automatically; their dates are explicit in `lib/event-forms/domain.js`. Other ticket category rules are unchanged.
 
 Focused automated tests cover corrected-date precedence, unresolved inputs, London date boundaries, leap years, anniversary expiry, verified-payment terms, and rejection of expired/inactive/unpaid synthetic member tickets. This implements the calculation and test flow only. Public live Bigin membership lookup, mapped membership date fields and payment processing remain disconnected. The separate pending test-contact route cannot update an existing Bigin record or expiry field and remains disabled until authorised.
+
+
+## Member Search Tool — 22 October 2026
+
+The renewal guidance now opens an inline lookup without leaving or submitting
+the application form. A standalone lookup is at /membership/search. It accepts
+exactly one alternative: first AND last name, OR email address, OR mobile number.
+The name fields may contain the same value. Searches are submitted only when the
+visitor presses Find my membership; there are no live suggestions or public lists.
+
+The server reads Bigin Contacts/search and checks exact normalised matches locally.
+Any duplicate name, email or phone returns an ambiguity response with no dates,
+identifiers or candidates; the visitor can switch method or contact ICSH. It never
+chooses the newest/first/active contact from a shared identity. A truncated provider
+response also fails closed. UK phone variants normalise to E.164, with explicit
+international country codes supported.
+
+For a single Active / payment Completed contact with valid saved dates, the public
+response contains only Membership_Date, Expiry_Date and the calendar-day
+difference to expiry, using today's Europe/London date. On or after expiry, the
+response contains only the expiry date and the UI says Membership was expired;
+no start date or day count is returned, including for inactive expired records. No Created_Time or Member_Year fallback is used.
+Missing dates or ineligible records direct the visitor to ICSH for review.
+
+The same-origin POST endpoint /api/membership/search rejects unknown/mixed fields
+and oversized requests. Private no-store headers prevent result caching. Existing
+server-only Supabase rate limits enforce 15 searches per network address and 500
+globally per ten minutes. Only a keyed address hash and count are retained. No
+search details or CRM results are stored in browser storage or application records.
+This feature performs no Bigin writes, registration, payment or event eligibility
+changes. Existing OAuth credentials and stored date fields are reused.

@@ -1,5 +1,7 @@
 // Import this module through lib/zoho/server.ts in the application. That entry
 // point enforces the server-only boundary; this pure module is injectable in tests.
+import { parseMemberSearch, projectMembershipSearch, type MemberSearchInput, type MemberSearchResult, type MembershipSearchRecord } from '../member-search.ts';
+
 export type ZohoService = 'bigin' | 'campaigns';
 export type ZohoQuery = Record<string, string | number>;
 export type ZohoEnvironment = Record<string, string | undefined>;
@@ -413,7 +415,32 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     }
   }
 
-  return { get, searchBiginContactsByEmail, getBiginContact, createBiginContact, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
+  async function lookupBiginMembership(value: MemberSearchInput, on?: string): Promise<MemberSearchResult> {
+    const input = parseMemberSearch(value);
+    const query = new URLSearchParams({ page: '1', per_page: '200' });
+    if (input.method === 'name') query.set('criteria', `(Full_Name:equals:${input.firstName} ${input.lastName})`);
+    else if (input.method === 'email') query.set('email', input.email);
+    else query.set('phone', input.mobile);
+    const response = await biginRecordGet('/bigin/v2/Contacts/search', query);
+    if (response.status === 204 && response.data === null) return { status: 'not_found' };
+    const body = response.data;
+    if (!object(body) || !Array.isArray(body.data) || body.data.length > 200 || !object(body.info) || typeof body.info.more_records !== 'boolean') throw new ZohoError('ZOHO_INVALID_RESPONSE');
+    const records: MembershipSearchRecord[] = body.data.map((item: unknown) => {
+      if (!object(item) || !contactId(item.id)) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+      const optionalText = (key: string): string | null => {
+        const v = item[key];
+        if (v === undefined || v === null) return null;
+        if (typeof v !== 'string' || v.length > 300 || /[\u0000-\u001f]/.test(v)) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+        return v;
+      };
+      return { id: item.id, fullName: optionalText('Full_Name'), email: optionalText('Email'), mobile: optionalText('Mobile'),
+        membershipStatus: optionalText('Membership_Status'), paymentStatus: optionalText('Payment_Status'),
+        membershipDate: optionalText('Membership_Date'), membershipExpiry: optionalText('Expiry_Date') };
+    });
+    return projectMembershipSearch(input, records, body.info.more_records, on);
+  }
+
+  return { get, searchBiginContactsByEmail, getBiginContact, createBiginContact, lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
 }
 
 const defaultClient = createZohoClient();
@@ -421,3 +448,4 @@ export const zohoGet = defaultClient.get;
 export const searchBiginContactsByEmail = defaultClient.searchBiginContactsByEmail;
 export const getBiginContact = defaultClient.getBiginContact;
 export const createBiginContact = defaultClient.createBiginContact;
+export const lookupBiginMembership = defaultClient.lookupBiginMembership;
