@@ -15,6 +15,8 @@ const ERRORS = {
   ZOHO_UNAVAILABLE: [502, 'Zoho could not be reached. Try again later.'],
   ZOHO_INVALID_RESPONSE: [502, 'Zoho returned an unexpected response.'],
   ZOHO_PROVIDER_REJECTED: [502, 'Zoho could not complete this read-only check.'],
+  ZOHO_MEMBERSHIP_WRITES_DISABLED: [503, 'Bigin membership application delivery has not been enabled.'],
+  ZOHO_WRITE_OUTCOME_UNKNOWN: [502, 'Bigin may have received this application. Organiser review is required before another delivery attempt.'],
 } as const;
 export type ZohoErrorCode = keyof typeof ERRORS;
 
@@ -27,6 +29,69 @@ export class ZohoError extends Error {
     this.code = code;
     this.status = ERRORS[code][0];
   }
+}
+
+/** A Contact POST was started, so callers must not retry creation automatically. */
+export class BiginContactCreateError extends ZohoError {
+  readonly outcome = 'unknown' as const;
+  constructor(code: ZohoErrorCode = 'ZOHO_WRITE_OUTCOME_UNKNOWN') {
+    super(code);
+    this.name = 'BiginContactCreateError';
+  }
+}
+
+// These are deliberately new values for controlled website test applications,
+// not inferred values from existing members. No activation/date fields are sent.
+export type BiginPendingContactCreate = {
+  First_Name: string;
+  Last_Name: string;
+  Email: string;
+  Mobile: string;
+  Membership_Status: 'Pending application';
+  Payment_Status: 'Awaiting payment' | 'Not required';
+  Email_Opt_Out: true;
+};
+export type BiginContactSearch = {
+  matches: Array<{ id: string; email: string }>;
+  hasMore: boolean;
+};
+export type BiginContact = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  mobile: string | null;
+  membershipStatus: string | null;
+  paymentStatus: string | null;
+  emailOptOut: boolean | null;
+};
+
+function contactId(value: unknown): value is string {
+  return typeof value === 'string' && /^[1-9]\d{0,29}$/.test(value);
+}
+
+function contactEmail(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length > 254 || /[\r\n\0]/.test(value)) return null;
+  const email = value.trim().toLowerCase();
+  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) ? email : null;
+}
+
+function pendingContactPayload(value: unknown): BiginPendingContactCreate {
+  const keys = ['First_Name', 'Last_Name', 'Email', 'Mobile', 'Membership_Status', 'Payment_Status', 'Email_Opt_Out'];
+  if (!object(value) || Object.keys(value).length !== keys.length ||
+    !keys.every(key => Object.prototype.hasOwnProperty.call(value, key))) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+  const safeName = (name: unknown): name is string => typeof name === 'string' && name.trim().length > 0 && name.trim().length <= 80 && !/[<>\u0000-\u001f]/.test(name);
+  const email = contactEmail(value.Email);
+  if (!safeName(value.First_Name) || !safeName(value.Last_Name) || !email || !email.endsWith('@example.invalid') ||
+    typeof value.Mobile !== 'string' || value.Mobile.length > 25 || !/^[\d() .+-]+$/.test(value.Mobile) ||
+    value.Mobile.replace(/\D/g, '').length < 7 || value.Mobile.replace(/\D/g, '').length > 15 ||
+    value.Membership_Status !== 'Pending application' || (value.Payment_Status !== 'Awaiting payment' && value.Payment_Status !== 'Not required') ||
+    value.Email_Opt_Out !== true) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+  // Copy before any await: callers cannot mutate the validated body in flight.
+  return {
+    First_Name: value.First_Name.trim(), Last_Name: value.Last_Name.trim(), Email: email, Mobile: value.Mobile.trim(),
+    Membership_Status: 'Pending application', Payment_Status: value.Payment_Status as BiginPendingContactCreate['Payment_Status'], Email_Opt_Out: true,
+  };
 }
 
 // Account and resource origins must belong to the same documented data center.
@@ -253,8 +318,106 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     }
   }
 
-  return { get, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
+  // Separate fixed Contact methods keep the metadata get() allowlist unchanged.
+  // No caller-controlled URL, fields selection, criteria, method or POST envelope.
+  async function biginRecordGet(path: string, query: URLSearchParams) {
+    const { status, configuration } = inspectConfiguration('bigin', env);
+    if (!configuration) throw new ZohoError(status.missing.length ? 'ZOHO_NOT_CONFIGURED' : 'ZOHO_CONFIGURATION_INVALID');
+    const state = stateFor('bigin', configuration);
+    const token = await accessToken(configuration, state);
+    const url = new URL(path, configuration.api);
+    url.search = query.toString();
+    try {
+      const response = await request(url, { method: 'GET', headers: { Accept: 'application/json', Authorization: `Zoho-oauthtoken ${token.value}` } });
+      if (hasProviderError(response.data)) throw providerError(response.status, response.data);
+      return response;
+    } catch (error) {
+      if (error instanceof ZohoError && ['ZOHO_AUTHENTICATION_FAILED', 'ZOHO_RATE_LIMITED'].includes(error.code)) {
+        state.token = undefined;
+        state.cooldownUntil = Date.now() + AUTH_COOLDOWN_MS;
+        state.cooldownCode = error.code;
+      }
+      throw error;
+    }
+  }
+
+  async function searchBiginContactsByEmail(value: string): Promise<BiginContactSearch> {
+    const email = contactEmail(value);
+    if (!email) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    const response = await biginRecordGet('/bigin/v2/Contacts/search', new URLSearchParams({ email, page: '1', per_page: '2' }));
+    if (response.status === 204 && response.data === null) return { matches: [], hasMore: false };
+    const data = response.data;
+    if (!object(data) || !Array.isArray(data.data) || data.data.length > 2 || !object(data.info) ||
+      typeof data.info.more_records !== 'boolean') throw new ZohoError('ZOHO_INVALID_RESPONSE');
+    const matches: BiginContactSearch['matches'] = [];
+    for (const record of data.data as unknown[]) {
+      if (!object(record) || !contactId(record.id)) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+      const returnedEmail = contactEmail(record.Email);
+      if (!returnedEmail) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+      // Provider search is not an identity assertion. Validate an exact match
+      // locally and leave any additional page for organiser review.
+      if (returnedEmail === email) matches.push({ id: record.id, email: returnedEmail });
+    }
+    return { matches, hasMore: data.info.more_records };
+  }
+
+  async function getBiginContact(id: string): Promise<BiginContact> {
+    if (!contactId(id)) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    const fields = 'First_Name,Last_Name,Email,Mobile,Membership_Status,Payment_Status,Email_Opt_Out';
+    const response = await biginRecordGet(`/bigin/v2/Contacts/${id}`, new URLSearchParams({ fields }));
+    const body = response.data;
+    if (!object(body) || !Array.isArray(body.data) || body.data.length !== 1 || !object(body.data[0])) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+    const record = body.data[0];
+    const email = contactEmail(record.Email);
+    if (record.id !== id || !email) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+    const optionalText = (value: unknown): string | null => {
+      if (value === undefined || value === null) return null;
+      if (typeof value !== 'string' || value.length > 300 || /[\u0000-\u001f]/.test(value)) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+      return value;
+    };
+    if (record.Email_Opt_Out !== undefined && record.Email_Opt_Out !== null && typeof record.Email_Opt_Out !== 'boolean') throw new ZohoError('ZOHO_INVALID_RESPONSE');
+    return {
+      id, email, firstName: optionalText(record.First_Name), lastName: optionalText(record.Last_Name), mobile: optionalText(record.Mobile),
+      membershipStatus: optionalText(record.Membership_Status), paymentStatus: optionalText(record.Payment_Status), emailOptOut: record.Email_Opt_Out ?? null,
+    };
+  }
+
+  async function createBiginContact(value: BiginPendingContactCreate): Promise<{ contactId: string }> {
+    if (env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED !== 'true') throw new ZohoError('ZOHO_MEMBERSHIP_WRITES_DISABLED');
+    const payload = pendingContactPayload(value);
+    const { status, configuration } = inspectConfiguration('bigin', env);
+    if (!configuration) throw new ZohoError(status.missing.length ? 'ZOHO_NOT_CONFIGURED' : 'ZOHO_CONFIGURATION_INVALID');
+    const state = stateFor('bigin', configuration);
+    // Failures before the Contact request are safe to report as not delivered.
+    const token = await accessToken(configuration, state);
+    try {
+      const response = await request(new URL('/bigin/v2/Contacts', configuration.api), {
+        method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Zoho-oauthtoken ${token.value}` },
+        body: JSON.stringify({ data: [payload], trigger: [] }),
+      });
+      if (hasProviderError(response.data)) throw providerError(response.status, response.data);
+      if (!object(response.data) || !Array.isArray(response.data.data) || response.data.data.length !== 1) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+      const record: unknown = response.data.data[0];
+      if (!object(record) || record.code !== 'SUCCESS' || record.status !== 'success') throw new ZohoError('ZOHO_PROVIDER_REJECTED');
+      if (!object(record.details) || !contactId(record.details.id)) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+      return { contactId: record.details.id };
+    } catch (error) {
+      // The POST has started. Even an explicit rejection stays conservatively
+      // non-retryable; a lease owner must record/reconcile this outcome first.
+      if (error instanceof ZohoError && ['ZOHO_AUTHENTICATION_FAILED', 'ZOHO_RATE_LIMITED'].includes(error.code)) {
+        state.token = undefined;
+        state.cooldownUntil = Date.now() + AUTH_COOLDOWN_MS;
+        state.cooldownCode = error.code;
+      }
+      throw new BiginContactCreateError(error instanceof ZohoError ? error.code : 'ZOHO_WRITE_OUTCOME_UNKNOWN');
+    }
+  }
+
+  return { get, searchBiginContactsByEmail, getBiginContact, createBiginContact, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
 }
 
 const defaultClient = createZohoClient();
 export const zohoGet = defaultClient.get;
+export const searchBiginContactsByEmail = defaultClient.searchBiginContactsByEmail;
+export const getBiginContact = defaultClient.getBiginContact;
+export const createBiginContact = defaultClient.createBiginContact;

@@ -2,11 +2,11 @@
 
 ## Current stage
 
-The existing website has an organiser-only connection page at `/admin/connections` and a protected `POST /api/zoho/check` route. The implementation verifies OAuth read access and discovers metadata. It does not subscribe contacts, enrol workflows, create or update CRM records, activate membership, change payments, or send email.
+The existing website has an organiser-only connection page at `/admin/connections` and a protected `POST /api/zoho/check` route. Those diagnostics remain read-only metadata checks. The new source also saves fictional membership applications privately on the website and adds a separate organiser-controlled Bigin create/readback route. Public form submission never invokes Bigin. Contact creation remains disabled pending its separate narrow authorisation and write flag; Stripe, activation, live event membership lookup, Campaigns enrolment and email delivery remain disabled.
 
 The website remains the existing Vercel project `website`, team `icsh`, with the existing `icsh-website-preview` branch. Its name is historical; it is the actual website under development. Do not create a separate website or change DNS for this connection work.
 
-**The approved read-only account authorisations are configured.** Separate Bigin and Campaigns refresh tokens are saved in the existing Vercel project's Production environment, using the confirmed EU data centre. Bigin's real OAuth refresh and metadata reads passed through the application adapter. Campaigns' real OAuth refresh and three metadata reads succeeded; its captured responses also passed through the application's client, parser and check handler after accommodating the account's nested field-definition response. The organiser page only says “Connection verified” after its own successful live check.
+**The earlier metadata authorisations are configured; membership contact creation is not yet authorised.** Separate Bigin and Campaigns refresh tokens were saved in the existing Vercel project's Production environment using the confirmed EU data centre. Bigin OAuth refresh and metadata reads passed through the application adapter. Campaigns OAuth refresh and metadata reads succeeded, including its nested field-definition response. These observations establish metadata access only. The organiser page says “Connection verified” after its own successful check; that label does not establish contact-search/create permissions or a completed membership integration.
 
 | Service | Confirmed account | Metadata discovered |
 | --- | --- | --- |
@@ -19,11 +19,19 @@ The Campaigns lists include **ICSH Members 2026**, **ICSH Membership Record Sear
 
 Use an ICSH account with permission to authorise the intended Bigin organisation and Campaigns workspace. Check the actual regional address shown by each service. The organisation's UK address and the operator's location do not determine the Zoho data centre.
 
-For Bigin, follow the official [Self Client overview](https://www.bigin.com/developer/docs/apis/v2/self-client-overview.html). In the [API Console](https://api-console.zoho.com/), create or select a Self Client, generate a short-lived code and select **Bigin** and the correct ICSH organisation. Request the minimum scopes used by this release:
+For Bigin, follow the official [Self Client overview](https://www.bigin.com/developer/docs/apis/v2/self-client-overview.html). In the [API Console](https://api-console.zoho.com/), create or select a Self Client, generate a short-lived code and select **Bigin** and the correct ICSH organisation. The existing metadata-only grant uses:
 
 ```text
 ZohoBigin.org.READ,ZohoBigin.settings.fields.READ
 ```
+
+For the separately authorised controlled membership test, retain those diagnostic scopes and add only Contacts READ/CREATE and secure-search READ:
+
+```text
+ZohoBigin.org.READ,ZohoBigin.settings.fields.READ,ZohoBigin.modules.contacts.READ,ZohoBigin.modules.contacts.CREATE,ZohoSearch.securesearch.READ
+```
+
+Do not request Contacts UPDATE, WRITE, ALL or broad module scopes for this flow. It never updates an existing contact. The current verified token must not be assumed to include the new scopes; obtain the new grant, save it securely and verify the intended account before enabling the organiser test action. `ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED` stays false until that setup is authorised and complete.
 
 Exchange that code once at the matching accounts server's `/oauth/v2/token` endpoint with a form-encoded POST containing `grant_type=authorization_code`, `client_id`, `client_secret` and `code`. Preserve the returned refresh token and `api_domain`. The code must be exchanged before its short validity window expires. A Bigin Self Client does not need a redirect URI.
 
@@ -46,6 +54,7 @@ Never put client secrets, access tokens, refresh tokens, authorization codes or 
 | `ZOHO_BIGIN_CLIENT_ID` | Bigin client ID |
 | `ZOHO_BIGIN_CLIENT_SECRET` | Bigin client secret |
 | `ZOHO_BIGIN_REFRESH_TOKEN` | Bigin organisation's refresh token |
+| `ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED` | Defaults false; exact `true` enables the separately authorised organiser test route |
 | `ZOHO_CAMPAIGNS_ACCOUNTS_URL` | Exact regional Campaigns OAuth origin |
 | `ZOHO_CAMPAIGNS_API_DOMAIN` | Exact regional Campaigns API origin |
 | `ZOHO_CAMPAIGNS_CLIENT_ID` | Campaigns client ID |
@@ -57,6 +66,8 @@ Store credential values as secrets. These are server-side variables: never prefi
 For example, **only for confirmed EU accounts**, the accounts origin is `https://accounts.zoho.eu`; Bigin's origin is `https://www.zohoapis.eu` and Campaigns' origin is `https://campaigns.zoho.eu`. Supply origins without an API path. The code checks an explicit regional allowlist and rejects mixed data centres or unexpected hosts before sending credentials.
 
 Apply settings to the Vercel environment serving the intended website. The current website URL is served by the project's Production deployment even though the website has not launched. Preview/Development variables do not configure that deployment. Scope any local or branch testing separately, and redeploy after changing settings.
+
+Website persistence uses the existing server-only `SUPABASE_SECRET_KEY` and the additive `database/membership-applications.sql` setup. It is independent of Zoho credentials: an application can be saved with Bigin authorisation pending. The write flag alone does not grant OAuth permission or prove successful provider delivery.
 
 ## 3. Run the protected checks
 
@@ -71,7 +82,24 @@ Bigin results are limited to organisation name/ID and field definitions. Campaig
 
 The website verifies the organiser's current identity and the existing `icsh_organisers` allowlist before inspecting configuration or contacting Zoho. Responses use `private, no-store`; arbitrary browser-supplied service URLs and credential values are rejected. OAuth access tokens are cached and refreshes are coalesced within a running server instance. This is appropriate for occasional organiser diagnostics; high-volume member lookups will require shared refresh coordination across instances before launch.
 
-## 4. Finish account-specific mappings before enabling forms
+## 4. Controlled membership test flow
+
+Only fictional details and an `@example.invalid` address are accepted. Explicit **Submit Test Application** performs the CSRF/session check, then posts to `/api/membership/applications`. The server validates the answers, calculates the category and fee, and commits a private test application before returning its reference. Payment is `awaiting_payment` or `not_required`; start and expiry remain null. Its first Bigin status is `awaiting_authorisation`. No public submission automatically contacts Zoho.
+
+Approved organisers review saved applications at `/admin/memberships`. After the new narrow grant and write flag are configured, the selected application's **Send test application to Bigin** action calls protected `POST /api/membership/admin/[id]/sync`:
+
+1. Claim that application's delivery in durable storage so simultaneous requests cannot create two contacts.
+2. Leave renewals for manual review. For a new application, search its fictional email; any match or incomplete result requires review and prevents creation.
+3. Create one pending contact using only `First_Name`, `Last_Name`, `Email`, `Mobile`, `Membership_Status=Pending application`, `Payment_Status=Awaiting payment` or `Not required`, and `Email_Opt_Out=true`. The request includes `trigger: []` and does not populate membership dates, member IDs or unmapped fields.
+4. Read the returned contact ID back and compare the supported fields before recording `synced`. The private organiser record retains the ID; the public receipt exposes only the delivery status.
+
+An uncertain creation outcome without a saved ID is held for manual reconciliation. It is not retried automatically. If an ID is known but readback fails, the next authorised action only verifies that contact and cannot create another one. Existing contacts are never updated; pending renewals cannot change their active status, payment, start or expiry.
+
+**Check Bigin delivery** on the applicant's confirmation reads the website receipt using its in-memory token. It neither sends the form again nor performs a provider lookup. Full answers and declarations remain in the website's private application record. Review existing external Bigin/Campaigns syncs before the controlled create test: `trigger: []` suppresses that operation's Bigin workflows but does not disable every external integration.
+
+The reviewed database setup was applied on 22 October 2026 and its database assertions passed with fixtures rolled back. Deployment/browser verification of the website save and the authorised provider create/readback remain separate outstanding steps.
+
+## 5. Account-specific decisions before live membership
 
 ### Confirmed date policy — 22 October 2026
 
@@ -84,7 +112,7 @@ Membership now follows a rolling twelve-calendar-month term instead of the old 3
 | New paid membership or paid renewal | Verified membership fee payment timestamp | `verified_payment`, confirmed |
 | Free membership | Confirmed activation | Existing activation rule; live processing remains disconnected |
 
-`lib/membership-validity.ts` implements the date calculation separately from membership status and pricing. The future server-side Bigin adapter must pass the actual Contact `Created_Time` to `resolveBiginMembershipValidity({ createdTime, correctedStartDate })`. The Bigin API field for `correctedStartDate` is not yet selected, so no guessed field name is used. A valid correction replaces the provisional date and recalculates expiry. Preserve the audit creation timestamp and store the corrected membership start separately.
+`lib/membership-validity.ts` implements the date calculation separately from membership status and pricing. A future live membership-status adapter must pass the actual Contact `Created_Time` to `resolveBiginMembershipValidity({ createdTime, correctedStartDate })`; the pending test-contact adapter does not activate terms. The Bigin API field for `correctedStartDate` is not yet selected, so no guessed field name is used. A valid correction replaces the provisional date and recalculates expiry. Preserve the audit creation timestamp and store the corrected membership start separately.
 
 For a new paid term, use `resolvePaidMembershipValidity(verifiedPaidAt)` with the successful fee-payment timestamp verified on the server. Neither a form submission, a webhook's arrival time, a pending payment, nor a browser-supplied timestamp can establish payment. A paid renewal starts from its confirmed payment date; it does not add a year to the old expiry.
 
@@ -97,10 +125,10 @@ The event test checker now enforces these date boundaries for its fixed syntheti
 - The verified Contacts schema already contains `Member_ID`, `Membership_Status`, `Payment_Status` and `Member_Year`, all as free-text fields, plus `Email` and the boolean `Email_Opt_Out`. Field metadata does not establish actual status values, email uniqueness, or how membership validity is calculated.
 - This Contacts schema does not contain dedicated membership-category, date-of-birth, membership-start, renewal or expiry-date fields. These may be stored in another module or related record. Under the owner’s 22 October decision, the individual Contact record’s `Created_Time` is an authorised provisional start-date fallback until accurate current-term dates are corrected. Do not infer dates from `Member_Year`, `Modified_Time`, or the creation date of the Zoho organisation.
 - Identify the actual fields/modules for email, date of birth, membership status, membership category, full-time-education eligibility, start date and expiry date. Do not create substitute fields until the current schema is reviewed.
-- Review the latest approved membership decision log. The repository contains dated 21 October changes to age thresholds that differ from earlier project notes; retain the existing website's rules while connecting, and resolve that discrepancy before applying CRM classification or rewriting existing records.
+- Retain the owner’s 21 October rules: joining and renewal forms accept ages 17 and above; free student eligibility is ages 17–21 inclusive in full-time education; ages 16 and below are free but cannot submit these forms. Earlier age-threshold notes are superseded. Do not infer existing CRM classifications from the test application.
 - Verify the visitor's identity before revealing existing member status or awarding a discount. An arbitrary-email lookup can expose personal membership information; an unauthenticated submission must not overwrite an existing member's contact.
 - Treat missing records, multiple matches and failed API requests as different outcomes. Shared household emails need explicit matching rules.
-- Add `ZohoBigin.modules.contacts.READ` and `ZohoSearch.securesearch.READ` when implementing contact search. Add only the write scopes actually required when implementing approved contact creation/updates.
+- The controlled test uses only the READ/CREATE/search scopes listed above. Live identity-based membership lookup and any future record updates require their own agreed implementation; no UPDATE, WRITE or ALL scope is requested here.
 - New paid memberships and renewals start from the verified membership fee payment date, with expiry twelve calendar months later. Form submission, a pending payment or a recently created Contact alone must not activate a paid membership.
 - For an approved isolated CRM test write, use `trigger: []` to suppress Bigin workflows for that operation; review other syncs separately because that flag does not disable every external integration.
 
@@ -109,12 +137,14 @@ The event test checker now enforces these date boundaries for its fixed syntheti
 - Select the intended list, topics and contact field mapping. Review existing Bigin syncs before enabling another path to avoid duplicates or conflicting updates.
 - Review marketing consent separately from required membership or event administration messages. Retain consent history and respect unsubscribe status; renewal alone must not resubscribe an opted-out contact.
 - Use an explicitly designated internal test recipient and dedicated list/topic for the first delivery test. Review confirmation emails, double opt-in and active list workflows first.
-- `POST /api/v1.1/json/listsubscribe` requires `ZohoCampaigns.contact.UPDATE` and can immediately send a confirmation email. There is no provider dry-run assumed by this implementation.
+- A future `POST /api/v1.1/json/listsubscribe` integration would require `ZohoCampaigns.contact.UPDATE` and can immediately send a confirmation email. That permission and operation remain outside this test flow; no provider dry-run is assumed.
 - Define the exact workflow for each website event (membership completed, renewal completed, event registration, cancellation). Inspect actual workflow keys and re-entry behavior before enabling API enrollment. Payment-dependent emails must wait for verified payment events.
 
 ## Verification and limitations
 
-Offline tests cover OAuth request construction, regional validation, token caching, redacted failures, metadata response parsing, access control and service dispatch. A production build verifies the server/client boundary. Real account authorisation and metadata discovery are complete for both services; the Campaigns regression fixture uses synthetic data and covers the observed `response.fieldnames.fieldname` wrapper. Anonymous production requests have been verified to require organiser sign-in. A signed-in check on the deployed organiser page remains separate from the successful provider/adapter verification. Membership classification, CRM writes, Campaigns subscriptions, workflow delivery and end-to-end signup tests are still pending.
+Offline tests cover OAuth construction, regional validation, redacted failures, metadata parsing, organiser access, pending test mapping, duplicate/renewal review, write gating, contact readback and uncertain creation outcomes. They use synthetic provider responses. The Campaigns fixture covers the observed `response.fieldnames.fieldname` wrapper. Run `pnpm test`, `pnpm typecheck` and `pnpm build` for the current source.
+
+Earlier real-account evidence established metadata access for both services and anonymous denial on protected diagnostics. It did not grant or verify membership contact creation. The reviewed database setup and rollback assertions passed on 22 October 2026. Deployment/browser verification and a separately authorised fictional provider create/readback with the write gate enabled remain outstanding. Live membership classification/lookup, existing-record updates, payments, Campaigns subscriptions and workflow delivery remain pending. No end-to-end membership delivery is claimed here.
 
 Useful primary references:
 
