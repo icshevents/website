@@ -38,7 +38,7 @@ test('a valid member booking saves only the public membership result and server-
 test('forms with membership checks disabled never contact Bigin or require attendee contact fields',async t=>{
  freezeDate(t);const f=fixture({...event,membershipCheckRequired:false});let calls=0;const read=async()=>{calls++;throw new Error('must not call');};
  assert.deepEqual((await call(f,'membership',{eventId:event.id},read)).body,{required:false,membership:null});
- const body=input();delete body.attendees[0].membershipIdentity;body.attendees[0].membershipId='';
+ const body=input();body.attendees[0].ticket='nonmember';delete body.attendees[0].membershipIdentity;body.attendees[0].membershipId='';
  assert.equal((await call(f,'quote',body,read)).status,200);assert.equal((await call(f,'registrations',body,read)).status,201);assert.equal(calls,0);
 });
 
@@ -65,6 +65,6 @@ test('public simulated ticket and stall payment endpoints are disabled even for 
 });
 
 test('live ticket bookings accept real email domains and cannot forge activation or payment success',async()=>{
- const f=fixture({...event,mode:'live',membershipCheckRequired:false}),body=input();body.contact.email='member@example.com';body.testData=false;body.status='simulated_paid';body.paymentProvider='stripe';
+ const f=fixture({...event,mode:'live',membershipCheckRequired:false}),body=input();body.contact.email='member@example.com';body.attendees[0].ticket='nonmember';body.testData=false;body.status='simulated_paid';body.paymentProvider='stripe';
  const r=await call(f,'registrations',body,async()=>{throw Error('must not query');});assert.equal(r.status,201);assert.equal(r.body.registration.mode,'live');assert.equal(r.body.registration.status,'pending');assert.equal(r.body.registration.paymentProvider,'not_connected');assert.match(r.body.registration.reference,/^EVT-/);
 });

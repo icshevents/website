@@ -13,6 +13,7 @@ export type MembershipSearchRecord = {
   id: string; fullName: string | null; email: string | null; mobile: string | null;
   membershipStatus: string | null; paymentStatus: string | null;
   membershipDate: string | null; membershipExpiry: string | null;
+  membershipType?: string | null;
 };
 export class MemberSearchInputError extends Error {}
 export const normaliseMemberName = (value: string) => value.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('en-GB');

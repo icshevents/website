@@ -25,24 +25,24 @@ test('Bigin saved dates and status govern member eligibility at signup, even for
 });
 
 test('membership check off makes no provider calls and leaves the configured prices unchanged',async t=>{
- freezeDate(t);let calls=0;const off={...event,membershipCheckRequired:false};
+ freezeDate(t);let calls=0;const off={...event,membershipCheckRequired:false,rates:{member:1000,nonmember:1000,pensioner:1000,student:1000}};
  const data=input([{name:'Any Guest',ticket:'member'},{name:'Other Guest',ticket:'nonmember'}]);
  assert.equal(await prepareEventMembershipChecks(off,data.attendees,async()=>{calls++;throw new Error('must not call');}),null);
- const quote=quoteRegistration(off,data);assert.equal(calls,0);assert.equal(quote.total,1500);
+ const quote=quoteRegistration(off,data);assert.equal(calls,0);assert.equal(quote.total,2000);
  assert.ok(quote.attendees.every(a=>a.membership===null));
 });
 
-test('nonmember, pensioner and student tickets keep their existing rules without checking Bigin',async t=>{
- freezeDate(t);let calls=0;const data=input(['nonmember','pensioner','student'].map(ticket=>({name:ticket+' guest',ticket})));
- assert.equal(await prepareEventMembershipChecks(event,data.attendees,async()=>{calls++;}),null);
- assert.equal(quoteRegistration(event,data).total,1400);assert.equal(calls,0);
+test('standard tickets need no lookup; legacy category tickets require the same paid-member verification',async t=>{
+ freezeDate(t);let calls=0;const standard=input([{name:'Standard guest',ticket:'nonmember'}]);
+ assert.equal(await prepareEventMembershipChecks(event,standard.attendees,async()=>{calls++;}),null);assert.equal(quoteRegistration(event,standard).total,1000);assert.equal(calls,0);
+ for(const ticket of ['pensioner','student']){const data=input([attendee({ticket})]);const checks=await prepareEventMembershipChecks(event,data.attendees,lookup([member()]),on);assert.equal(quoteRegistration(event,data,checks).total,500);}
 });
 
-test('mixed groups check each member ticket independently and do not reuse the group contact',async t=>{
- freezeDate(t);const calls=[];const data=input([attendee(),{name:'Nonmember guest',ticket:'nonmember'},{name:'Student guest',ticket:'student'}]);
- const checks=await prepareEventMembershipChecks(event,data.attendees,async q=>{calls.push(q);return {records:[member()],hasMore:false};},on);
- assert.deepEqual(calls,[{method:'email',email:'alex@example.invalid'}]);
- const quote=quoteRegistration(event,data,checks);assert.deepEqual(quote.attendees.map(a=>a.unitAmount),[500,1000,0]);
+test('mixed groups check each discounted attendee independently and do not reuse the group contact',async t=>{
+ freezeDate(t);const calls=[];const data=input([attendee(),{name:'Nonmember guest',ticket:'nonmember'},attendee({name:'Student Guest',ticket:'student',membershipIdentity:{method:'email',value:'student@example.invalid'}})]);
+ const checks=await prepareEventMembershipChecks(event,data.attendees,async q=>{calls.push(q);return {records:[q.email==='student@example.invalid'?member({id:'10002',fullName:'Student Guest',email:'student@example.invalid'}):member()],hasMore:false};},on);
+ assert.deepEqual(calls,[{method:'email',email:'alex@example.invalid'},{method:'email',email:'student@example.invalid'}]);
+ const quote=quoteRegistration(event,data,checks);assert.deepEqual(quote.attendees.map(a=>a.unitAmount),[500,1000,500]);
  assert.equal(quote.attendees[0].membership.verified,true);assert.equal(quote.attendees[1].membership,null);
 });
 
@@ -67,12 +67,12 @@ test('phone formats and name case normalize without accepting another attendeeâ€
 });
 
 test('inactive, expired, future and undated memberships cannot qualify for member tickets',async()=>{
- for(const [changes,reason] of [[{membershipExpiry:on},'expired'],[{membershipStatus:'Inactive'},'inactive'],[{paymentStatus:'Processing'},'inactive'],[{membershipDate:'2026-12-01'},'not_started'],[{membershipDate:null},'expired_undated'],[{membershipExpiry:''},'expired_undated']]){
+ for(const [changes,reason] of [[{membershipExpiry:on},'expired'],[{membershipStatus:'Inactive'},'inactive'],[{paymentStatus:'Processing'},'unpaid'],[{paymentStatus:'Not required'},'unpaid'],[{membershipDate:'2026-12-01'},'not_started'],[{membershipDate:null},'expired_undated'],[{membershipExpiry:''},'expired_undated']]){
   const result=await lookupEventAttendee(attendee(),lookup([member(changes)]),on);assert.equal(result.result.status,'inactive');assert.equal(result.result.reason,reason);
   await assert.rejects(()=>prepareEventMembershipChecks(event,[attendee()],lookup([member(changes)]),on),error=>error instanceof EventMembershipError&&error.status===409&&error.attendeeIndex===0);
  }
  const invalid=await lookupEventAttendee(attendee(),lookup([member({membershipExpiry:'2027-02-30'})]),on);assert.equal(invalid.result.status,'review_required');
- assert.equal((await lookupEventAttendee(attendee(),lookup([member({membershipDate:on,paymentStatus:'Not required'})]),on)).result.status,'active');
+ assert.equal((await lookupEventAttendee(attendee(),lookup([member({membershipDate:on,paymentStatus:'Not required'})]),on)).result.reason,'unpaid');
 });
 
 test('not found, truncated results and connection errors never grant member pricing',async()=>{

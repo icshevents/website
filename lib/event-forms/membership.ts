@@ -8,7 +8,7 @@ type Event = { id: string; version?: number; membershipCheckRequired?: boolean }
 type Lookup = (input: MemberSearchInput) => Promise<{ records: MembershipSearchRecord[]; hasMore: boolean }>;
 export type EventMemberResult =
   | { status: 'active'; verified: true; membershipDate: string; membershipExpiry: string; checkedOn: string }
-  | { status: 'inactive'; verified: false; reason: 'expired' | 'expired_undated' | 'inactive' | 'not_started'; membershipExpiry?: string; checkedOn: string }
+  | { status: 'inactive'; verified: false; reason: 'expired' | 'expired_undated' | 'inactive' | 'unpaid' | 'not_started'; membershipExpiry?: string; checkedOn: string }
   | { status: 'not_found' | 'ambiguous' | 'identity_mismatch' | 'review_required'; verified: false; checkedOn: string };
 export class EventMembershipError extends Error {
   readonly status: number;
@@ -56,7 +56,8 @@ export async function lookupEventAttendee(attendee: Attendee, lookup: Lookup, on
   if (!parseDate(start) || !parseDate(expiry) || start >= expiry) return { result: { status: 'review_required', verified: false, checkedOn: on } };
   if (expiry <= on) return { result: { status: 'inactive', verified: false, reason: 'expired', membershipExpiry: expiry, checkedOn: on } };
   if (start > on) return { result: { status: 'inactive', verified: false, reason: 'not_started', checkedOn: on } };
-  if (member.membershipStatus?.trim().toLowerCase() !== 'active' || !['completed', 'not required'].includes(member.paymentStatus?.trim().toLowerCase() ?? '')) return { result: { status: 'inactive', verified: false, reason: 'inactive', checkedOn: on } };
+  if (member.membershipStatus?.trim().toLowerCase() !== 'active') return { result: { status: 'inactive', verified: false, reason: 'inactive', checkedOn: on } };
+  if (member.paymentStatus?.trim().toLowerCase() !== 'completed') return { result: { status: 'inactive', verified: false, reason: 'unpaid', checkedOn: on } };
   return { contactId: member.id, result: { status: 'active', verified: true, membershipDate: start, membershipExpiry: expiry, checkedOn: on } };
 }
 
@@ -66,7 +67,7 @@ type Proof = { eventId: string; eventVersion: number; checkedOn: string; entries
 const proofs = new WeakMap<object, Proof>();
 export async function prepareEventMembershipChecks(event: Event, attendees: Attendee[], lookup: Lookup, on = londonDate()): Promise<object | null> {
   if (event.membershipCheckRequired !== true) return null;
-  const needed = attendees.map((attendee, index) => ({ attendee, index })).filter(item => item.attendee.ticket === 'member');
+  const needed = attendees.map((attendee, index) => ({ attendee, index })).filter(item => item.attendee.ticket !== 'nonmember');
   if (!needed.length) return null;
   const entries: Proof['entries'] = new Map();
   const contacts = new Set<string>();
@@ -86,15 +87,15 @@ export async function prepareEventMembershipChecks(event: Event, attendees: Atte
   return proof;
 }
 export function verifiedEventAttendee(event: Event, attendee: Attendee, index: number, proof: object | null | undefined, on = londonDate()): EventMemberResult | null {
-  if (event.membershipCheckRequired !== true || attendee.ticket !== 'member') return null;
+  if (event.membershipCheckRequired !== true || attendee.ticket === 'nonmember') return null;
   const checked = proof && proofs.get(proof), entry = checked && checked.entries.get(index);
   if (!checked || !entry || checked.eventId !== event.id || checked.eventVersion !== (event.version ?? 0) || checked.checkedOn !== on || entry.key !== attendeeIdentity(attendee).key) throw new EventMembershipError('Membership needs to be checked again before confirming these tickets. Review the registration again.', 409);
   return { ...entry.result };
 }
 export function eventMembershipMessage(result: EventMemberResult): string {
   switch (result.status) {
-    case 'active': return 'Active membership confirmed. This attendee qualifies for the member ticket rate.';
-    case 'inactive': return result.reason === 'expired' ? `Membership expired on ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(result.membershipExpiry + 'T12:00:00Z'))}. Choose an available nonmember ticket, or renew membership before booking a member ticket.` : 'Membership is not currently active. Choose an available nonmember ticket, or renew membership before booking a member ticket.';
+    case 'active': return 'Active membership confirmed. This attendee qualifies for the active paid member ticket rate.';
+    case 'inactive': return result.reason === 'unpaid' ? 'Event discounts require an active membership with completed membership payment. Choose the standard event rate.' : result.reason === 'expired' ? `Membership expired on ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(result.membershipExpiry + 'T12:00:00Z'))}. Choose an available nonmember ticket, or renew membership before booking a member ticket.` : 'The active paid member discount could not be confirmed. Choose a standard ticket or contact ICSH.';
     case 'not_found': return 'No membership record was found under these details. Check this attendee’s details or choose an available nonmember ticket.';
     case 'ambiguous': return 'These contact details match more than one record. Use this attendee’s other contact detail, or contact ICSH.';
     case 'identity_mismatch': return 'The full name does not match the membership record for these contact details. Check this attendee’s own details.';
