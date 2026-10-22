@@ -95,7 +95,7 @@ export default function MembershipInvitation({months}:{months:number}) {
               <strong>{title}</strong>
             </div>)}
           </div>
-          <p className="invite-availability">£20 standard · £15 age 65+ · FREE for full-time students aged 17–21 inclusive and for minors aged 16 and below. The joining and renewal form accepts applicants aged 17 and above only. Each category lasts {months} months from activation or renewal. Event dates and separate charges may vary.</p>
+          <p className="invite-availability">£20 standard · £15 age 65+ · FREE for full-time students aged 17–21 inclusive and for minors aged 16 and below. The joining and renewal form accepts applicants aged 17 and above only. Membership lasts {months} months from confirmed fee payment, or confirmed activation for free membership. Event dates and separate charges may vary.</p>
           <form onSubmit={event => {
             event.preventDefault();
             closeInvitation();

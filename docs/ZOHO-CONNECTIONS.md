@@ -73,16 +73,35 @@ The website verifies the organiser's current identity and the existing `icsh_org
 
 ## 4. Finish account-specific mappings before enabling forms
 
+### Confirmed date policy — 22 October 2026
+
+Membership now follows a rolling twelve-calendar-month term instead of the old 31 December expiry. The owner has authorised each member Contact's creation date as a temporary start until accurate current-term membership dates are corrected.
+
+| Situation | Start source | Calculation provenance |
+| --- | --- | --- |
+| Existing Bigin member without a corrected start | Individual Contact `Created_Time` | `bigin_created_time`, provisional |
+| Existing member with an accurate current-term start | Corrected membership-start date | `corrected_start_date`, confirmed |
+| New paid membership or paid renewal | Verified membership fee payment timestamp | `verified_payment`, confirmed |
+| Free membership | Confirmed activation | Existing activation rule; live processing remains disconnected |
+
+`lib/membership-validity.ts` implements the date calculation separately from membership status and pricing. The future server-side Bigin adapter must pass the actual Contact `Created_Time` to `resolveBiginMembershipValidity({ createdTime, correctedStartDate })`. The Bigin API field for `correctedStartDate` is not yet selected, so no guessed field name is used. A valid correction replaces the provisional date and recalculates expiry. Preserve the audit creation timestamp and store the corrected membership start separately.
+
+For a new paid term, use `resolvePaidMembershipValidity(verifiedPaidAt)` with the successful fee-payment timestamp verified on the server. Neither a form submission, a webhook's arrival time, a pending payment, nor a browser-supplied timestamp can establish payment. A paid renewal starts from its confirmed payment date; it does not add a year to the old expiry.
+
+Full timestamps are converted to `Europe/London` calendar dates before calculation. The start is inclusive and the anniversary expiry is exclusive: 22 October 2026 → 22 October 2027, valid through 21 October 2027. A 29 February start uses 28 February in the following year. Missing/invalid input remains unresolved, future starts are not yet active, and old terms remain expired. Date validity must still be combined with verified identity, the approved membership/payment status mapping and the appropriate category.
+
+The event test checker now enforces these date boundaries for its fixed synthetic member records at quotation and final registration. The existing OAuth grants remain metadata-only: live Contacts lookup and any Bigin expiry-field writes are separate integration steps. No records have been recalculated in Bigin, no fields have been created, and no bulk update is part of this change.
+
 ### Bigin membership checks and registration
 
 - The verified Contacts schema already contains `Member_ID`, `Membership_Status`, `Payment_Status` and `Member_Year`, all as free-text fields, plus `Email` and the boolean `Email_Opt_Out`. Field metadata does not establish actual status values, email uniqueness, or how membership validity is calculated.
-- This Contacts schema does not contain dedicated membership-category, date-of-birth, membership-start, renewal or expiry-date fields. These may be stored in another module or related record. Do not infer rolling validity from `Member_Year` or repurpose record-created/modified timestamps as membership dates.
+- This Contacts schema does not contain dedicated membership-category, date-of-birth, membership-start, renewal or expiry-date fields. These may be stored in another module or related record. Under the owner’s 22 October decision, the individual Contact record’s `Created_Time` is an authorised provisional start-date fallback until accurate current-term dates are corrected. Do not infer dates from `Member_Year`, `Modified_Time`, or the creation date of the Zoho organisation.
 - Identify the actual fields/modules for email, date of birth, membership status, membership category, full-time-education eligibility, start date and expiry date. Do not create substitute fields until the current schema is reviewed.
 - Review the latest approved membership decision log. The repository contains dated 21 October changes to age thresholds that differ from earlier project notes; retain the existing website's rules while connecting, and resolve that discrepancy before applying CRM classification or rewriting existing records.
 - Verify the visitor's identity before revealing existing member status or awarding a discount. An arbitrary-email lookup can expose personal membership information; an unauthenticated submission must not overwrite an existing member's contact.
 - Treat missing records, multiple matches and failed API requests as different outcomes. Shared household emails need explicit matching rules.
 - Add `ZohoBigin.modules.contacts.READ` and `ZohoSearch.securesearch.READ` when implementing contact search. Add only the write scopes actually required when implementing approved contact creation/updates.
-- Keep membership activation and 12-month validity dependent on the approved membership/payment process. Form submission alone must not activate a paid membership.
+- New paid memberships and renewals start from the verified membership fee payment date, with expiry twelve calendar months later. Form submission, a pending payment or a recently created Contact alone must not activate a paid membership.
 - For an approved isolated CRM test write, use `trigger: []` to suppress Bigin workflows for that operation; review other syncs separately because that flag does not disable every external integration.
 
 ### Campaigns signups and event communications
