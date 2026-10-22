@@ -15,7 +15,7 @@ export default async function Events(){
  return <>
   <PageHero label="ICSH · Events & community" title="Our Events" description="Find your next gathering, support a good cause and discover ways to get involved with ICSH."/>
   <section className="section white our-events-section"><div className="wrap">
-   <div className="section-head our-events-heading"><div><div className="eyebrow">Coming together</div><h2>What’s on at ICSH</h2></div><Link className="button outline" href="/admin">Organiser sign in <Arrow/></Link></div>
+   <div className="section-head our-events-heading" style={{justifyContent:'flex-end'}}><Link className="button outline" href="/admin">Organiser sign in <Arrow/></Link></div>
    {upcomingForms.length>0&&<div className="notice"><strong>Registration is open.</strong>Online payments are not yet available. Paid bookings and monetary donation pledges remain unpaid.</div>}
    {!directory.available&&<div className="notice"><strong>The latest event forms are temporarily unavailable here.</strong><p>Please try again shortly or contact the ICSH committee.</p><Link className="text-link" href="/contact">Contact ICSH <Arrow/></Link></div>}
    {directory.available&&upcomingForms.length===0&&upcoming.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>Follow ICSH or contact the committee for news of the next event. We’ll publish dates and booking details here.</div>}
