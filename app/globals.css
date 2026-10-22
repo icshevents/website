@@ -70,3 +70,5 @@ body{background:var(--ivory)}.brand img{width:64px;height:64px;border-radius:5px
 .about-photo-visit{filter:brightness(1.1) contrast(.98) saturate(.96)}
 .about-photo-coast{filter:brightness(1.06) contrast(1.02) saturate(1.015)}
 .about-photo-bus{filter:brightness(1.025) contrast(1.035) saturate(1.015)}
+
+.membership-check-result{margin:24px 0;padding:22px;border:1px solid #b2c7bc;border-radius:12px;background:#f2f7f3;scroll-margin-top:110px}.membership-check-result:focus{outline:3px solid #315943;outline-offset:3px}.membership-check-result>strong{font-size:1.15rem;color:#244b38}.membership-check-result p{margin:10px 0}.membership-check-result dl{display:grid;gap:12px;margin:18px 0}.membership-check-result dt{font-size:.85rem;color:#526458}.membership-check-result dd{margin:3px 0 0;font-weight:600}.membership-check-result .button{margin:10px 0}

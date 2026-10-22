@@ -2,6 +2,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto
 import { z } from 'zod';
 import { signedPublicSession } from '../event-forms/security.js';
 import { londonDate } from '../membership.ts';
+import { publicMembershipEligibility, membershipEligibilityMessage, type MembershipIdentity, type MembershipEligibility } from '../membership-eligibility.ts';
 import { MEMBERSHIP_PRICING } from '../membership-pricing.ts';
 import { getQuote, validateApplication, type MembershipAnswers } from '../membership-validation.ts';
 import type { MembershipApplication, MembershipBiginSyncOutcome, SaveMembershipApplicationInput } from './model.ts';
@@ -9,6 +10,7 @@ import type { MembershipApplication, MembershipBiginSyncOutcome, SaveMembershipA
 export type MembershipApiDependencies = {
   secret: string;
   available: () => Promise<boolean>;
+  checkIdentity: (identity: MembershipIdentity) => Promise<MembershipEligibility>;
   rateLimit: (key: string, maximum: number) => Promise<boolean>;
   save: (input: SaveMembershipApplicationInput) => Promise<{ application: MembershipApplication; created: boolean }>;
   get: (id: string) => Promise<MembershipApplication | null>;
@@ -58,6 +60,9 @@ export function membershipFailure(error: unknown, operation: 'submission' | 'del
   }
   if (error && typeof error === 'object' && 'code' in error && error.code === 'MEMBERSHIP_SYNC_CONFLICT') {
     return Response.json({ ok: false, error: { code: 'MEMBERSHIP_SYNC_CONFLICT', message: 'The Bigin check changed elsewhere. The application remains saved. Reload its status before continuing; do not resubmit the application.' } }, { status: 409, headers });
+  }
+  if (error && typeof error === 'object' && 'code' in error && ['MEMBERSHIP_EMAIL_IN_USE', 'MEMBERSHIP_PHONE_IN_USE'].includes(String(error.code))) {
+    return Response.json({ ok: false, error: { code: error.code, message: 'An application already uses this email address or phone number. Please contact ICSH about the saved application instead of submitting another.' } }, { status: 409, headers });
   }
   if (operation === 'delivery') return Response.json({ ok: false, error: { code: 'MEMBERSHIP_DELIVERY_UNAVAILABLE', message: 'Bigin delivery could not be confirmed. The application remains saved on the website. Reload its status before trying again.' } }, { status: 503, headers });
   return Response.json({ ok: false, error: { code: 'MEMBERSHIP_UNAVAILABLE', message: 'We could not confirm that your application was saved. Your answers remain in this form. Please retry using the same form.' } }, { status: 503, headers });
@@ -144,12 +149,30 @@ export async function handleMembershipApplications(request: Request, deps: Membe
     };
     const on = (deps.today ?? londonDate)();
     const fields = validateApplication(answers, on);
-    // A reserved, non-deliverable address prevents a controlled CRM test from reaching a real inbox.
-    if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@example\.invalid$/i.test(answers.email)) fields.email = 'For this test, use an address such as member-test@example.invalid.';
     if (Object.keys(fields).length) throw new ApiError(400, 'VALIDATION_FAILED', 'Please correct the highlighted answers.', fields);
     const quote = getQuote(answers, on);
     if (!quote || quote.age < MEMBERSHIP_PRICING.registrationMinimumAge) throw new ApiError(400, 'VALIDATION_FAILED', 'Membership applications are available from age 17.');
     const requestHash = hash(JSON.stringify({ answers, mode: 'test', policy: '2026-10-22' }));
+    // This fresh server check cannot be skipped by bypassing the form or by
+    // changing a browser's previous eligibility result.
+    let eligibility: MembershipEligibility;
+    try {
+      eligibility = publicMembershipEligibility(await deps.checkIdentity({ kind: answers.kind as 'new' | 'renewal', firstName: answers.firstName, lastName: answers.lastName, email: answers.email, mobile: answers.mobile }));
+    } catch {
+      const saved = await deps.get(parsed.data.requestKey.toLowerCase());
+      if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(saved) }, { headers });
+      throw new ApiError(503, 'MEMBERSHIP_CHECK_UNAVAILABLE', 'We could not check your current membership. Please try again later. No new application has been saved.');
+    }
+    if (eligibility.status !== 'allowed') {
+      // Recover a previously confirmed save with its private receipt capability,
+      // even if membership changed while an uncertain submission was retried.
+      const saved = await deps.get(parsed.data.requestKey.toLowerCase());
+      if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(saved) }, { headers });
+      return Response.json({ ok: false, error: { code: 'MEMBERSHIP_CHECK_BLOCKED', message: membershipEligibilityMessage(eligibility) }, eligibility }, { status: 409, headers });
+    }
+    // The check runs before the fictional-email restriction, so active members
+    // get their membership information rather than a misleading test-form error.
+    if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@example\.invalid$/i.test(answers.email)) throw new ApiError(400, 'VALIDATION_FAILED', 'Please correct the highlighted answers.', { email: 'For this test, use an address such as member-test@example.invalid.' });
     const result = await deps.save({
       id: parsed.data.requestKey.toLowerCase(), requestHash, capabilityHash: hash(parsed.data.receiptToken),
       answers, category: quote.category, feePence: quote.fee * 100,

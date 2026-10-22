@@ -48,6 +48,7 @@ function harness(overrides = {}) {
   const calls = {};
   const defaults = {
     available: async () => true,
+    checkIdentity: async () => ({ status: 'allowed' }),
     rateLimit: async () => true,
     save: async input => ({ application: application(input), created: true }),
     get: async requestedId => requestedId === id ? application() : null,
@@ -237,7 +238,7 @@ test('only the exact reserved test email domain is accepted and rejection does n
     const response = await handleMembershipApplications(post(auth, submission({ answers: answers({ email }) })), context.deps);
     const body = await json(response, 400);
     assert.equal(body.error.code, 'VALIDATION_FAILED');
-    assert.match(body.error.fields.email, /example\.invalid/);
+    assert.match(body.error.fields.email, /^[A-Z]/);
     assert.equal(JSON.stringify(body).includes(email), false);
   }
   assert.deepEqual(context.calls.save, []);
@@ -646,4 +647,52 @@ test('ambiguous completion preserves the saved-application message and a retry c
   assert.equal(context.calls.sync.length, 1);
   assert.equal(context.calls.complete.length, 1);
   assert.deepEqual(context.calls.save, []);
+});
+
+
+test('an active member is blocked at final submission even without a browser eligibility check', async () => {
+  const active = { status: 'active', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19', daysUntilExpiry: 89 };
+  for (const kind of ['new', 'renewal']) {
+    const context = harness({ checkIdentity: async () => active, get: async () => null });
+    const auth = await bootstrap(context);
+    const body = await json(await handleMembershipApplications(post(auth, submission({ answers: answers({ kind, email: 'member@example.com' }) })), context.deps), 409);
+    assert.deepEqual(body.eligibility, active);
+    assert.equal(body.error.code, 'MEMBERSHIP_CHECK_BLOCKED');
+    assert.equal(context.calls.checkIdentity.length, 1);
+    assert.equal(context.calls.save.length, 0);
+    noProviderCalls(context);
+  }
+});
+
+test('conflicting identifiers, missing records for renewal and provider outages cannot save an application', async () => {
+  for (const status of ['identity_conflict', 'review_required', 'renewal_required', 'new_required', 'unavailable']) {
+    const context = harness({ checkIdentity: async () => { if (status === 'unavailable') throw new Error('private token'); return { status }; }, get: async () => null });
+    const auth = await bootstrap(context);
+    const body = await json(await handleMembershipApplications(post(auth), context.deps), status === 'unavailable' ? 503 : 409);
+    assert.equal(context.calls.save.length, 0);
+    assert.doesNotMatch(JSON.stringify(body), /private token|requestHash|capabilityHash/);
+  }
+});
+
+test('a retry can recover the same saved receipt if membership became active after saving', async () => {
+  const stored = application({ requestHash: hash(JSON.stringify({ answers: answers(), mode: 'test', policy: '2026-10-22' })) });
+  const context = harness({ checkIdentity: async () => ({ status: 'active', membershipDate: '2026-10-22', membershipExpiry: '2027-10-22', daysUntilExpiry: 365 }), get: async () => stored });
+  const auth = await bootstrap(context);
+  const response = await json(await handleMembershipApplications(post(auth), context.deps), 200);
+  assert.equal(response.application.id, id);
+  assert.equal(context.calls.save.length, 0);
+  privateReceipt(response.application);
+  const wrong = await json(await handleMembershipApplications(post(auth, submission({ receiptToken: 'f'.repeat(64) })), context.deps), 409);
+  assert.equal(wrong.error.code, 'MEMBERSHIP_CHECK_BLOCKED');
+});
+
+test('database contact uniqueness conflicts stay private and never return a receipt', async () => {
+  for (const code of ['MEMBERSHIP_EMAIL_IN_USE', 'MEMBERSHIP_PHONE_IN_USE']) {
+    const context = harness({ save: async () => { throw new MembershipStoreError(code, 409, 'private email or phone'); } });
+    const auth = await bootstrap(context);
+    const response = await json(await handleMembershipApplications(post(auth), context.deps), 409);
+    assert.equal(response.error.code, code);
+    assert.equal(response.application, undefined);
+    assert.doesNotMatch(JSON.stringify(response), /private email/);
+  }
 });

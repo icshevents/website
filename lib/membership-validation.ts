@@ -1,3 +1,4 @@
+import {membershipMobileKey} from './membership-eligibility.ts';
 import {MEMBERSHIP_PRICING} from './membership-pricing.ts';
 import {britishToIso,quoteMembership,isStudentAge,MINOR_MEMBERSHIP_NOTICE,type Education,type MembershipQuote} from './membership.ts';
 export type MembershipAnswers={kind:''|'new'|'renewal';firstName:string;lastName:string;dob:string;mobile:string;email:string;education:Education;studentDeclaration:boolean;terms:boolean;accuracy:boolean};
@@ -14,7 +15,7 @@ export function validateStep(values:MembershipAnswers,step:number,on:string):Fie
   for(const key of ['firstName','lastName'] as const)if(!values[key].trim()||values[key].trim().length>80||/[<>\u0000-\u001f]/.test(values[key]))errors[key]=`Enter your ${key==='firstName'?'first':'last'} name (up to 80 characters).`;
   if(!britishToIso(values.dob))errors.dob='Enter a real date in DD/MM/YYYY format.';else if(!quote)errors.dob='Your date of birth must be from 1900 through today; future dates are not allowed.';else if(registrationAgeError(quote))errors.dob=registrationAgeError(quote);
   if(!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(values.email.trim())||values.email.length>254)errors.email='Enter a valid email address.';
-  if(!/^[\d() .+-]+$/.test(values.mobile)||values.mobile.replace(/\D/g,'').length<7||values.mobile.replace(/\D/g,'').length>15)errors.mobile='Enter a valid mobile number with 7–15 digits.';
+  if(!membershipMobileKey(values.mobile))errors.mobile='Enter a valid mobile number, including its country code if outside the UK.';
  }
  if(step===2){
   if(!quote)errors.dob='Enter a valid date of birth in Personal details first.';

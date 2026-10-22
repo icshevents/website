@@ -91,7 +91,7 @@ test('free applications preserve payment-not-required without membership activat
 });
 
 test('database errors are classified without exposing provider text or personal data', async () => {
-  for (const [code, status] of [['23505', 409], ['40001', 409], ['22023', 400], ['42501', 503], ['42P01', 503]]) {
+  for (const [code, status] of [['P2001', 409], ['P2002', 409], ['23505', 409], ['40001', 409], ['22023', 400], ['42501', 503], ['42P01', 503]]) {
     const { db } = database(null, { code, message: 'secret-token private@example.invalid' });
     await assert.rejects(() => saveMembershipApplication(input(), db), error => {
       assert.equal(error.status, status);

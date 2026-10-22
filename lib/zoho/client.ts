@@ -1,5 +1,6 @@
 // Import this module through lib/zoho/server.ts in the application. That entry
 // point enforces the server-only boundary; this pure module is injectable in tests.
+import { membershipMobileKey, type MembershipRecordSearch } from '../membership-eligibility.ts';
 import { parseMemberSearch, projectMembershipSearch, type MemberSearchInput, type MemberSearchResult, type MembershipSearchRecord } from '../member-search.ts';
 
 export type ZohoService = 'bigin' | 'campaigns';
@@ -415,14 +416,15 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     }
   }
 
-  async function lookupBiginMembership(value: MemberSearchInput, on?: string): Promise<MemberSearchResult> {
-    const input = parseMemberSearch(value);
+  async function searchBiginMembershipRecords(value: MemberSearchInput): Promise<MembershipRecordSearch> {
+    const mobile = value?.method === 'mobile' ? membershipMobileKey(value.mobile) : null;
+    const input = value?.method === 'mobile' && mobile ? { method: 'mobile' as const, mobile } : parseMemberSearch(value);
     const query = new URLSearchParams({ page: '1', per_page: '200' });
     if (input.method === 'name') query.set('criteria', `(Full_Name:equals:${input.firstName} ${input.lastName})`);
     else if (input.method === 'email') query.set('email', input.email);
     else query.set('phone', input.mobile);
     const response = await biginRecordGet('/bigin/v2/Contacts/search', query);
-    if (response.status === 204 && response.data === null) return { status: 'not_found' };
+    if (response.status === 204 && response.data === null) return { records: [], hasMore: false };
     const body = response.data;
     if (!object(body) || !Array.isArray(body.data) || body.data.length > 200 || !object(body.info) || typeof body.info.more_records !== 'boolean') throw new ZohoError('ZOHO_INVALID_RESPONSE');
     const records: MembershipSearchRecord[] = body.data.map((item: unknown) => {
@@ -437,10 +439,16 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
         membershipStatus: optionalText('Membership_Status'), paymentStatus: optionalText('Payment_Status'),
         membershipDate: optionalText('Membership_Date'), membershipExpiry: optionalText('Expiry_Date') };
     });
-    return projectMembershipSearch(input, records, body.info.more_records, on);
+    return { records, hasMore: body.info.more_records };
   }
 
-  return { get, searchBiginContactsByEmail, getBiginContact, createBiginContact, lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
+  async function lookupBiginMembership(value: MemberSearchInput, on?: string): Promise<MemberSearchResult> {
+    const input = parseMemberSearch(value);
+    const result = await searchBiginMembershipRecords(input);
+    return projectMembershipSearch(input, result.records, result.hasMore, on);
+  }
+
+  return { get, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
 }
 
 const defaultClient = createZohoClient();

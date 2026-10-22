@@ -2,13 +2,18 @@ import 'server-only';
 
 import { createEventService } from '../event-forms/service.js';
 import { organiserSession } from '../supabase/server';
-import { syncTestMembershipApplication } from '../zoho/server';
+import { checkMembershipEligibility } from '../membership-eligibility';
+import { searchBiginMembershipRecords, syncTestMembershipApplication } from '../zoho/server';
 import { handleMembershipAdmin, handleMembershipApplications, handleMembershipReceipt, membershipFailure, type MembershipApiDependencies } from './api';
 import { claimMembershipBiginSync, completeMembershipBiginSync, getMembershipApplication, listMembershipApplications, saveMembershipApplication } from './store';
 import type { MembershipApplication, MembershipBiginSyncOutcome } from './model';
 
 async function sync(application: MembershipApplication): Promise<MembershipBiginSyncOutcome> {
   if (!['new', 'renewal'].includes(application.answers.kind) || ![0, 1500, 2000].includes(application.feePence)) return { status: 'failed', errorCode: 'INVALID_APPLICATION' };
+  if (!application.biginRecordId) {
+    const eligibility = await checkMembershipEligibility({ kind: application.answers.kind as 'new' | 'renewal', firstName: application.answers.firstName, lastName: application.answers.lastName, email: application.answers.email, mobile: application.answers.mobile }, searchBiginMembershipRecords);
+    if (eligibility.status !== 'allowed') return { status: 'review_required', errorCode: 'BIGIN_MATCH_REVIEW_REQUIRED' };
+  }
   const result = await syncTestMembershipApplication({
     id: application.id, kind: application.answers.kind as 'new' | 'renewal', mode: application.mode, testData: application.testData,
     applicant: application.answers, annualFee: application.feePence / 100 as 0 | 15 | 20,
@@ -31,6 +36,7 @@ function dependencies(): MembershipApiDependencies {
   const secret = process.env.SUPABASE_SECRET_KEY ?? '';
   return {
     secret,
+    checkIdentity: identity => checkMembershipEligibility(identity, searchBiginMembershipRecords),
     available: async () => {
       const check = await db.from('icsh_membership_applications').select('id', { head: true, count: 'exact' });
       return !check.error;

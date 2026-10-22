@@ -57,6 +57,8 @@ function unavailable(): MembershipStoreError {
   return new MembershipStoreError('MEMBERSHIP_STORAGE_UNAVAILABLE', 503, 'Membership application storage is temporarily unavailable.');
 }
 function databaseError(code?: string): MembershipStoreError {
+  if (code === 'P2001') return new MembershipStoreError('MEMBERSHIP_EMAIL_IN_USE', 409, 'An application already uses this email address.');
+  if (code === 'P2002') return new MembershipStoreError('MEMBERSHIP_PHONE_IN_USE', 409, 'An application already uses this phone number.');
   if (code === '23505') return new MembershipStoreError('MEMBERSHIP_REQUEST_CONFLICT', 409, 'This application reference is already in use. Keep your details and retry with a new application.');
   if (code === '40001') return new MembershipStoreError('MEMBERSHIP_SYNC_CONFLICT', 409, 'This application changed elsewhere. Reload its status before continuing.');
   if (['22023', '23514', '23502', '22P02'].includes(code || '')) return invalidInput();

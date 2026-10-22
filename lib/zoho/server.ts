@@ -15,6 +15,7 @@ const memberLookupClient = createZohoClient({
   ZOHO_BIGIN_CLIENT_SECRET: process.env.ZOHO_BIGIN_LOOKUP_CLIENT_SECRET,
   ZOHO_BIGIN_REFRESH_TOKEN: process.env.ZOHO_BIGIN_LOOKUP_REFRESH_TOKEN,
 });
+export const searchBiginMembershipRecords = memberLookupClient.searchBiginMembershipRecords;
 export const lookupBiginMembership = memberLookupClient.lookupBiginMembership;
 export { syncTestMembershipApplication } from './membership-applications';
 export type { BiginMembershipApplication, BiginMembershipSyncOutcome } from './membership-applications';
