@@ -5,6 +5,8 @@ import { organiserSession } from '@/lib/supabase/server';
 import { membershipApplicationsForOrganiser } from '@/lib/membership-applications/server';
 import type { MembershipApplication, MembershipBiginSyncStatus } from '@/lib/membership-applications/model';
 import SyncApplication from './SyncApplication';
+import {membershipPaymentsForOrganiser} from '@/lib/membership-payments/server';
+import type {PaymentRow} from '@/lib/membership-payments/core';
 import styles from './memberships.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -22,15 +24,20 @@ export default async function MembershipApplications() {
   let applications: MembershipApplication[] = [];
   let unavailable = false;
   try { applications = await membershipApplicationsForOrganiser(); } catch { unavailable = true; }
+  let payments=new Map<string,PaymentRow>();
+  let paymentsUnavailable=false;
+  try{payments=await membershipPaymentsForOrganiser(applications.map(a=>a.id));}catch{paymentsUnavailable=true;}
   const writesEnabled = process.env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED === 'true';
   return <>
     <PageHero label="ICSH · Organisers" title="Membership applications" description="Review saved applications and their separate Bigin delivery status."/>
     <section className="section white"><div className="wrap">
-      <div className="organiser-toolbar"><Link className="text-link" href="/admin">← Organiser workspace</Link><Link className="button outline" href="/membership">Open membership test form</Link></div>
+      <div className="organiser-toolbar"><Link className="text-link" href="/admin">← Organiser workspace</Link><Link className="button outline" href="/membership">Open membership form</Link></div>
       <div className="notice"><strong>New applications send to Bigin automatically.</strong><p>Saving an application does not activate membership or take payment. Renewals and any existing Bigin contact matches require review; their current membership is preserved. New applications automatically send name, email, mobile and an Inactive membership status to Bigin. Full answers and declarations remain in this private application record.</p>{!writesEnabled ? <p><strong>Bigin contact creation is awaiting authorisation.</strong> Applications are saved here and have not been sent to Bigin. <Link href="/admin/connections">Open Zoho connection settings</Link>.</p> : <p>A new application creates an opted-out Contact with Membership Status: Inactive and payment awaiting payment or not required. No existing Contact is updated and no membership dates are assigned.</p>}</div>
       {unavailable ? <div className="notice" role="alert">The membership application store is unavailable. Please retry shortly.</div> : applications.length === 0 ? <div className="panel"><h2>No saved membership applications yet</h2><p>Applications completed in the earlier on-screen form were not sent or saved. New submissions appear here after the website confirms they have been saved.</p></div> : <>
         <p>Showing the most recent {applications.length} saved application{applications.length === 1 ? '' : 's'} (up to 100).</p>
         <div className={styles.list}>{applications.map(application => {
+          const payment=payments.get(application.id);
+          const paymentLabels:Record<string,string>={pending:'Awaiting Stripe payment',paid:'Stripe payment confirmed · activation pending',failed:'Stripe payment failed',expired:'Stripe checkout expired',refunded:'Stripe payment refunded · review required',partially_refunded:'Partial Stripe refund · review required',disputed:'Stripe payment disputed · review required'};
           const knownContact = Boolean(application.biginRecordId);
           const interrupted = application.biginSyncStatus === 'syncing' && Boolean(application.syncLeaseUntil && Date.parse(application.syncLeaseUntil) <= Date.now());
           const blocked = !writesEnabled || ['synced', 'review_required'].includes(application.biginSyncStatus) || (application.biginSyncStatus === 'syncing' && !interrupted) || (application.biginSyncStatus === 'outcome_unknown' && !knownContact);
@@ -43,7 +50,8 @@ export default async function MembershipApplications() {
               <div><dt>Email</dt><dd>{application.answers.email}</dd></div>
               <div><dt>Mobile</dt><dd>{application.answers.mobile}</dd></div>
               <div><dt>Category and fee</dt><dd>{application.category} · {amount}</dd></div>
-              <div><dt>Payment</dt><dd>{application.paymentStatus === 'not_required' ? 'No fee required · activation pending' : 'Awaiting payment'}</dd></div>
+              <div><dt>Payment</dt><dd>{application.paymentStatus === 'not_required' ? 'No fee required · activation pending' : payment?paymentLabels[payment.status]||'Payment needs review':paymentsUnavailable?'Payment status unavailable · check Stripe before activation':'Awaiting payment'}</dd></div>
+              {payment?.paid_at?<div><dt>Verified payment time</dt><dd>{new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'}).format(new Date(payment.paid_at))} UK time</dd></div>:null}
               <div><dt>Membership dates</dt><dd>Not activated · no start or expiry assigned</dd></div>
               {application.biginRecordId ? <div><dt>Bigin Contact ID</dt><dd>{application.biginRecordId}</dd></div> : null}
             </dl>
