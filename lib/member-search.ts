@@ -8,7 +8,7 @@ export type MemberSearchInput =
 export type MemberSearchResult =
   | { status: 'found'; membershipDate: string; membershipExpiry: string; daysUntilExpiry: number }
   | { status: 'expired'; membershipExpiry: string }
-  | { status: 'not_found' | 'ambiguous' | 'dates_unavailable' };
+  | { status: 'not_found' | 'ambiguous' | 'expired_undated' | 'dates_unavailable' };
 export type MembershipSearchRecord = {
   id: string; fullName: string | null; email: string | null; mobile: string | null;
   membershipStatus: string | null; paymentStatus: string | null;
@@ -68,7 +68,12 @@ export function projectMembershipSearch(input: MemberSearchInput, records: Membe
   if (matches.size > 1) return { status: 'ambiguous' };
   const member = [...matches.values()][0];
   const start = member.membershipDate, expiry = member.membershipExpiry;
-  if (!start || !expiry || !parseDate(start) || !parseDate(expiry) || expiry <= start || !parseDate(on)) return { status: 'dates_unavailable' };
+  if (!parseDate(on)) return { status: 'dates_unavailable' };
+  const blank = (date: string | null) => date === null || date.trim() === '';
+  // Owner policy: a uniquely matched contact with a blank term needs renewal.
+  // Keep this distinct from a missed match and never invent an expiry date.
+  if (blank(start) || blank(expiry)) return { status: 'expired_undated' };
+  if (!start || !expiry || !parseDate(start) || !parseDate(expiry) || expiry <= start) return { status: 'dates_unavailable' };
   const daysUntilExpiry = Math.round((parseDate(expiry)!.getTime() - parseDate(on)!.getTime()) / 86_400_000);
   if (daysUntilExpiry <= 0) return { status: 'expired', membershipExpiry: expiry };
   if (member.membershipStatus !== 'Active' || member.paymentStatus !== 'Completed') return { status: 'dates_unavailable' };

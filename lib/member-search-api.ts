@@ -39,7 +39,7 @@ export async function handleMemberSearch(request: Request, deps: MemberSearchDep
     // A second allowlist at the public boundary prevents accidental CRM leaks.
     if (result.status === 'found') return reply({ status: result.status, membershipDate: result.membershipDate, membershipExpiry: result.membershipExpiry, daysUntilExpiry: result.daysUntilExpiry });
     if (result.status === 'expired') return reply({ status: result.status, membershipExpiry: result.membershipExpiry });
-    if (!['not_found', 'ambiguous', 'dates_unavailable'].includes(result.status)) throw new Error('Invalid lookup result');
+    if (!['not_found', 'ambiguous', 'expired_undated', 'dates_unavailable'].includes(result.status)) throw new Error('Invalid lookup result');
     return reply({ status: result.status });
   } catch (error) {
     if (error instanceof MemberSearchInputError) return reply({ error: error.message }, 400);

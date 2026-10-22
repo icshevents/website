@@ -44,7 +44,15 @@ test('uses only saved dates, calculates calendar days, and handles expiry and le
   assert.deepEqual(projectMembershipSearch(name(), [record({ membershipStatus: 'Inactive' })], false, '2026-12-28'), { status: 'expired', membershipExpiry: '2026-12-27' });
   assert.equal(projectMembershipSearch(name(), [record({ membershipDate: '2023-03-01', membershipExpiry: '2024-03-01' })], false, '2024-02-28').daysUntilExpiry, 2);
   assert.equal(projectMembershipSearch(name(), [record({ membershipDate: '2026-03-28', membershipExpiry: '2026-03-30' })], false, '2026-03-28').daysUntilExpiry, 2);
-  for (const overrides of [{ membershipDate: null, Created_Time: '2026-01-01T10:00:00Z', Member_Year: '2026' }, { membershipExpiry: '2026-02-30' }, { membershipExpiry: '2025-01-01' }, { membershipStatus: 'Inactive' }, { paymentStatus: 'Processing' }]) assert.deepEqual(projectMembershipSearch(name(), [record(overrides)], false), { status: 'dates_unavailable' });
+  for (const overrides of [{ membershipExpiry: '2026-02-30' }, { membershipExpiry: '2025-01-01' }, { membershipStatus: 'Inactive' }, { paymentStatus: 'Processing' }]) assert.deepEqual(projectMembershipSearch(name(), [record(overrides)], false), { status: 'dates_unavailable' });
+});
+
+test('matched blank dates require renewal without fabricating a date or becoming no-match', () => {
+  for (const overrides of [{ membershipDate: null, membershipExpiry: null }, { membershipDate: '' }, { membershipExpiry: '   ' }, { membershipDate: null, membershipStatus: 'Active', Created_Time: '2026-01-01T10:00:00Z', Member_Year: '2026' }]) {
+    assert.deepEqual(projectMembershipSearch(name(), [record(overrides)], false, '2026-10-22'), { status: 'expired_undated' });
+  }
+  assert.deepEqual(projectMembershipSearch(name(), [], false, '2026-10-22'), { status: 'not_found' });
+  assert.deepEqual(projectMembershipSearch(name(), [record({ membershipDate: null }), record({ id: '10002', membershipDate: null })], false, '2026-10-22'), { status: 'ambiguous' });
 });
 
 test('HTTP response returns only three date/count values, without submitted identity or CRM extras', async () => {
@@ -75,6 +83,11 @@ test('provider errors do not become no-match results or expose sensitive message
 test('expired public response contains expiry only, never start date or elapsed days', async () => {
   const response = await handleMemberSearch(request(), deps({ lookup: async () => ({ status: 'expired', membershipExpiry: '2025-12-27', membershipDate: '2024-12-27', daysUntilExpiry: -299 }) }));
   assert.deepEqual(await response.json(), { status: 'expired', membershipExpiry: '2025-12-27' });
+});
+
+test('matched undated public response exposes no guessed date, identity or CRM fields', async () => {
+  const response = await handleMemberSearch(request(), deps({ lookup: async () => ({ status: 'expired_undated', membershipDate: 'private', email: 'private@example.invalid', id: '123' }) }));
+  assert.deepEqual(await response.json(), { status: 'expired_undated' });
 });
 
 const env = { ZOHO_BIGIN_ACCOUNTS_URL: 'https://accounts.zoho.eu', ZOHO_BIGIN_API_DOMAIN: 'https://www.zohoapis.eu', ZOHO_BIGIN_CLIENT_ID: 'fixture-client', ZOHO_BIGIN_CLIENT_SECRET: 'fixture-secret', ZOHO_BIGIN_REFRESH_TOKEN: 'fixture-refresh' };
