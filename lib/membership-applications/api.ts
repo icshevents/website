@@ -58,12 +58,12 @@ export function membershipFailure(error: unknown, operation: 'submission' | 'del
     return Response.json({ ok: false, error: { code: 'MEMBERSHIP_REQUEST_CONFLICT', message: 'This submission reference was already used with different answers. Review the form before trying again.' } }, { status: 409, headers });
   }
   if (error && typeof error === 'object' && 'code' in error && error.code === 'MEMBERSHIP_SYNC_CONFLICT') {
-    return Response.json({ ok: false, error: { code: 'MEMBERSHIP_SYNC_CONFLICT', message: 'The Bigin check changed elsewhere. The application remains saved. Reload its status before continuing; do not resubmit the application.' } }, { status: 409, headers });
+    return Response.json({ ok: false, error: { code: 'MEMBERSHIP_SYNC_CONFLICT', message: 'The application status changed elsewhere. The application remains saved. Reload its status before continuing; do not resubmit the application.' } }, { status: 409, headers });
   }
   if (error && typeof error === 'object' && 'code' in error && ['MEMBERSHIP_EMAIL_IN_USE', 'MEMBERSHIP_PHONE_IN_USE'].includes(String(error.code))) {
     return Response.json({ ok: false, error: { code: error.code, message: 'An application already uses this email address or phone number. Please contact ICSH about the saved application instead of submitting another.' } }, { status: 409, headers });
   }
-  if (operation === 'delivery') return Response.json({ ok: false, error: { code: 'MEMBERSHIP_DELIVERY_UNAVAILABLE', message: 'Bigin delivery could not be confirmed. The application remains saved on the website. Reload its status before trying again.' } }, { status: 503, headers });
+  if (operation === 'delivery') return Response.json({ ok: false, error: { code: 'MEMBERSHIP_DELIVERY_UNAVAILABLE', message: 'The application status could not be checked. The application remains saved on the website. Reload its status before trying again.' } }, { status: 503, headers });
   return Response.json({ ok: false, error: { code: 'MEMBERSHIP_UNAVAILABLE', message: 'We could not confirm that your application was saved. Your answers remain in this form. Please retry using the same form.' } }, { status: 503, headers });
 }
 
@@ -231,7 +231,7 @@ export async function handleMembershipAdmin(request: Request, id: string | undef
     checkOrigin(request);
     const body = await readJson(request);
     if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length) throw new ApiError(400, 'INVALID_ACTION', 'Use the application review button.');
-    if (!deps.writesEnabled) throw new ApiError(409, 'BIGIN_AUTHORISATION_REQUIRED', 'Bigin contact creation is not authorised yet. This application remains saved on the website.');
+    if (!deps.writesEnabled) throw new ApiError(409, 'BIGIN_AUTHORISATION_REQUIRED', 'This application remains saved and is awaiting ICSH review.');
     await limit(request, deps, 'sync', 30);
     const existing = await deps.get(id);
     if (!existing) throw new ApiError(404, 'APPLICATION_NOT_FOUND', 'Application not found.');

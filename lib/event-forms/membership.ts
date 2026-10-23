@@ -19,7 +19,7 @@ export class EventMembershipError extends Error {
   }
 }
 function attendeeIdentity(attendee: Attendee) {
-  if (!attendee.name?.trim() || attendee.name.length > 120 || /[<>\u0000-\u001f]/.test(attendee.name)) throw new EventMembershipError('Enter the attendee’s full name as recorded in Bigin.');
+  if (!attendee.name?.trim() || attendee.name.length > 120 || /[<>\u0000-\u001f]/.test(attendee.name)) throw new EventMembershipError('Enter the attendee’s full name as recorded on their ICSH membership.');
   const identity = attendee.membershipIdentity;
   if (!identity || typeof identity.value !== 'string' || identity.value.length > 254) throw new EventMembershipError('Enter this attendee’s own email address or phone number to check member pricing.');
   let input: MemberSearchInput;
