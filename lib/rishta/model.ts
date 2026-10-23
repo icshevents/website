@@ -5,10 +5,10 @@ export type RishtaField = {id:string;label:string;required:boolean;type:string;o
 export const fields = definitions as RishtaField[];
 export const termsVersion = 'existing-rishta-terms-2026-10-23';
 export const steps = [
-  {title:'Personal information',ids:['Name_first','Name_last','Dropdown','Date','Number','SingleLine4','Checkbox','SingleLine5','DecisionBox','SingleLine3','Dropdown1','ImageUpload','SingleLine2','SingleLine6']},
+  {title:'Personal information',ids:['Name_first','Name_last','Dropdown','Date','Number','Dropdown1','SingleLine4','SingleLine5','DecisionBox','Checkbox','SingleLine3','SingleLine2','SingleLine6','ImageUpload']},
   {title:'Your background',ids:['Dropdown8','MultiLine','SingleLine9','SingleLine10','SingleLine11','SingleLine12','Dropdown9','Radio5','Dropdown12','Dropdown6','Radio1','Dropdown7']},
   {title:'Lifestyle & personality',ids:['MultiLine1','Radio2','MultiLine2']},
-  {title:'Marriage preferences',ids:['SingleLine15','SingleLine18','SingleLine16','Dropdown14','SingleLine17','Dropdown15','Dropdown16','MultiLine3','MultiLine4']},
+  {title:'Marriage preferences',ids:['SingleLine15','SingleLine18','SingleLine16','SingleLine17','Dropdown14','Dropdown15','Dropdown16','MultiLine3','MultiLine4']},
   {title:'Additional information & terms',ids:['MultiLine5','TermsConditions']},
   {title:'Review your profile',ids:[]},
 ];
