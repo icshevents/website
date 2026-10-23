@@ -2,6 +2,9 @@ import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
 import {MEMBERSHIP_PRICING,MEMBERSHIP_PAYMENT_TEST_FEE,isMembershipPaymentTest} from '../membership-pricing.ts';
 export type PaymentConfig={key:string;webhookSecret:string;account:string;mode:'live'|'test';origin:string};
+export function paymentRequestOrigin(config:PaymentConfig,url:string):PaymentConfig{
+ const origin=new URL(url);return origin.protocol==='https:'&&config.mode==='live'&&['website-icsh.vercel.app','website-nine-beta-11.vercel.app','www.icsh.org.uk','icsh.org.uk'].includes(origin.hostname)?{...config,origin:origin.origin}:config;
+}
 export function paymentConfiguration(env:NodeJS.ProcessEnv=process.env,requireEnabled=true):PaymentConfig|null{
  if(requireEnabled&&env.STRIPE_MEMBERSHIP_PAYMENTS_ENABLED!=='true')return null;
  const key=env.STRIPE_SECRET_KEY||'',account=env.STRIPE_ACCOUNT_ID||'',webhookSecret=env.STRIPE_WEBHOOK_SECRET||'';

@@ -127,7 +127,7 @@ export function membershipReceipt(application: MembershipApplication) {
 /** Save is confirmed before delivery starts. A durable lease prevents duplicate
  * Contact POSTs; interrupted or unknown creations must be reconciled, not retried. */
 export async function deliverSavedMembershipApplication(application: MembershipApplication, deps: MembershipApiDependencies): Promise<MembershipApplication> {
-  if (!deps.writesEnabled || application.biginSyncStatus === 'synced' || application.biginSyncStatus === 'review_required' ||
+  if (application.deletedAt || !deps.writesEnabled || application.biginSyncStatus === 'synced' || application.biginSyncStatus === 'review_required' ||
     (application.biginSyncStatus === 'outcome_unknown' && !application.biginRecordId)) return application;
   let claimed: MembershipApplication | null = null;
   try {

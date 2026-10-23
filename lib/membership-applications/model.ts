@@ -24,6 +24,7 @@ export type MembershipApplication = SaveMembershipApplicationInput & {
   reference: string;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string | null;
   currency: 'GBP';
   mode: 'test' | 'live';
   testData: boolean;

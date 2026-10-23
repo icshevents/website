@@ -1,0 +1,17 @@
+# Website payments
+
+Membership and donations open Stripe Checkout automatically after a successful save. Free memberships skip payment. A failed redirect leaves the saved confirmation and a retry option. The membership form has Personal details, Membership information, Review & declaration and Confirmation; its student declaration is part of Personal details. Test/Test retains the GBP 1 membership payment rate at any valid age.
+
+For a future ticket event, open the organiser Form builder, create the event, enter its real details and GBP ticket prices, save, then publish. Paid bookings automatically use Stripe after saving; a zero total confirms a free booking without Stripe. No new Stripe key or Payment Link is needed for each event. Member rates still use the existing Bigin eligibility checks. Positive online ticket rates must be at least GBP 0.30.
+
+Current stall applications and festival pledges remain coordinated separately with ICSH. The Christmas prototype and its one test submission were deleted at the owner's request; no replacement Christmas event was published. New event saves are live and do not offer a prototype switch.
+
+`STRIPE_WEBSITE_PAYMENTS_ENABLED` controls new donation and ticket checkouts. The existing website Stripe key, account, site origin and signing secret are reused. The existing membership webhook dispatches the distinct `icsh_website_payment_v1` purpose to the shared ledger while preserving `icsh_website_membership_v1` processing. Zoho Forms' Stripe webhook and credentials are unchanged. Disabling new checkouts does not stop reconciliation of already-started payments.
+
+`database/website-payments.sql` supplies private donation storage, the shared source/payment/event ledger and transactional recording functions. Amounts come from saved donations or server-priced ticket bookings, never from the checkout request. Checkout uses a durable intention and a deterministic idempotency key; expired or interrupted sessions older than 22 hours require review. The server checks signatures, event mode, account, source, currency, amount, captured charge and refunds before recording payment. Duplicate deliveries and stale failures cannot overwrite verified success. Ticket fulfillment and capacity updates occur in the same transaction; cancelled or over-capacity bookings are not silently reactivated after a late payment. No real charge is submitted during deployment verification.
+
+Donation and ticket payment records appear in `/admin/payments`. Membership entries remain in `/admin/memberships`. Refunds and disputes are managed in Stripe, and membership activation remains separate.
+
+Individual and bulk membership deletion require the existing approved organiser session and a service-only RPC that checks the actor against the allowlist. Deletion removes entries from the organiser list and blocks new checkout attempts, while retaining the application/payment audit needed for already-started payments and webhook reconciliation. It does not refund a payment or delete a Bigin contact. Active uniqueness checks exclude deleted entries. This list deletion is not a data-erasure workflow.
+
+For a completely new form type outside the ticket builder, add a server-controlled source adapter and a guarded source-kind branch to the shared SQL source function, then use the existing payment endpoints and frontend checkout helper. Do not enable arbitrary client-supplied charges or turn every submitted form into a payment.

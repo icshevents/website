@@ -33,6 +33,7 @@ const saveInput = z.object({
   paymentStatus: z.enum(['awaiting_payment', 'not_required']),
 }).strict().refine(input => input.mode === 'live' || input.answers.email.endsWith('@example.invalid')).refine(input => input.feePence === 0 ? input.paymentStatus === 'not_required' : input.paymentStatus === 'awaiting_payment');
 const row = z.object({
+  deleted_at: timestamp.nullable().optional(),
   id: uuid, reference: z.string().regex(/^TEST-MEM-[A-F0-9]{32}$/), request_hash: hash, capability_hash: hash,
   answers, category: z.enum(['standard', 'pensioner', 'student']), fee_pence: z.number().int().min(0).max(1000000),
   currency: z.literal('GBP'), mode: z.enum(['test', 'live']), test_data: z.boolean(),
@@ -45,7 +46,7 @@ const row = z.object({
 }).refine(value => value.fee_pence === 0 ? value.payment_status === 'not_required' : value.payment_status === 'awaiting_payment')
   .refine(value => value.bigin_sync_status !== 'synced' || Boolean(value.bigin_record_id && value.bigin_synced_at))
   .refine(value => value.bigin_sync_status !== 'syncing' || Boolean(value.sync_claim_id && value.sync_lease_until));
-const columns = 'id,reference,request_hash,capability_hash,answers,category,fee_pence,currency,mode,test_data,payment_status,application_status,start_date,expiry_date,bigin_sync_status,bigin_record_id,bigin_synced_at,last_error_code,sync_attempts,sync_claim_id,sync_lease_until,created_at,updated_at';
+const columns = 'id,reference,request_hash,capability_hash,answers,category,fee_pence,currency,mode,test_data,payment_status,application_status,start_date,expiry_date,bigin_sync_status,bigin_record_id,bigin_synced_at,last_error_code,sync_attempts,sync_claim_id,sync_lease_until,created_at,updated_at,deleted_at';
 
 function invalidInput(): MembershipStoreError {
   return new MembershipStoreError('MEMBERSHIP_INVALID_INPUT', 400, 'The membership application request is invalid.');
@@ -90,7 +91,7 @@ function application(value: unknown): MembershipApplication {
     answers: r.answers, category: r.category, feePence: r.fee_pence, currency: r.currency, mode: r.mode, testData: r.test_data,
     paymentStatus: r.payment_status, applicationStatus: r.application_status, startDate: null, expiryDate: null,
     biginSyncStatus: r.bigin_sync_status, biginRecordId: r.bigin_record_id, biginSyncedAt: r.bigin_synced_at,
-    lastErrorCode: r.last_error_code, syncAttempts: r.sync_attempts, syncClaimId: r.sync_claim_id,
+    deletedAt:r.deleted_at??null,lastErrorCode: r.last_error_code, syncAttempts: r.sync_attempts, syncClaimId: r.sync_claim_id,
     syncLeaseUntil: r.sync_lease_until, createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }
@@ -106,6 +107,7 @@ export async function saveMembershipApplication(input: SaveMembershipApplication
   }));
   if (!raw || typeof raw !== 'object' || !('application' in raw) || !('created' in raw) || typeof raw.created !== 'boolean') throw invalidResponse();
   const saved = application(raw.application);
+  if(saved.deletedAt)throw new MembershipStoreError('MEMBERSHIP_ENTRY_DELETED',409,'This application was deleted. Start a new application or contact ICSH.');
   if (saved.id.toLowerCase() !== value.id.toLowerCase() || saved.requestHash !== value.requestHash || saved.capabilityHash !== value.capabilityHash) throw invalidResponse();
   return { application: saved, created: raw.created };
 }
@@ -124,7 +126,7 @@ export async function getMembershipApplication(id: string, supplied?: Membership
 export async function listMembershipApplications(limit = 100, supplied?: MembershipStoreDatabase): Promise<MembershipApplication[]> {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw invalidInput();
   const db = database(supplied);
-  const raw = await result(() => db.from('icsh_membership_applications').select(columns).order('created_at', { ascending: false }).order('id').limit(limit));
+  const raw = await result(() => db.from('icsh_membership_applications').select(columns).is('deleted_at',null).order('created_at', { ascending: false }).order('id').limit(limit));
   if (!Array.isArray(raw) || raw.length > limit) throw invalidResponse();
   return raw.map(application);
 }

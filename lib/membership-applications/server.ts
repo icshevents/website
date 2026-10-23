@@ -48,7 +48,7 @@ function dependencies(): MembershipApiDependencies {
       return result.data === true;
     },
     save: input => saveMembershipApplication(input, db),
-    get: id => getMembershipApplication(id, db),
+    get: async id => {const app=await getMembershipApplication(id,db);return app?.deletedAt?null:app;},
     list: () => listMembershipApplications(100, db),
     session: organiserSession,
     claim: (id, claimId) => claimMembershipBiginSync(id, claimId, db),

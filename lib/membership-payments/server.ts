@@ -1,7 +1,7 @@
 import 'server-only';
 import {createEventService} from '../event-forms/service.js';
 import {getMembershipApplication} from '../membership-applications/store';
-import {paymentConfiguration,constantEqual,digest,paymentHeaders,paymentReceipt,paymentReturnCookie,returnCookie,StripeMembershipClient,verifyStripeEvent,type PaymentApplication,type PaymentRow,type PaymentConfig} from './core';
+import {paymentConfiguration,paymentRequestOrigin,constantEqual,digest,paymentHeaders,paymentReceipt,paymentReturnCookie,returnCookie,StripeMembershipClient,verifyStripeEvent,type PaymentApplication,type PaymentRow,type PaymentConfig} from './core';
 export {paymentConfiguration} from './core';
 const json=(body:unknown,status=200,extra={})=>Response.json(body,{status,headers:{...paymentHeaders,...extra}});
 async function boundedBody(request:Request,maximum:number){
@@ -16,7 +16,7 @@ async function limited(request:Request,prefix:string,maximum:number){
 export async function authorisedPaymentApplication(id:string,capability:string){
  if(!/^[a-f0-9-]{36}$/i.test(id)||!/^[a-f0-9]{64}$/.test(capability))return null;
  const application=await getMembershipApplication(id);
- return application&&constantEqual(application.capabilityHash,digest(capability))?application:null;
+ return application&&!application.deletedAt&&constantEqual(application.capabilityHash,digest(capability))?application:null;
 }
 export async function membershipPayment(id:string,db=createEventService()):Promise<PaymentRow|null>{
  const r=await db.from('icsh_membership_payments').select('*').eq('application_id',id).maybeSingle();if(r.error)throw new Error('PAYMENT_STORE_UNAVAILABLE');return r.data;
@@ -37,7 +37,7 @@ export async function handleMembershipPayment(request:Request,id:string){
   const capability=request.headers.get('x-membership-receipt')||'';
   const application=await authorisedPaymentApplication(id,capability);
   if(!application)return json({error:'Application not found. Use your saved application confirmation.'},404);
-  const config=paymentConfiguration();
+  const configured=paymentConfiguration();const config=configured?paymentRequestOrigin(configured,request.url):null;
   if(request.method==='GET'){
    if(application.feePence===0)return json({available:false,paymentRequired:false,payment:null});
    if(!config)return json({available:false,paymentRequired:true,payment:null});

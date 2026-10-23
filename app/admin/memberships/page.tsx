@@ -1,3 +1,4 @@
+import MembershipEntries from './MembershipEntries';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { PageHero } from '@/components/Shared';
@@ -36,7 +37,7 @@ export default async function MembershipApplications() {
       <div className="notice"><strong>New applications send to Bigin automatically.</strong><p>Saving an application does not activate membership or take payment. Renewals and any existing Bigin contact matches require review; their current membership is preserved. New applications automatically send name, email, mobile and an Inactive membership status to Bigin. Full answers and declarations remain in this private application record.</p>{!writesEnabled ? <p><strong>Bigin contact creation is awaiting authorisation.</strong> Applications are saved here and have not been sent to Bigin. <Link href="/admin/connections">Open Zoho connection settings</Link>.</p> : <p>A new application creates an opted-out Contact with Membership Status: Inactive and payment awaiting payment or not required. No existing Contact is updated and no membership dates are assigned.</p>}</div>
       {unavailable ? <div className="notice" role="alert">The membership application store is unavailable. Please retry shortly.</div> : applications.length === 0 ? <div className="panel"><h2>No saved membership applications yet</h2><p>Applications completed in the earlier on-screen form were not sent or saved. New submissions appear here after the website confirms they have been saved.</p></div> : <>
         <p>Showing the most recent {applications.length} saved application{applications.length === 1 ? '' : 's'} (up to 100).</p>
-        <div className={styles.list}>{applications.map(application => {
+        <MembershipEntries entries={applications.map(application => {
           const payment=payments.get(application.id);
           const paymentTest=application.feePence===100&&isMembershipPaymentTest(application.answers);
           const paymentLabels:Record<string,string>={pending:'Awaiting Stripe payment',paid:'Stripe payment confirmed · activation pending',failed:'Stripe payment failed',expired:'Stripe checkout expired',refunded:'Stripe payment refunded · review required',partially_refunded:'Partial Stripe refund · review required',disputed:'Stripe payment disputed · review required'};
@@ -44,7 +45,7 @@ export default async function MembershipApplications() {
           const interrupted = application.biginSyncStatus === 'syncing' && Boolean(application.syncLeaseUntil && Date.parse(application.syncLeaseUntil) <= Date.now());
           const blocked = !writesEnabled || ['synced', 'review_required'].includes(application.biginSyncStatus) || (application.biginSyncStatus === 'syncing' && !interrupted) || (application.biginSyncStatus === 'outcome_unknown' && !knownContact);
           const amount = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(application.feePence / 100);
-          return <article className={`panel ${styles.application}`} key={application.id}>
+          return {id:application.id,reference:application.reference,content:<article className={`panel ${styles.application}`} key={application.id}>
             <div className={styles.heading}><div><span className="eyebrow">{application.reference}</span><h2>{application.answers.firstName} {application.answers.lastName}</h2></div><span className="tag">{application.mode === 'test' ? 'HISTORICAL TEST · ' : 'LIVE · '}{application.answers.kind === 'renewal' ? 'Renewal' : 'New application'}</span></div>
             <p><strong>{interrupted ? 'Bigin check was interrupted · review its result' : statuses[application.biginSyncStatus]}</strong></p>
             <dl className={styles.facts}>
@@ -60,8 +61,8 @@ export default async function MembershipApplications() {
             <details><summary>Review application answers</summary><dl className={styles.facts}><div><dt>Date of birth</dt><dd>{application.answers.dob}</dd></div><div><dt>Full-time education</dt><dd>{application.answers.education === 'yes' ? 'Yes' : 'No'}</dd></div><div><dt>Student declaration</dt><dd>{application.answers.studentDeclaration ? 'Confirmed' : 'Not confirmed / not required'}</dd></div><div><dt>Membership terms</dt><dd>{application.answers.terms ? 'Confirmed' : 'Not confirmed'}</dd></div><div><dt>Information accuracy</dt><dd>{application.answers.accuracy ? 'Confirmed' : 'Not confirmed'}</dd></div></dl></details>
             {application.lastErrorCode ? <p className="quiet-note">Review code: {application.lastErrorCode}</p> : null}
             <SyncApplication id={application.id} disabled={blocked} verifyOnly={knownContact} interrupted={interrupted}/>
-          </article>;
-        })}</div>
+          </article>};
+        })}/>
       </>}
     </div></section>
   </>;

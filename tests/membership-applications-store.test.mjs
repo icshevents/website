@@ -33,6 +33,7 @@ function database(data, error = null) {
   const response = () => Promise.resolve({ data, error });
   const query = {
     select: (...args) => { calls.push(['select', ...args]); return query; },
+    is: (...args) => { calls.push(['is', ...args]); return query; },
     eq: (...args) => { calls.push(['eq', ...args]); return query; },
     order: (...args) => { calls.push(['order', ...args]); return query; },
     limit: (...args) => { calls.push(['limit', ...args]); return response(); },
@@ -126,6 +127,7 @@ test('private get and bounded list operations query only the membership table', 
   const list = database([row()]);
   assert.equal((await listMembershipApplications(10, list.db)).length, 1);
   assert.deepEqual(list.calls.at(-1), ['limit', 10]);
+  assert.deepEqual(list.calls.find(call=>call[0]==='is'),['is','deleted_at',null]);
   for (const limit of [0, 101, -1, 1.5]) await assert.rejects(() => listMembershipApplications(limit, list.db), error => error.status === 400);
 });
 
