@@ -13,7 +13,7 @@ export default async function SignInPage() {
       <div className="panel organiser-login-panel"><h2>Welcome back.</h2><p>Sign in with the email and password set up for your organiser account.</p>
         {session.status === 'configuration' ? <p className="notice">Organiser sign-in is awaiting its connection settings. Please contact ICSH.</p> : <OrganiserSignIn/>}
       </div>
-      <aside className="organiser-aside"><div className="eyebrow">Your community workspace</div><h3>Events, made easier.</h3><p>Organiser access is reserved for approved ICSH accounts.</p><p>Zoho Bigin remains the authority for active membership. Website form records will be held in Supabase.</p><Link className="text-link" href="/events">Return to Our Events ↗</Link></aside>
+      <aside className="organiser-aside"><div className="eyebrow">Your community workspace</div><h3>Events, made easier.</h3><p>Organiser access is reserved for approved ICSH accounts.</p><p>Zoho Bigin remains the authority for active membership. Website form records will be held in Supabase.</p><Link className="text-link" href="/events">Return to Events &amp; Services ↗</Link></aside>
     </div></section>
   </>;
 }

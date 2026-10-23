@@ -78,12 +78,7 @@ export default function MembershipInvitation({months}:{months:number}) {
       <div className="invite-layout">
         <div className="invite-side">
           <img className="invite-image picnic-invitation" src="/assets/membership-picnic.webp" alt="ICSH community members sharing food at a picnic buffet" width="750" height="1000"/>
-          <div className="invite-side-copy">
-            <span className="invite-small">COMMUNITY · FRIENDSHIP · BELONGING</span>
-            <h3>Life is richer<br/>when it’s shared.</h3>
-            <p>Make ICSH part of your story.</p>
-            <span className="invite-year">Annual membership rates <strong>£0–£20</strong></span>
-          </div>
+
         </div>
         <div className="invite-copy">
           <span className="tag">You’re invited</span>
