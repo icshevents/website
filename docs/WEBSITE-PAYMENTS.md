@@ -1,6 +1,6 @@
 # Website payments
 
-Membership and donations open Stripe Checkout automatically after a successful save. Free memberships skip payment. A failed redirect leaves the saved confirmation and a retry option. The membership form has Personal details, Membership information, Review & declaration and Confirmation; its student declaration is part of Personal details. Test/Test retains the GBP 1 membership payment rate at any valid age.
+Membership and donations open Stripe Checkout automatically after a successful save. Free memberships skip payment. A failed redirect leaves the saved confirmation and a retry option. The membership form has Personal details, Review & Declaration and Confirmation. Membership terms and the general accuracy declaration share the second stage; the student declaration is part of Personal details. Test/Test retains the GBP 1 membership payment rate at any valid age.
 
 For a future ticket event, open the organiser Form builder, create the event, enter its real details and GBP ticket prices, save, then publish. Paid bookings automatically use Stripe after saving; a zero total confirms a free booking without Stripe. No new Stripe key or Payment Link is needed for each event. Member rates still use the existing Bigin eligibility checks. Positive online ticket rates must be at least GBP 0.30.
 
