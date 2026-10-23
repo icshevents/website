@@ -1,3 +1,4 @@
+import {ensureWebsiteMemberId} from '../member-ids/server';
 import 'server-only';
 
 import { createEventService } from '../event-forms/service.js';
@@ -25,7 +26,7 @@ async function sync(application: MembershipApplication): Promise<MembershipBigin
   switch (result.status) {
     case 'writes_disabled': return { status: 'awaiting_authorisation', errorCode: 'BIGIN_AUTHORISATION_REQUIRED' };
     case 'review_required': return { status: 'review_required', errorCode: result.reason.toUpperCase() };
-    case 'synced': return { status: 'synced', biginRecordId: result.contactId };
+    case 'synced': try{await ensureWebsiteMemberId(application,result.contactId);}catch{console.error('ICSH_MEMBER_ID_PENDING');}return { status: 'synced', biginRecordId: result.contactId };
     case 'created_unverified': return { status: 'outcome_unknown', biginRecordId: result.contactId, errorCode: result.code };
     case 'failed': return { status: 'failed', errorCode: result.code };
     case 'outcome_unknown': return { status: 'outcome_unknown', errorCode: result.code };

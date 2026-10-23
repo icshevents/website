@@ -116,11 +116,11 @@ test('individual Contact reads allow only numeric IDs and a fixed field selectio
   }
   assert.equal(calls.length, 0);
   const read = await client.getBiginContact('123');
-  assert.deepEqual(read, { id: '123', email: 'applicant@example.invalid', firstName: 'Test', lastName: 'Applicant', mobile: '+447700900001', membershipStatus: 'Inactive', paymentStatus: 'Awaiting payment', emailOptOut: true, membershipDate: null, membershipExpiry: null });
+  assert.deepEqual(read, { id: '123', email: 'applicant@example.invalid', firstName: 'Test', lastName: 'Applicant', mobile: '+447700900001', membershipStatus: 'Inactive', paymentStatus: 'Awaiting payment', emailOptOut: true, membershipDate: null, membershipExpiry: null,memberId:null });
   const url = new URL(calls[1].url);
   assert.equal(url.pathname, '/bigin/v2/Contacts/123');
   assert.deepEqual([...url.searchParams.keys()], ['fields']);
-  assert.equal(url.searchParams.get('fields'), 'First_Name,Last_Name,Email,Mobile,Membership_Status,Payment_Status,Email_Opt_Out,Membership_Date,Expiry_Date');
+  assert.equal(url.searchParams.get('fields'), 'First_Name,Last_Name,Email,Mobile,Membership_Status,Payment_Status,Email_Opt_Out,Membership_Date,Expiry_Date,Member_ID');
 });
 
 test('Contact creation validates each record result and treats ambiguous outcomes as non-retryable', async () => {

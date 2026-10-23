@@ -1,3 +1,4 @@
+import {ensureWebsiteMemberId} from '../member-ids/server';
 import 'server-only';
 import {randomUUID,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
@@ -20,7 +21,7 @@ export async function activatePaidMembership(id:string):Promise<'active'|'review
  const finish=async(status:'active'|'failed'|'review_required',code:string|null=null)=>{const saved=await db.rpc('icsh_membership_activation_finish',{p_id:id,p_claim:claim,p_status:status,p_error:code});if(saved.error)throw new Error('ACTIVATION_RECORD_UNAVAILABLE');return activationSchema.parse(saved.data);};
  try{
   const app=await getMembershipApplication(id,db);if(!app||app.deletedAt)throw new Error('APPLICATION_CHANGED');
-  await activateMatchedMembership(membershipActivationClient,app.answers,x.contact_id||app.biginRecordId,{Membership_Status:'Active',Payment_Status:'Completed',Membership_Date:x.start_date,Expiry_Date:x.expiry_date},async contact=>{const bound=await db.rpc('icsh_membership_activation_bind',{p_id:id,p_claim:claim,p_contact:contact});if(bound.error)throw new Error('ACTIVATION_BIND_UNAVAILABLE');return bound.data===true;});
+  await activateMatchedMembership(membershipActivationClient,app.answers,x.contact_id||app.biginRecordId,{Membership_Status:'Active',Payment_Status:'Completed',Membership_Date:x.start_date,Expiry_Date:x.expiry_date},async contact=>{await ensureWebsiteMemberId(app,contact);const bound=await db.rpc('icsh_membership_activation_bind',{p_id:id,p_claim:claim,p_contact:contact});if(bound.error)throw new Error('ACTIVATION_BIND_UNAVAILABLE');return bound.data===true;});
   const saved=await finish('active');return saved.status==='active'?'active':'review_required';
  }catch(error){if(error instanceof ActivationReview){await finish('review_required',error.code);return'review_required';}await finish('failed',error instanceof ZohoError?error.code:'ACTIVATION_RETRY_REQUIRED');throw new Error('ACTIVATION_RETRY');}
 }

@@ -17,6 +17,7 @@ const memberLookupClient = createZohoClient({
   ZOHO_BIGIN_REFRESH_TOKEN: process.env.ZOHO_BIGIN_LOOKUP_REFRESH_TOKEN,
   ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED: process.env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED,
   ZOHO_BIGIN_MEMBERSHIP_ACTIVATION_ENABLED: process.env.ZOHO_BIGIN_MEMBERSHIP_ACTIVATION_ENABLED,
+  ZOHO_BIGIN_MEMBER_IDS_ENABLED: process.env.ZOHO_BIGIN_MEMBER_IDS_ENABLED,
 });
 export const searchBiginMembershipRecords = memberLookupClient.searchBiginMembershipRecords;
 export const lookupBiginMembership = memberLookupClient.lookupBiginMembership;

@@ -2,10 +2,10 @@ import {MEMBERSHIP_PRICING as prices} from './membership-pricing.ts';
 export type Category='standard'|'pensioner'|'student'|'minor';
 export type Education=''|'yes'|'no';
 export type MembershipQuote={age:number;category:Category;label:string;fee:number;currency:'GBP';months:12;explanation:string;declarationRequired:boolean;minor:boolean;paymentTest?:boolean};
-export const STUDENT_DECLARATION='I confirm that I am currently enrolled in full-time education and that the information I have provided is accurate. I understand that free ICSH student membership is available only to applicants aged 17–21 inclusive who are in full-time education.';
+export const STUDENT_DECLARATION='I confirm that I am in full-time education and eligible for free student membership (ages 17–21).';
 export const MINOR_MEMBERSHIP_NOTICE='Children aged 16 and below are automatically dependants of a member and do not need to sign up or complete a form. This registration form is for applicants aged 17 and above.';
 export function isStudentAge(age:number):boolean {return age>=prices.studentMinimumAge&&age<prices.studentMaximumAgeExclusive;}
-export const ACCURACY_DECLARATION='I confirm that all the information I have provided in this membership application is true, accurate, and complete to the best of my knowledge. I understand that providing false or misleading information may affect my eligibility for ICSH membership.';
+export const ACCURACY_DECLARATION='I confirm that my answers are true, accurate and complete. Incorrect information may affect my eligibility.';
 export const MEMBERSHIP_RATES=[
  {id:'standard',name:'Standard Membership',fee:prices.standardFee,badge:'A year of connection',eligibility:'For members who do not qualify for a concession.',benefits:['Full 12-month ICSH membership','Access to ICSH community activities','Eligibility for applicable members-only events and benefits']},
  {id:'pensioner',name:'Pensioner Membership',fee:prices.pensionerFee,badge:'Senior Member Rate',eligibility:`For members aged ${prices.pensionerMinimumAge} and above.`,benefits:['Full 12-month ICSH membership','Same membership benefits as standard members','Reduced annual membership fee']},

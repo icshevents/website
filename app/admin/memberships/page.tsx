@@ -1,3 +1,4 @@
+import {memberIdsForOrganiser} from '@/lib/member-ids/server';
 import RetryMembershipActivation from './RetryMembershipActivation';
 import {membershipActivationsForOrganiser,type MembershipActivation} from '@/lib/membership-activation/server';
 import MembershipEntries from './MembershipEntries';
@@ -33,6 +34,7 @@ export default async function MembershipApplications() {
   try{payments=await membershipPaymentsForOrganiser(applications.map(a=>a.id));}catch{paymentsUnavailable=true;}
   let activations=new Map<string,MembershipActivation>();let activationUnavailable=false;
   try{activations=await membershipActivationsForOrganiser(applications.map(a=>a.id));}catch{activationUnavailable=true;}
+  let memberIds=new Map<string,string>();try{memberIds=await memberIdsForOrganiser(applications.flatMap(a=>a.biginRecordId?[a.biginRecordId]:[]));}catch{/* Keep organiser records available during an ID service interruption. */}
   const writesEnabled = process.env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED === 'true';
   return <>
     <PageHero label="ICSH · Organisers" title="Membership applications" description="Review saved applications and their separate Bigin delivery status."/>
@@ -57,6 +59,7 @@ export default async function MembershipApplications() {
               <div><dt>Received</dt><dd>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London' }).format(new Date(application.createdAt))} UK time</dd></div>
               <div><dt>Email</dt><dd>{application.answers.email}</dd></div>
               <div><dt>Mobile</dt><dd>{application.answers.mobile}</dd></div>
+              <div><dt>Member ID</dt><dd>{application.biginRecordId?memberIds.get(application.biginRecordId)||'Pending assignment':'Awaiting contact confirmation'}</dd></div>
               <div><dt>Category and fee</dt><dd>{paymentTest?'Live payment test':application.category} · {amount}</dd></div>
               <div><dt>Payment</dt><dd>{application.paymentStatus === 'not_required' ? 'No fee required · activation pending' : payment?(active?'Stripe payment confirmed · membership activated':paymentLabels[payment.status]||'Payment needs review'):paymentsUnavailable?'Payment status unavailable · check Stripe before activation':'Awaiting payment'}</dd></div>
               {payment?.paid_at?<div><dt>Verified payment time</dt><dd>{new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'}).format(new Date(payment.paid_at))} UK time</dd></div>:null}
