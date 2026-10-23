@@ -1,6 +1,6 @@
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
-import {MEMBERSHIP_PRICING} from '../membership-pricing.ts';
+import {MEMBERSHIP_PRICING,MEMBERSHIP_PAYMENT_TEST_FEE,isMembershipPaymentTest} from '../membership-pricing.ts';
 export type PaymentConfig={key:string;webhookSecret:string;account:string;mode:'live'|'test';origin:string};
 export function paymentConfiguration(env:NodeJS.ProcessEnv=process.env,requireEnabled=true):PaymentConfig|null{
  if(requireEnabled&&env.STRIPE_MEMBERSHIP_PAYMENTS_ENABLED!=='true')return null;
@@ -34,10 +34,11 @@ export function verifyStripeEvent(raw:string,header:string,config:PaymentConfig,
  const event=z.object({id:z.string().regex(/^evt_[A-Za-z0-9]+$/),type:z.string(),livemode:z.boolean(),account:z.string().optional(),data:z.object({object:z.record(z.string(),z.unknown())})}).parse(JSON.parse(raw));
  if(event.livemode!==(config.mode==='live')||(event.account&&event.account!==config.account))throw new Error('Stripe event account mismatch');return event;
 }
-export type PaymentApplication={id:string;reference:string;mode:'test'|'live';category:string;feePence:number;currency:string;answers:{email:string}};
+export type PaymentApplication={id:string;reference:string;mode:'test'|'live';category:string;feePence:number;currency:string;answers:{email:string;firstName?:string;lastName?:string}};
 export function applicationAmount(a:PaymentApplication,config:PaymentConfig){
- const amount=a.category==='standard'?MEMBERSHIP_PRICING.standardFee*100:a.category==='pensioner'?MEMBERSHIP_PRICING.pensionerFee*100:0;
- if(a.mode!==config.mode||a.currency!=='GBP'||a.feePence!==amount||![1500,2000].includes(amount))throw new Error('Application is not eligible for payment');return amount;
+ const testRate=a.category==='standard'&&isMembershipPaymentTest(a.answers)&&a.feePence===MEMBERSHIP_PAYMENT_TEST_FEE*100;
+ const amount=testRate?MEMBERSHIP_PAYMENT_TEST_FEE*100:a.category==='standard'?MEMBERSHIP_PRICING.standardFee*100:a.category==='pensioner'?MEMBERSHIP_PRICING.pensionerFee*100:0;
+ if(a.mode!==config.mode||a.currency!=='GBP'||a.feePence!==amount||![100,1500,2000].includes(amount))throw new Error('Application is not eligible for payment');return amount;
 }
 export type PaymentRow={application_id:string;account_id:string;mode:'live'|'test';amount:number;currency:'gbp';session_id:string|null;payment_intent_id:string|null;charge_id:string|null;status:string;paid_at:string|null;refunded_amount:number;created_at:string;updated_at:string};
 export function paymentReceipt(row:PaymentRow|null){return row?{status:row.status,amount:row.amount,currency:'GBP',paidAt:row.paid_at,refundedAmount:row.refunded_amount}:null;}
@@ -55,7 +56,7 @@ export class StripeMembershipClient{
   const params=new URLSearchParams({mode:'payment',client_reference_id:a.id,customer_email:a.answers.email,
    success_url:`${this.config.origin}/membership/payment?application_id=${a.id}&result=return`,cancel_url:`${this.config.origin}/membership/payment?application_id=${a.id}&result=cancelled`,
    'line_items[0][quantity]':'1','line_items[0][price_data][currency]':'gbp','line_items[0][price_data][unit_amount]':String(amount),
-   'line_items[0][price_data][product_data][name]':`ICSH ${a.category==='pensioner'?'Pensioner':'Standard'} Membership · 12 months`,
+   'line_items[0][price_data][product_data][name]':amount===MEMBERSHIP_PAYMENT_TEST_FEE*100?'ICSH website payment test':`ICSH ${a.category==='pensioner'?'Pensioner':'Standard'} Membership · 12 months`,
    'metadata[purpose]':'icsh_website_membership_v1','metadata[application_id]':a.id,'metadata[account_id]':this.config.account,
    'payment_intent_data[metadata][purpose]':'icsh_website_membership_v1','payment_intent_data[metadata][application_id]':a.id,
    integration_identifier:'icsh_membership_portal_zqvnmhtr','adaptive_pricing[enabled]':'false'});

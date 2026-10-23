@@ -3,8 +3,7 @@ import { z } from 'zod';
 import { signedPublicSession } from '../event-forms/security.js';
 import { londonDate } from '../membership.ts';
 import { publicMembershipEligibility, membershipEligibilityMessage, type MembershipIdentity, type MembershipEligibility } from '../membership-eligibility.ts';
-import { MEMBERSHIP_PRICING } from '../membership-pricing.ts';
-import { getQuote, validateApplication, type MembershipAnswers } from '../membership-validation.ts';
+import { getQuote, registrationAgeError, validateApplication, type MembershipAnswers } from '../membership-validation.ts';
 import type { MembershipApplication, MembershipBiginSyncOutcome, SaveMembershipApplicationInput } from './model.ts';
 
 export type MembershipApiDependencies = {
@@ -173,7 +172,7 @@ export async function handleMembershipApplications(request: Request, deps: Membe
     const fields = validateApplication(answers, on);
     if (Object.keys(fields).length) throw new ApiError(400, 'VALIDATION_FAILED', 'Please correct the highlighted answers.', fields);
     const quote = getQuote(answers, on);
-    if (!quote || quote.age < MEMBERSHIP_PRICING.registrationMinimumAge) throw new ApiError(400, 'VALIDATION_FAILED', 'Membership applications are available from age 17.');
+    if (!quote || registrationAgeError(quote)) throw new ApiError(400, 'VALIDATION_FAILED', 'Membership applications are available from age 17.');
     const requestHash = hash(JSON.stringify({ answers, mode: 'live', policy: '2026-10-22-live' }));
     // This fresh server check cannot be skipped by bypassing the form or by
     // changing a browser's previous eligibility result.

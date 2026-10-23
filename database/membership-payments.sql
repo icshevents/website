@@ -4,7 +4,7 @@ create table if not exists public.icsh_membership_payments (
   application_id uuid primary key references public.icsh_membership_applications(id),
   account_id text not null check (account_id ~ '^acct_[A-Za-z0-9]+$'),
   mode text not null check (mode in ('live','test')),
-  amount integer not null check (amount in (1500,2000)),
+  amount integer not null check (amount in (100,1500,2000)),
   currency text not null default 'gbp' check (currency='gbp'),
   session_id text unique check (session_id ~ '^cs_(test_|live_)?[A-Za-z0-9]+$'),
   payment_intent_id text unique check (payment_intent_id ~ '^pi_[A-Za-z0-9]+$'),
@@ -38,9 +38,10 @@ returns jsonb language plpgsql security invoker set search_path='' as $$
 declare a public.icsh_membership_applications; p public.icsh_membership_payments;
 begin
  select * into a from public.icsh_membership_applications where id=p_application_id for update;
- if a.id is null or a.mode is distinct from p_mode or a.fee_pence not in (1500,2000)
+ if a.id is null or a.mode is distinct from p_mode or a.fee_pence not in (100,1500,2000)
    or a.currency<>'GBP' or a.payment_status<>'awaiting_payment'
-   or not ((a.category='standard' and a.fee_pence=2000) or (a.category='pensioner' and a.fee_pence=1500)) then
+   or not ((a.category='standard' and a.fee_pence=2000) or (a.category='pensioner' and a.fee_pence=1500)
+     or (a.category='standard' and a.fee_pence=100 and coalesce(lower(btrim(a.answers->>'firstName')),'')='test' and coalesce(lower(btrim(a.answers->>'lastName')),'')='test')) then
    raise exception using errcode='22023',message='Invalid payment application';
  end if;
  insert into public.icsh_membership_payments(application_id,account_id,mode,amount)

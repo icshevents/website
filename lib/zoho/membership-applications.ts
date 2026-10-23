@@ -1,6 +1,7 @@
 // Import via lib/zoho/server.ts in application code. This injectable module
 // performs no persistence; the caller owns the durable application and lease.
 import { membershipMobileKey } from '../membership-eligibility.ts';
+import {isMembershipPaymentTest} from '../membership-pricing.ts';
 import {
   BiginContactCreateError, ZohoError, createBiginContact, getBiginContact, searchBiginContactsByEmail,
   type BiginContact, type BiginContactSearch, type BiginPendingContactCreate, type ZohoEnvironment, type ZohoErrorCode,
@@ -13,7 +14,7 @@ export type BiginMembershipApplication = {
   testData: boolean;
   applicant: { firstName: string; lastName: string; email: string; mobile: string };
   /** Server-calculated pounds, never a fee trusted from the submitted browser. */
-  annualFee: 0 | 15 | 20;
+  annualFee: 0 | 1 | 15 | 20;
   /** Read from durable state, never from the public form payload. */
   biginContactId?: string | null;
   /** A prior creation attempt with no saved ID must be reconciled manually. */
@@ -41,11 +42,12 @@ const safeCode = (error: unknown): ZohoErrorCode => error instanceof ZohoError ?
 function validApplication(value: BiginMembershipApplication): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value) || !['test', 'live'].includes(value.mode) || value.testData !== (value.mode === 'test') ||
     typeof value.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(value.id) ||
-    !['new', 'renewal'].includes(value.kind) || ![0, 15, 20].includes(value.annualFee) ||
+    !['new', 'renewal'].includes(value.kind) || ![0, 1, 15, 20].includes(value.annualFee) ||
     (value.creationAttempted !== undefined && typeof value.creationAttempted !== 'boolean') ||
     (value.biginContactId !== undefined && value.biginContactId !== null && !validId(value.biginContactId))) return false;
   const applicant = value.applicant;
   if (!applicant || typeof applicant !== 'object' || Array.isArray(applicant)) return false;
+  if(value.annualFee===1&&!isMembershipPaymentTest(applicant))return false;
   for (const name of [applicant.firstName, applicant.lastName]) {
     if (typeof name !== 'string' || !name.trim() || name.trim().length > 80 || /[<>\u0000-\u001f]/.test(name)) return false;
   }

@@ -1,7 +1,7 @@
 import {MEMBERSHIP_PRICING as prices} from './membership-pricing.ts';
 export type Category='standard'|'pensioner'|'student'|'minor';
 export type Education=''|'yes'|'no';
-export type MembershipQuote={age:number;category:Category;label:string;fee:number;currency:'GBP';months:12;explanation:string;declarationRequired:boolean;minor:boolean};
+export type MembershipQuote={age:number;category:Category;label:string;fee:number;currency:'GBP';months:12;explanation:string;declarationRequired:boolean;minor:boolean;paymentTest?:boolean};
 export const STUDENT_DECLARATION='I confirm that I am currently enrolled in full-time education and that the information I have provided is accurate. I understand that free ICSH student membership is available only to applicants aged 17–21 inclusive who are in full-time education.';
 export const MINOR_MEMBERSHIP_NOTICE='Children aged 16 and below are automatically dependants of a member and do not need to sign up or complete a form. This registration form is for applicants aged 17 and above.';
 export function isStudentAge(age:number):boolean {return age>=prices.studentMinimumAge&&age<prices.studentMaximumAgeExclusive;}

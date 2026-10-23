@@ -2,6 +2,8 @@
 
 The website's saved membership application now has a separate Stripe Checkout step. Standard membership costs GBP 20.00 and pensioner membership GBP 15.00. Free student applications do not call Stripe. Fees come from the saved, server-validated application; clients cannot supply an amount or claim that payment succeeded. Joining and renewal are one-off payments, not subscriptions.
 
+The owner-requested live payment test rate is GBP 1.00 when both first name and surname are exactly `test`, ignoring case and surrounding spaces. The test rate overrides age and student pricing, including the ordinary minimum registration age, while still requiring a valid date of birth, contact details, declarations and the existing membership/duplicate checks. New applications are stored under the standard category with a GBP 1 fee and labelled as payment tests in the form, organiser view and Stripe Checkout. The usual inactive Bigin delivery remains available; this rate does not activate membership. Existing saved checkouts retain their original fee. `database/membership-payment-test-rate.sql` adds the guarded GBP 1 ledger support without changing prior payments. Completing this checkout charges real money.
+
 `lib/membership-payments/core.ts` validates environment isolation, account identity, receipt cookies, Stripe signatures and payment evidence. `server.ts` authorizes the saved application's receipt capability, persists a checkout intention, creates an idempotent Checkout Session and binds it to the application. Anonymous browsers cannot read the payment tables or call the recording RPC. Pending, paid, failed, expired, refunded and disputed outcomes are separate from application submission and Bigin delivery.
 
 ## Configuration

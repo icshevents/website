@@ -12,6 +12,13 @@ const contact = () => ({
   id: '123', email: 'applicant@example.invalid', firstName: 'Test', lastName: 'Applicant', mobile: '+447700900001',
   membershipStatus: 'Inactive', paymentStatus: 'Awaiting payment', emailOptOut: true, membershipDate: null, membershipExpiry: null,
 });
+test('GBP 1 is valid for Test Test only and preserves the ordinary inactive Contact delivery',async()=>{
+ const input={...application(),annualFee:1,applicant:{...application().applicant,firstName:'Test',lastName:'Test'}};
+ const good=fakeClient({get:()=>({...contact(),lastName:'Test'})});
+ assert.equal((await syncTestMembershipApplication(input,{client:good.client,env:enabled})).status,'synced');
+ assert.equal(good.calls.find(c=>c[0]==='create')[1].Membership_Status,'Inactive');
+ const bad=fakeClient();assert.equal((await syncTestMembershipApplication({...input,applicant:{...input.applicant,lastName:'Tester'}},{client:bad.client,env:enabled})).status,'failed');assert.equal(bad.calls.length,0);
+});
 function fakeClient(overrides = {}) {
   const calls = [];
   return { calls, client: {

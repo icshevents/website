@@ -7,16 +7,17 @@ import { searchBiginMembershipRecords, syncTestMembershipApplication } from '../
 import { handleMembershipAdmin, handleMembershipApplications, handleMembershipReceipt, membershipFailure, type MembershipApiDependencies } from './api';
 import { claimMembershipBiginSync, completeMembershipBiginSync, getMembershipApplication, listMembershipApplications, saveMembershipApplication } from './store';
 import type { MembershipApplication, MembershipBiginSyncOutcome } from './model';
+import {isMembershipPaymentTest} from '../membership-pricing';
 
 async function sync(application: MembershipApplication): Promise<MembershipBiginSyncOutcome> {
-  if (!['new', 'renewal'].includes(application.answers.kind) || ![0, 1500, 2000].includes(application.feePence)) return { status: 'failed', errorCode: 'INVALID_APPLICATION' };
+  if (!['new', 'renewal'].includes(application.answers.kind) || (![0, 1500, 2000].includes(application.feePence) && !(application.feePence===100&&isMembershipPaymentTest(application.answers)))) return { status: 'failed', errorCode: 'INVALID_APPLICATION' };
   if (!application.biginRecordId) {
     const eligibility = await checkMembershipEligibility({ kind: application.answers.kind as 'new' | 'renewal', firstName: application.answers.firstName, lastName: application.answers.lastName, email: application.answers.email, mobile: application.answers.mobile }, searchBiginMembershipRecords);
     if (eligibility.status !== 'allowed') return { status: 'review_required', errorCode: 'BIGIN_MATCH_REVIEW_REQUIRED' };
   }
   const result = await syncTestMembershipApplication({
     id: application.id, kind: application.answers.kind as 'new' | 'renewal', mode: application.mode, testData: application.testData,
-    applicant: application.answers, annualFee: application.feePence / 100 as 0 | 15 | 20,
+    applicant: application.answers, annualFee: application.feePence / 100 as 0 | 1 | 15 | 20,
     biginContactId: application.biginRecordId,
     // The database cannot claim an unknown creation without a saved Contact ID.
     // A saved ID always causes readback only, never another Contact POST.

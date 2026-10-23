@@ -7,6 +7,7 @@ import type { MembershipApplication, MembershipBiginSyncStatus } from '@/lib/mem
 import SyncApplication from './SyncApplication';
 import {membershipPaymentsForOrganiser} from '@/lib/membership-payments/server';
 import type {PaymentRow} from '@/lib/membership-payments/core';
+import {isMembershipPaymentTest} from '@/lib/membership-pricing';
 import styles from './memberships.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,7 @@ export default async function MembershipApplications() {
         <p>Showing the most recent {applications.length} saved application{applications.length === 1 ? '' : 's'} (up to 100).</p>
         <div className={styles.list}>{applications.map(application => {
           const payment=payments.get(application.id);
+          const paymentTest=application.feePence===100&&isMembershipPaymentTest(application.answers);
           const paymentLabels:Record<string,string>={pending:'Awaiting Stripe payment',paid:'Stripe payment confirmed · activation pending',failed:'Stripe payment failed',expired:'Stripe checkout expired',refunded:'Stripe payment refunded · review required',partially_refunded:'Partial Stripe refund · review required',disputed:'Stripe payment disputed · review required'};
           const knownContact = Boolean(application.biginRecordId);
           const interrupted = application.biginSyncStatus === 'syncing' && Boolean(application.syncLeaseUntil && Date.parse(application.syncLeaseUntil) <= Date.now());
@@ -49,7 +51,7 @@ export default async function MembershipApplications() {
               <div><dt>Received</dt><dd>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London' }).format(new Date(application.createdAt))} UK time</dd></div>
               <div><dt>Email</dt><dd>{application.answers.email}</dd></div>
               <div><dt>Mobile</dt><dd>{application.answers.mobile}</dd></div>
-              <div><dt>Category and fee</dt><dd>{application.category} · {amount}</dd></div>
+              <div><dt>Category and fee</dt><dd>{paymentTest?'Live payment test':application.category} · {amount}</dd></div>
               <div><dt>Payment</dt><dd>{application.paymentStatus === 'not_required' ? 'No fee required · activation pending' : payment?paymentLabels[payment.status]||'Payment needs review':paymentsUnavailable?'Payment status unavailable · check Stripe before activation':'Awaiting payment'}</dd></div>
               {payment?.paid_at?<div><dt>Verified payment time</dt><dd>{new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short',timeZone:'Europe/London'}).format(new Date(payment.paid_at))} UK time</dd></div>:null}
               <div><dt>Membership dates</dt><dd>Not activated · no start or expiry assigned</dd></div>

@@ -7,6 +7,19 @@ const config=()=>paymentConfiguration(live);
 const app={id:'11111111-1111-4111-8111-111111111111',reference:'MEM-FIXTURE',mode:'live',category:'standard',feePence:2000,currency:'GBP',answers:{email:'fictional@example.invalid'}};
 const session=(change={})=>({id:'cs_live_fixture12345',livemode:true,mode:'payment',currency:'gbp',amount_total:2000,client_reference_id:app.id,status:'open',payment_status:'unpaid',url:'https://checkout.stripe.com/c/pay/cs_live_fixture12345',metadata:{purpose:'icsh_website_membership_v1',application_id:app.id,account_id:'acct_fixture'},...change});
 const paid=()=>session({status:'complete',payment_status:'paid',payment_intent:{id:'pi_fixture',livemode:true,status:'succeeded',amount:2000,amount_received:2000,currency:'gbp',latest_charge:{id:'ch_fixture',payment_intent:'pi_fixture',paid:true,captured:true,status:'succeeded',amount:2000,currency:'gbp',livemode:true,created:1792740000,amount_refunded:0,disputed:false}}});
+test('the saved Test Test rate creates and verifies a GBP 1 checkout without permitting other discounted names',async()=>{
+ const a={...app,feePence:100,answers:{...app.answers,firstName:' Test ',lastName:'tEsT'}};
+ assert.equal(applicationAmount(a,config()),100);
+ for(const names of [{firstName:'Alex',lastName:'Test'},{firstName:'Test',lastName:'Tester'},{firstName:undefined,lastName:'Test'}])assert.throws(()=>applicationAmount({...a,answers:{...a.answers,...names}},config()));
+ assert.equal(applicationAmount({...a,feePence:2000},config()),2000); // Existing saved checkouts retain their original fee.
+ const client=new StripeMembershipClient(config(),async(url,options)=>{
+  if(url.endsWith('/account'))return Response.json({id:'acct_fixture',charges_enabled:true});
+  assert.equal(options.body.get('line_items[0][price_data][unit_amount]'),'100');assert.equal(options.body.get('line_items[0][price_data][product_data][name]'),'ICSH website payment test');
+  return Response.json(session({amount_total:100}));
+ });await client.create(a);
+ const settled=paid();settled.amount_total=100;settled.payment_intent.amount=100;settled.payment_intent.amount_received=100;settled.payment_intent.latest_charge.amount=100;
+ assert.equal(client.verifiedOutcome(settled,a).status,'paid');settled.payment_intent.latest_charge.amount=2000;assert.throws(()=>client.verifiedOutcome(settled,a));
+});
 test('live config requires separate live key, signing secret, account and trusted site; missing config fails closed',()=>{
  assert.ok(config());
  assert.ok(paymentConfiguration({...live,STRIPE_MEMBERSHIP_PAYMENTS_ENABLED:'false'},false));
