@@ -83,3 +83,6 @@ body{background:var(--ivory)}.brand img{width:64px;height:64px;border-radius:5px
 /* Form sizing: allow controls and feedback to wrap within their own columns. */
 .registration-panel .form-row{grid-template-columns:repeat(2,minmax(0,1fr))}.registration-panel .form-row>*,.registration-panel .form-field,.phone-control,.dob-control{min-width:0}.registration-panel label,.registration-panel .field-hint,.registration-panel .field-error{overflow-wrap:anywhere}.phone-control>input{min-width:0;flex:1 1 0}.student-declaration label>span,.education-confirmation label>span{min-width:0;overflow-wrap:anywhere}.membership-stepper li{min-width:0;overflow-wrap:anywhere}.form-step-actions{flex-wrap:wrap}.form-step-actions .button{max-width:100%;white-space:normal;text-align:center}
 @media(max-width:750px){.registration-panel .form-row{grid-template-columns:minmax(0,1fr)}}
+
+/* Keep saved application references within the mobile confirmation panel. */
+.membership-completion{overflow-wrap:anywhere;min-width:0}
