@@ -58,6 +58,12 @@ export type BiginContactSearch = {
   matches: Array<{ id: string; email: string }>;
   hasMore: boolean;
 };
+export type BiginPaidMembershipUpdate = {
+  Membership_Status: 'Active';
+  Payment_Status: 'Completed';
+  Membership_Date: string;
+  Expiry_Date: string;
+};
 export type BiginContact = {
   id: string;
   email: string;
@@ -451,7 +457,20 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     return projectMembershipSearch(input, result.records, result.hasMore, on);
   }
 
-  return { get, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
+  async function updateBiginPaidMembership(id: string, value: BiginPaidMembershipUpdate): Promise<void> {
+    if (env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED !== 'true' || env.ZOHO_BIGIN_MEMBERSHIP_ACTIVATION_ENABLED !== 'true') throw new ZohoError('ZOHO_MEMBERSHIP_WRITES_DISABLED');
+    const keys=['Membership_Status','Payment_Status','Membership_Date','Expiry_Date'];
+    const validDate=(v:unknown):v is string=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
+    if(!contactId(id)||!object(value)||Object.keys(value).length!==4||!keys.every(key=>Object.hasOwn(value,key))||value.Membership_Status!=='Active'||value.Payment_Status!=='Completed'||!validDate(value.Membership_Date)||!validDate(value.Expiry_Date)||value.Expiry_Date<=value.Membership_Date)throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    const payload={Membership_Status:'Active',Payment_Status:'Completed',Membership_Date:value.Membership_Date,Expiry_Date:value.Expiry_Date};
+    const {status,configuration}=inspectConfiguration('bigin',env);if(!configuration)throw new ZohoError(status.missing.length?'ZOHO_NOT_CONFIGURED':'ZOHO_CONFIGURATION_INVALID');
+    const state=stateFor('bigin',configuration),token=await accessToken(configuration,state);
+    const response=await request(new URL('/bigin/v2/Contacts/'+id,configuration.api),{method:'PUT',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Zoho-oauthtoken ${token.value}`},body:JSON.stringify({data:[payload],trigger:[]})});
+    if(hasProviderError(response.data))throw providerError(response.status,response.data);
+    const records=object(response.data)&&Array.isArray(response.data.data)?response.data.data:[];
+    if(records.length!==1||!object(records[0])||records[0].code!=='SUCCESS'||records[0].status!=='success'||!object(records[0].details)||records[0].details.id!==id)throw new ZohoError('ZOHO_PROVIDER_REJECTED');
+  }
+  return { get, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, updateBiginPaidMembership, lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
 }
 
 const defaultClient = createZohoClient();

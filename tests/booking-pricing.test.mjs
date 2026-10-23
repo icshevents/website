@@ -69,5 +69,5 @@ test('strict registration validation rejects browser membership claims and inval
 });
 
 test('turning off membership checks cannot grant an unverified member discount',()=>{
- const e={...event(),pricingStrategy:'per_attendee',membershipCheckRequired:false};assert.throws(()=>quoteRegistration(e,{attendees:[{name:'Guest',ticket:'member'}],answers:{}},null),/discount requires a Bigin check/);
+ const e={...event(),pricingStrategy:'per_attendee',membershipCheckRequired:false};assert.throws(()=>quoteRegistration(e,{attendees:[{name:'Guest',ticket:'member'}],answers:{}},null),/discount requires a membership check/);
 });

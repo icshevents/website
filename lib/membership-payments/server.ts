@@ -1,3 +1,4 @@
+import {activatePaidMembership,membershipActivation,publicActivation} from '../membership-activation/server';
 import 'server-only';
 import {createEventService} from '../event-forms/service.js';
 import {getMembershipApplication} from '../membership-applications/store';
@@ -42,7 +43,7 @@ export async function handleMembershipPayment(request:Request,id:string){
    if(application.feePence===0)return json({available:false,paymentRequired:false,payment:null});
    if(!config)return json({available:false,paymentRequired:true,payment:null});
    const payment=await membershipPayment(id);
-   return json({available:application.mode===config.mode,paymentRequired:true,payment:paymentReceipt(payment)});
+   return json({available:application.mode===config.mode,paymentRequired:true,payment:paymentReceipt(payment),activation:publicActivation(await membershipActivation(id))});
   }
   if(JSON.stringify(JSON.parse(await boundedBody(request,1024)))!=='{}')return json({error:'Invalid payment request.'},400);
   if(application.feePence===0)return json({paymentRequired:false});
@@ -52,7 +53,7 @@ export async function handleMembershipPayment(request:Request,id:string){
   if(prepared.error||!prepared.data)throw new Error('PAYMENT_PREPARATION_FAILED');
   let payment=prepared.data as PaymentRow;
   const cookie=`${returnCookie}=${paymentReturnCookie(id,capability,process.env.SUPABASE_SECRET_KEY||'')}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=86400`;
-  if(['paid','partially_refunded','refunded','disputed'].includes(payment.status))return json({paymentRequired:false,payment:paymentReceipt(payment),returnUrl:`/membership/payment?application_id=${id}`},200,{'Set-Cookie':cookie});
+  if(['paid','partially_refunded','refunded','disputed'].includes(payment.status))return json({paymentRequired:false,payment:paymentReceipt(payment),activation:publicActivation(await membershipActivation(id)),returnUrl:`/membership/payment?application_id=${id}`},200,{'Set-Cookie':cookie});
   const client=new StripeMembershipClient(config);
   let session;
   if(payment.session_id){session=await client.retrieve(payment.session_id);client.validateSession(session,application);}
@@ -62,7 +63,7 @@ export async function handleMembershipPayment(request:Request,id:string){
    if(Date.now()-Date.parse(payment.created_at)>22*3600000)return json({error:'This payment needs an organiser check before retrying. Please contact ICSH with your application reference.'},409);
    session=await client.create(application);payment=await saveCheckout(id,session.id,config);
   }
-  if(session.payment_status==='paid'||session.status==='complete')return json({paymentRequired:false,returnUrl:`/membership/payment?application_id=${id}`,payment:paymentReceipt(payment)},200,{'Set-Cookie':cookie});
+  if(session.payment_status==='paid'||session.status==='complete')return json({paymentRequired:false,returnUrl:`/membership/payment?application_id=${id}`,payment:paymentReceipt(payment),activation:publicActivation(await membershipActivation(id))},200,{'Set-Cookie':cookie});
   if(session.status!=='open')return json({error:'This checkout has expired. Contact ICSH with your application reference before starting another payment.'},409);
   return json({paymentRequired:true,url:client.checkoutUrl(session)},200,{'Set-Cookie':cookie});
  }catch(error){
@@ -103,6 +104,7 @@ export async function handleStripeMembershipWebhook(request:Request){
    p_payment_intent_id:outcome.paymentIntentId,p_charge_id:outcome.chargeId,p_paid_at:outcome.paidAt,p_refunded_amount:outcome.refundedAmount,
   });
   if(r.error)throw new Error('PAYMENT_EVENT_NOT_SAVED');
+  if(r.data?.status==='paid')await activatePaidMembership(id);
   return json({received:true});
  }catch{
   // A non-2xx response causes Stripe to retry. Never acknowledge an unsaved

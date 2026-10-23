@@ -1,10 +1,12 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
+type Activation={status:string;startDate:string|null;expiryDate:string|null};
 type Payment={status:string;amount:number;paidAt:string|null;refundedAmount:number};
 export default function MembershipPayment({id,capability,disabled=false}:{id:string;capability:string;disabled?:boolean}){
+ const[activation,setActivation]=useState<Activation|null>(null);
  const [available,setAvailable]=useState(false),[payment,setPayment]=useState<Payment|null>(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);const lock=useRef(false);
  useEffect(()=>{const controller=new AbortController();
-  fetch(`/api/membership/payments/${id}`,{headers:{'X-Membership-Receipt':capability},cache:'no-store',signal:controller.signal}).then(async response=>{if(!response.ok)throw new Error();return response.json();}).then(body=>{if(!controller.signal.aborted){setAvailable(body.available===true);setPayment(body.payment||null);}}).catch(()=>{});
+  fetch(`/api/membership/payments/${id}`,{headers:{'X-Membership-Receipt':capability},cache:'no-store',signal:controller.signal}).then(async response=>{if(!response.ok)throw new Error();return response.json();}).then(body=>{if(!controller.signal.aborted){setAvailable(body.available===true);setPayment(body.payment||null);setActivation(body.activation||null);}}).catch(()=>{});
   return()=>controller.abort();
  },[id,capability]);
  async function pay(){if(lock.current||disabled)return;lock.current=true;setBusy(true);setMessage('');
@@ -16,5 +18,5 @@ export default function MembershipPayment({id,capability,disabled=false}:{id:str
  }
  if(!available)return null;
  const paid=payment&&['paid','partially_refunded','refunded','disputed'].includes(payment.status);
- return <section className="notice" aria-label="Membership payment"><h4>{paid?'Membership payment recorded':'Pay your membership fee'}</h4>{paid?<p>{payment.status==='paid'?'Payment received. ICSH will review membership activation.':'This payment needs organiser review. Please contact ICSH with your application reference.'}</p>:<><p>Your application is saved. Continue to Stripe to pay the fee shown above. This is a single payment with no automatic renewal.</p><button type="button" className="button" disabled={busy||disabled} onClick={pay}>{busy?'Opening secure payment…':'Pay securely with Stripe'}</button><p className="quiet-note">Stripe receives your email and application reference. Card details are entered on Stripe’s secure page. Payment confirmation and membership activation are separate.</p></>}{message&&<p role="alert">{message}</p>}</section>;
+ return <section className="notice" aria-label="Membership payment"><h4>{paid?'Membership payment recorded':'Pay your membership fee'}</h4>{paid?<p>{payment.status==='paid'?activation?.status==='active'?`Your membership is active from ${activation.startDate} until ${activation.expiryDate}.`:activation?.status==='review_required'?'Payment received. Please contact ICSH about your membership activation.':'Payment received. Your membership activation is being confirmed automatically.':'This payment needs organiser review. Please contact ICSH with your application reference.'}</p>:<><p>Your application is saved. Continue to Stripe to pay the fee shown above. This is a single payment with no automatic renewal.</p><button type="button" className="button" disabled={busy||disabled} onClick={pay}>{busy?'Opening secure payment…':'Pay securely with Stripe'}</button><p className="quiet-note">Stripe receives your email and application reference. Card details are entered on Stripe’s secure page. Membership activates automatically after verified payment.</p></>}{message&&<p role="alert">{message}</p>}</section>;
 }
