@@ -2,11 +2,8 @@
 
 Palette from ICSH Brand Guidelines (1).pdf: green #4C6259, ivory #F8F7F2, gold #AD925A. Darker text neutrals and semantic error/success colours remain for readable content and form feedback. Gold is used as an accent.
 
-The guide specifies Tropika Island (titles) and Malik (subtitles/body). The font files were not supplied. The owner explicitly approved similar free web fonts: Chicle Regular for page titles, Alegreya Sans Bold for subtitles and section headings, and Alegreya Sans Regular for body and form text. These are alternatives, not the exact commercial brand fonts.
+The guide specifies Tropika Island for titles. The font files were not supplied. The owner approved similar free web fonts, then requested that only the new title font remain. Chicle Regular is retained for h1 page titles. All other font families, weights, line heights and letter spacing are restored to the pre-brand design: Georgia for section headings and display prices, Inter/system sans-serif for main site body text and forms, and Arial/Helvetica plus Georgia in standalone event forms.
 
-Fonts are self-hosted WOFF2 files, downloaded from Google Fonts, with font-display: swap. No Google Fonts request is made by visitors. Latin subsets support English, pound signs and punctuation; system fallbacks handle other scripts. Source styles: https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,700;1,400&family=Chicle&display=swap
+The homepage title has three explicit lines: Community. / Friendship. / A Sense of Belonging. Font size adjusts on small screens to fit the final line.
 
-Specimens: https://fonts.google.com/specimen/Chicle and https://fonts.google.com/specimen/Alegreya+Sans . SIL Open Font License text is distributed in public/fonts/chicle-OFL.txt and public/fonts/alegreyasans-OFL.txt. The font files are distributed unchanged.
-
-Main site and standalone event forms load /fonts/brand-fonts.css. Main CSS tokens: --font-display, --font-body, --serif (legacy alias to body font), --font-serif (legacy alias to body font). Use the body font for readable prices, form labels and supporting copy; use the display font for page titles.
-
+Chicle is self-hosted as an unchanged 14,760-byte WOFF2 file with font-display: swap. Main site and standalone event forms load /fonts/brand-fonts.css. No external font service is requested by visitors. Only Chicle is declared and preloaded; unused Alegreya Sans assets are retained without loading. Source: https://fonts.google.com/specimen/Chicle . SIL Open Font License text: public/fonts/chicle-OFL.txt.
