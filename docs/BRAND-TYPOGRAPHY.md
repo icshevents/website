@@ -2,7 +2,7 @@
 
 Palette from ICSH Brand Guidelines (1).pdf: green #4C6259, ivory #F8F7F2, gold #AD925A. Darker text neutrals and semantic error/success colours remain for readable content and form feedback. Gold is used as an accent.
 
-The guide specifies Tropika Island for titles. The font files were not supplied. The owner approved similar free web fonts, then requested that only the new title font remain. Chicle Regular is retained for h1 page titles. All other font families, weights, line heights and letter spacing are restored to the pre-brand design: Georgia for section headings and display prices, Inter/system sans-serif for main site body text and forms, and Arial/Helvetica plus Georgia in standalone event forms.
+The guide specifies Tropika Island for titles. The font files were not supplied. The owner approved similar free web fonts, then requested the new title font for section titles as well. Chicle Regular is used for page titles and section/card headings (h1–h3), including the homepage welcome section. Supporting typography remains from the original design: Georgia for display prices, Inter/system sans-serif for main site body text, navigation and forms, and Arial/Helvetica plus Georgia for supporting text in standalone event forms. Utility headings with intentionally inherited label styling retain their original font.
 
 The homepage title has three explicit lines: Community. / Friendship. / A Sense of Belonging. Font size adjusts on small screens to fit the final line.
 

@@ -24,6 +24,6 @@ body.festival-mode{background:#fff}.festival-mode .panel{background:#fff}
 
 h1,h2,h3{color:var(--green)}
 
-/* Keep the new display face for page titles; all other typography uses the original design. */
-h1{font-family:var(--font-display);font-weight:400;letter-spacing:0;line-height:1.08}
+/* Chicle for page and section titles; original fonts for supporting text and controls. */
+h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:0;line-height:1.08}
 .hero h1 em{font-style:normal}
