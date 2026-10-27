@@ -60,7 +60,7 @@ export type BiginContactSearch = {
 };
 export type BiginPaidMembershipUpdate = {
   Membership_Status: 'Active';
-  Payment_Status: 'Completed';
+  Payment_Status: 'Completed' | 'Not required';
   Membership_Date: string;
   Expiry_Date: string;
 };
@@ -462,8 +462,8 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     if (env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED !== 'true' || env.ZOHO_BIGIN_MEMBERSHIP_ACTIVATION_ENABLED !== 'true') throw new ZohoError('ZOHO_MEMBERSHIP_WRITES_DISABLED');
     const keys=['Membership_Status','Payment_Status','Membership_Date','Expiry_Date'];
     const validDate=(v:unknown):v is string=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
-    if(!contactId(id)||!object(value)||Object.keys(value).length!==4||!keys.every(key=>Object.hasOwn(value,key))||value.Membership_Status!=='Active'||value.Payment_Status!=='Completed'||!validDate(value.Membership_Date)||!validDate(value.Expiry_Date)||value.Expiry_Date<=value.Membership_Date)throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
-    const payload={Membership_Status:'Active',Payment_Status:'Completed',Membership_Date:value.Membership_Date,Expiry_Date:value.Expiry_Date};
+    if(!contactId(id)||!object(value)||Object.keys(value).length!==4||!keys.every(key=>Object.hasOwn(value,key))||value.Membership_Status!=='Active'||!['Completed','Not required'].includes(value.Payment_Status)||!validDate(value.Membership_Date)||!validDate(value.Expiry_Date)||value.Expiry_Date<=value.Membership_Date)throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    const payload={Membership_Status:'Active',Payment_Status:value.Payment_Status,Membership_Date:value.Membership_Date,Expiry_Date:value.Expiry_Date};
     const {status,configuration}=inspectConfiguration('bigin',env);if(!configuration)throw new ZohoError(status.missing.length?'ZOHO_NOT_CONFIGURED':'ZOHO_CONFIGURATION_INVALID');
     const state=stateFor('bigin',configuration),token=await accessToken(configuration,state);
     const response=await request(new URL('/bigin/v2/Contacts/'+id,configuration.api),{method:'PUT',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Zoho-oauthtoken ${token.value}`},body:JSON.stringify({data:[payload],trigger:[]})});

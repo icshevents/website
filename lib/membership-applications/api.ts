@@ -19,6 +19,8 @@ export type MembershipApiDependencies = {
   complete: (id: string, claimId: string, outcome: MembershipBiginSyncOutcome) => Promise<MembershipApplication | null>;
   sync: (application: MembershipApplication) => Promise<MembershipBiginSyncOutcome>;
   writesEnabled: boolean;
+  resume?: (input:SaveMembershipApplicationInput)=>Promise<MembershipApplication|null>;
+  retryReceipt?: (id:string,capabilityHash:string)=>Promise<boolean>;
   today?: () => string;
 };
 
@@ -191,11 +193,20 @@ export async function handleMembershipApplications(request: Request, deps: Membe
       if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(await deliverSavedMembershipApplication(saved, deps)) }, { headers });
       return Response.json({ ok: false, error: { code: 'MEMBERSHIP_CHECK_BLOCKED', message: membershipEligibilityMessage(eligibility) }, eligibility }, { status: 409, headers });
     }
-    const result = await deps.save({
+    const input:SaveMembershipApplicationInput = {
       id: parsed.data.requestKey.toLowerCase(), mode: 'live', requestHash, capabilityHash: hash(parsed.data.receiptToken),
       answers, category: quote.category, feePence: quote.fee * 100,
       paymentStatus: quote.fee > 0 ? 'awaiting_payment' : 'not_required',
-    });
+    };
+    const resumed=deps.resume?await deps.resume(input):null;
+    if(resumed)return Response.json({ok:true,application:membershipReceipt(resumed)},{headers});
+    let result;
+    try{result=await deps.save(input);}catch(error){
+      // Two identical submissions may race before either one is committed.
+      const duplicate=error&&typeof error==='object'&&'code' in error&&['MEMBERSHIP_EMAIL_IN_USE','MEMBERSHIP_PHONE_IN_USE'].includes(String(error.code));
+      const retry=duplicate&&deps.resume?await deps.resume(input):null;
+      if(retry)return Response.json({ok:true,application:membershipReceipt(retry)},{headers});throw error;
+    }
     const delivered = await deliverSavedMembershipApplication(result.application, deps);
     return Response.json({ ok: true, application: membershipReceipt(delivered) }, { status: result.created ? 201 : 200, headers });
   } catch (error) { return membershipFailure(error); }
@@ -208,7 +219,7 @@ export async function handleMembershipReceipt(request: Request, id: string, deps
     if (!uuid.safeParse(id).success || !token.safeParse(capability).success) throw new ApiError(404, 'APPLICATION_NOT_FOUND', 'Application not found.');
     await limit(request, deps, 'receipt', 100);
     const application = await deps.get(id);
-    if (!application || !equal(application.capabilityHash, hash(capability))) throw new ApiError(404, 'APPLICATION_NOT_FOUND', 'Application not found.');
+    if (!application || (!equal(application.capabilityHash, hash(capability)) && !await deps.retryReceipt?.(id,hash(capability)))) throw new ApiError(404, 'APPLICATION_NOT_FOUND', 'Application not found.');
     return Response.json({ ok: true, application: membershipReceipt(application) }, { headers });
   } catch (error) { return membershipFailure(error); }
 }

@@ -3,6 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { supabaseConfig } from '@/lib/supabase/config';
 
 export async function proxy(request: NextRequest) {
+  const host=request.nextUrl.hostname;
+  if(process.env.VERCEL_ENV==='production'&&['GET','HEAD'].includes(request.method)&&(host==='www.icsh.org.uk'||host.endsWith('.vercel.app'))){
+    const target=new URL(request.nextUrl.pathname+request.nextUrl.search,'https://icsh.org.uk');
+    return NextResponse.redirect(target,308);
+  }
+  if(!/^\/(?:admin(?:\/|$)|api\/(?:event-forms|zoho|membership\/admin)(?:\/|$))/.test(request.nextUrl.pathname))return NextResponse.next();
   let response = NextResponse.next({ request });
   const config = supabaseConfig();
   if (config) {
@@ -27,4 +33,4 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/admin/:path*', '/api/event-forms/:path*', '/api/zoho/:path*', '/api/membership/admin/:path*'] };
+export const config = { matcher: ['/((?!api/|_next/|assets/|fonts/|event-forms-assets/|favicon.ico|robots.txt|sitemap.xml).*)', '/admin/:path*', '/api/event-forms/:path*', '/api/zoho/:path*', '/api/membership/admin/:path*'] };

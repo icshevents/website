@@ -77,7 +77,7 @@ export function projectMembershipSearch(input: MemberSearchInput, records: Membe
   if (!start || !expiry || !parseDate(start) || !parseDate(expiry) || expiry <= start) return { status: 'dates_unavailable' };
   const daysUntilExpiry = Math.round((parseDate(expiry)!.getTime() - parseDate(on)!.getTime()) / 86_400_000);
   if (daysUntilExpiry <= 0) return { status: 'expired', membershipExpiry: expiry };
-  if (member.membershipStatus !== 'Active' || member.paymentStatus !== 'Completed') return { status: 'dates_unavailable' };
+  if (member.membershipStatus !== 'Active' || !['Completed','Not required'].includes(member.paymentStatus??'')) return { status: 'dates_unavailable' };
   // Explicit public projection. No identity, payment, CRM ID or contact fields.
   return { status: 'found', membershipDate: start, membershipExpiry: expiry, daysUntilExpiry };
 }

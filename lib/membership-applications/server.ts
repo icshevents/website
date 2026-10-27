@@ -1,3 +1,4 @@
+import {activateFreeMembership,membershipActivation,publicActivation} from '../membership-activation/server';
 import {ensureWebsiteMemberId} from '../member-ids/server';
 import 'server-only';
 
@@ -9,6 +10,7 @@ import { handleMembershipAdmin, handleMembershipApplications, handleMembershipRe
 import { claimMembershipBiginSync, completeMembershipBiginSync, getMembershipApplication, listMembershipApplications, saveMembershipApplication } from './store';
 import type { MembershipApplication, MembershipBiginSyncOutcome } from './model';
 import {isMembershipPaymentTest} from '../membership-pricing';
+import {checkRetryMembershipEligibility,resumeUnpaidApplication,retryReceiptAllowed} from './retry-server';
 
 async function sync(application: MembershipApplication): Promise<MembershipBiginSyncOutcome> {
   if (!['new', 'renewal'].includes(application.answers.kind) || (![0, 1500, 2000].includes(application.feePence) && !(application.feePence===100&&isMembershipPaymentTest(application.answers)))) return { status: 'failed', errorCode: 'INVALID_APPLICATION' };
@@ -38,7 +40,9 @@ function dependencies(): MembershipApiDependencies {
   const secret = process.env.SUPABASE_SECRET_KEY ?? '';
   return {
     secret,
-    checkIdentity: identity => checkMembershipEligibility(identity, searchBiginMembershipRecords),
+    checkIdentity: checkRetryMembershipEligibility,
+    resume: resumeUnpaidApplication,
+    retryReceipt: retryReceiptAllowed,
     available: async () => {
       const check = await db.from('icsh_membership_applications').select('id', { head: true, count: 'exact' });
       return !check.error;
@@ -60,11 +64,11 @@ function dependencies(): MembershipApiDependencies {
 }
 
 export async function runMembershipApplications(request: Request) {
-  try { return await handleMembershipApplications(request, dependencies()); }
+  try { return await freeMembershipResponse(await handleMembershipApplications(request, dependencies())); }
   catch (error) { return membershipFailure(error); }
 }
 export async function runMembershipReceipt(request: Request, id: string) {
-  try { return await handleMembershipReceipt(request, id, dependencies()); }
+  try { return await freeMembershipResponse(await handleMembershipReceipt(request, id, dependencies())); }
   catch (error) { return membershipFailure(error); }
 }
 export async function runMembershipAdmin(request: Request, id?: string) {
@@ -77,3 +81,13 @@ export async function membershipApplicationsForOrganiser() {
   return listMembershipApplications(100, createEventService());
 }
 
+
+/** Only a saved, authorised submission/receipt can reveal its activation state. */
+async function freeMembershipResponse(response:Response){
+ if(!response.ok)return response;
+ const body=await response.clone().json().catch(()=>null),app=body?.application;
+ if(!app||app.feePence!==0||app.mode!=='live')return response;
+ try{await activateFreeMembership(app.id);}catch{console.error('ICSH_FREE_MEMBERSHIP_ACTIVATION_PENDING');}
+ const activation=await membershipActivation(app.id).catch(()=>null);
+ return Response.json({...body,application:{...app,activation:publicActivation(activation)}},{status:response.status,headers:response.headers});
+}

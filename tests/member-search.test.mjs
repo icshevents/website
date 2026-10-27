@@ -120,3 +120,5 @@ test('Bigin 204 is no match; truncated or malformed provider results fail closed
     else assert.deepEqual(await client.lookupBiginMembership(name()), { status: mode === 'empty' ? 'not_found' : 'ambiguous' });
   }
 });
+
+test('active free membership shows its saved dates without claiming a completed payment',()=>{assert.equal(projectMembershipSearch(name(),[record({paymentStatus:'Not required'})],false,'2026-10-27').status,'found');assert.equal(projectMembershipSearch(name(),[record({paymentStatus:'Awaiting payment'})],false,'2026-10-27').status,'dates_unavailable');});

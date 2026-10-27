@@ -3,7 +3,7 @@ import {z} from 'zod';
 import {MEMBERSHIP_PRICING,MEMBERSHIP_PAYMENT_TEST_FEE,isMembershipPaymentTest} from '../membership-pricing.ts';
 export type PaymentConfig={key:string;webhookSecret:string;account:string;mode:'live'|'test';origin:string};
 export function paymentRequestOrigin(config:PaymentConfig,url:string):PaymentConfig{
- const origin=new URL(url);return origin.protocol==='https:'&&config.mode==='live'&&['website-icsh.vercel.app','website-nine-beta-11.vercel.app','www.icsh.org.uk','icsh.org.uk'].includes(origin.hostname)?{...config,origin:origin.origin}:config;
+ const origin=new URL(url);return origin.protocol==='https:'&&config.mode==='live'&&['website-icsh.vercel.app','website-nine-beta-11.vercel.app','www.icsh.org.uk','icsh.org.uk'].includes(origin.hostname)?{...config,origin:'https://icsh.org.uk'}:config;
 }
 export function paymentConfiguration(env:NodeJS.ProcessEnv=process.env,requireEnabled=true):PaymentConfig|null{
  if(requireEnabled&&env.STRIPE_MEMBERSHIP_PAYMENTS_ENABLED!=='true')return null;
@@ -13,7 +13,7 @@ export function paymentConfiguration(env:NodeJS.ProcessEnv=process.env,requireEn
  let origin;try{const url=new URL(env.STRIPE_SITE_URL||'');if(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)return null;origin=url.origin;}catch{return null;}
  if(mode==='live'&&!['website-icsh.vercel.app','www.icsh.org.uk','icsh.org.uk'].includes(new URL(origin).hostname))return null;
  if(mode==='test'&&!/^website-[a-z0-9-]+-icsh\.vercel\.app$/.test(new URL(origin).hostname))return null;
- return {key,webhookSecret,account,mode,origin};
+ return {key,webhookSecret,account,mode,origin:mode==='live'?'https://icsh.org.uk':origin};
 }
 export const digest=(value:string)=>createHash('sha256').update(value).digest('hex');
 export function constantEqual(a:string,b:string){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);}
@@ -43,18 +43,19 @@ export function applicationAmount(a:PaymentApplication,config:PaymentConfig){
  const amount=testRate?MEMBERSHIP_PAYMENT_TEST_FEE*100:a.category==='standard'?MEMBERSHIP_PRICING.standardFee*100:a.category==='pensioner'?MEMBERSHIP_PRICING.pensionerFee*100:0;
  if(a.mode!==config.mode||a.currency!=='GBP'||a.feePence!==amount||![100,1500,2000].includes(amount))throw new Error('Application is not eligible for payment');return amount;
 }
-export type PaymentRow={application_id:string;account_id:string;mode:'live'|'test';amount:number;currency:'gbp';session_id:string|null;payment_intent_id:string|null;charge_id:string|null;status:string;paid_at:string|null;refunded_amount:number;created_at:string;updated_at:string};
+export type PaymentRow={application_id:string;account_id:string;mode:'live'|'test';amount:number;currency:'gbp';session_id:string|null;payment_intent_id:string|null;charge_id:string|null;status:string;paid_at:string|null;refunded_amount:number;created_at:string;updated_at:string;checkout_attempt?:number;attempt_started_at?:string|null};
 export function paymentReceipt(row:PaymentRow|null){return row?{status:row.status,amount:row.amount,currency:'GBP',paidAt:row.paid_at,refundedAmount:row.refunded_amount}:null;}
 export class StripeMembershipClient{
  private config:PaymentConfig;private transport:typeof fetch;
  constructor(config:PaymentConfig,transport:typeof fetch=fetch){this.config=config;this.transport=transport;}
  async request(path:string,params?:URLSearchParams,idempotency?:string):Promise<Record<string,any>>{
-  if(!/^\/(account|checkout\/sessions(?:\/cs_[A-Za-z0-9_]+)?|payment_intents\/pi_[A-Za-z0-9]+|charges\/ch_[A-Za-z0-9]+)(\?[^#]*)?$/.test(path))throw new Error('Invalid Stripe operation');
+  if(!/^\/(account|checkout\/sessions(?:\/cs_[A-Za-z0-9_]+)?|payment_intents\/pi_[A-Za-z0-9]+(?:\/cancel)?|charges\/ch_[A-Za-z0-9]+)(\?[^#]*)?$/.test(path))throw new Error('Invalid Stripe operation');
   const response=await this.transport('https://api.stripe.com/v1'+path,{method:params?'POST':'GET',headers:{Authorization:`Bearer ${this.config.key}`,'Stripe-Version':'2026-09-30.endive',...(params?{'Content-Type':'application/x-www-form-urlencoded'}:{}),...(idempotency?{'Idempotency-Key':idempotency}:{})},body:params,cache:'no-store',signal:AbortSignal.timeout(18000)});
   if(!response.ok)throw new Error('Stripe payment service unavailable');return await response.json();
  }
  async verifyAccount(){const a=await this.request('/account');if(a.id!==this.config.account||a.charges_enabled!==true)throw new Error('Stripe live account is not ready');}
- async create(a:PaymentApplication){
+ async create(a:PaymentApplication,attempt=0){
+  if(!Number.isSafeInteger(attempt)||attempt<0)throw new Error('Invalid checkout attempt');
   const amount=applicationAmount(a,this.config);await this.verifyAccount();
   const params=new URLSearchParams({mode:'payment',client_reference_id:a.id,customer_email:a.answers.email,
    success_url:`${this.config.origin}/membership/payment?application_id=${a.id}&result=return`,cancel_url:`${this.config.origin}/membership/payment?application_id=${a.id}&result=cancelled`,
@@ -63,7 +64,7 @@ export class StripeMembershipClient{
    'metadata[purpose]':'icsh_website_membership_v1','metadata[application_id]':a.id,'metadata[account_id]':this.config.account,
    'payment_intent_data[metadata][purpose]':'icsh_website_membership_v1','payment_intent_data[metadata][application_id]':a.id,
    integration_identifier:'icsh_membership_portal_zqvnmhtr','adaptive_pricing[enabled]':'false'});
-  const session=await this.request('/checkout/sessions',params,`icsh-membership-v1-${this.config.account}-${this.config.mode}-${a.id}`);
+  const session=await this.request('/checkout/sessions',params,`icsh-membership-v1-${this.config.account}-${this.config.mode}-${a.id}${attempt?'-retry-'+attempt:''}`);
   this.validateSession(session,a);return session;
  }
  async retrieve(id:string){if(!/^cs_[A-Za-z0-9_]{10,250}$/.test(id))throw new Error('Invalid checkout');return this.request('/checkout/sessions/'+id+'?expand[]=payment_intent.latest_charge');}

@@ -1,6 +1,6 @@
 import {createEventService} from './event-forms/service.js';
 import {eventDirectory} from './event-forms/directory.js';
-export const eventWorkspace='https://website-nine-beta-11.vercel.app';
+export const eventWorkspace='https://icsh.org.uk';
 export type EventForm={label:string;url:string;kind:'participation'|'stall'|'tickets';feeFromPence?:number};
 export type DirectoryEvent={id:string;title:string;startsAt:string;endsAt:string;venue:string;description:string;forms:EventForm[]};
 export type Directory={available:boolean;mode:'live';events:DirectoryEvent[]};

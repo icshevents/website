@@ -2,6 +2,7 @@ import {activatePaidMembership,membershipActivation,publicActivation} from '../m
 import 'server-only';
 import {createEventService} from '../event-forms/service.js';
 import {getMembershipApplication} from '../membership-applications/store';
+import {retryReceiptAllowed} from '../membership-applications/retry-server';
 import {paymentConfiguration,paymentRequestOrigin,constantEqual,digest,paymentHeaders,paymentReceipt,paymentReturnCookie,returnCookie,StripeMembershipClient,verifyStripeEvent,type PaymentApplication,type PaymentRow,type PaymentConfig} from './core';
 export {paymentConfiguration} from './core';
 const json=(body:unknown,status=200,extra={})=>Response.json(body,{status,headers:{...paymentHeaders,...extra}});
@@ -17,7 +18,7 @@ async function limited(request:Request,prefix:string,maximum:number){
 export async function authorisedPaymentApplication(id:string,capability:string){
  if(!/^[a-f0-9-]{36}$/i.test(id)||!/^[a-f0-9]{64}$/.test(capability))return null;
  const application=await getMembershipApplication(id);
- return application&&!application.deletedAt&&constantEqual(application.capabilityHash,digest(capability))?application:null;
+ return application&&!application.deletedAt&&(constantEqual(application.capabilityHash,digest(capability))||await retryReceiptAllowed(id,digest(capability)))?application:null;
 }
 export async function membershipPayment(id:string,db=createEventService()):Promise<PaymentRow|null>{
  const r=await db.from('icsh_membership_payments').select('*').eq('application_id',id).maybeSingle();if(r.error)throw new Error('PAYMENT_STORE_UNAVAILABLE');return r.data;
@@ -56,12 +57,32 @@ export async function handleMembershipPayment(request:Request,id:string){
   if(['paid','partially_refunded','refunded','disputed'].includes(payment.status))return json({paymentRequired:false,payment:paymentReceipt(payment),activation:publicActivation(await membershipActivation(id)),returnUrl:`/membership/payment?application_id=${id}`},200,{'Set-Cookie':cookie});
   const client=new StripeMembershipClient(config);
   let session;
-  if(payment.session_id){session=await client.retrieve(payment.session_id);client.validateSession(session,application);}
-  else{
+  if(payment.session_id){
+   session=await client.retrieve(payment.session_id);client.validateSession(session,application);
+   let terminal=session.status==='expired'&&session.payment_status!=='paid'?'expired':null;
+   if(session.status==='complete'&&session.payment_status==='unpaid'&&payment.status==='failed'){
+    const pi=session.payment_intent;
+    if(pi&&typeof pi==='object'&&typeof pi.id==='string'&&/^pi_[A-Za-z0-9]+$/.test(pi.id)){
+     let status=pi.status;
+     if(status==='requires_payment_method'){
+      const canceled=await client.request('/payment_intents/'+pi.id+'/cancel',new URLSearchParams({cancellation_reason:'requested_by_customer'}),`icsh-membership-cancel-${pi.id}`);
+      status=canceled.status;
+     }
+     if(status==='canceled')terminal='cancelled_unpaid';
+    }
+   }
+   if(terminal){
+    const retry=await db.rpc('icsh_membership_checkout_retry',{p_id:id,p_session:payment.session_id,p_account:config.account,p_mode:config.mode,p_terminal:terminal});
+    if(retry.error||!retry.data)throw new Error('CHECKOUT_RETRY_UNAVAILABLE');payment=retry.data as PaymentRow;
+    session=payment.session_id?await client.retrieve(payment.session_id):null;
+    if(session)client.validateSession(session,application);
+   }
+  }
+  if(!session){
    // Stripe may discard idempotency keys after 24 hours. Never recreate a
    // potentially charged checkout after its mapping was lost beyond that window.
-   if(Date.now()-Date.parse(payment.created_at)>22*3600000)return json({error:'This payment needs an organiser check before retrying. Please contact ICSH with your application reference.'},409);
-   session=await client.create(application);payment=await saveCheckout(id,session.id,config);
+   if(Date.now()-Date.parse(payment.attempt_started_at||payment.created_at)>22*3600000)return json({error:'This payment needs an organiser check before retrying. Please contact ICSH with your application reference.'},409);
+   session=await client.create(application,payment.checkout_attempt||0);payment=await saveCheckout(id,session.id,config);
   }
   if(session.payment_status==='paid'||session.status==='complete')return json({paymentRequired:false,returnUrl:`/membership/payment?application_id=${id}`,payment:paymentReceipt(payment),activation:publicActivation(await membershipActivation(id))},200,{'Set-Cookie':cookie});
   if(session.status!=='open')return json({error:'This checkout has expired. Contact ICSH with your application reference before starting another payment.'},409);
@@ -94,6 +115,10 @@ export async function handleStripeMembershipWebhook(request:Request){
   if(typeof id!=='string'||!/^[a-f0-9-]{36}$/i.test(id))throw new Error('INVALID_EVENT_REFERENCE');
   const app=await getMembershipApplication(id);if(!app||app.mode!==config.mode)throw new Error('APPLICATION_NOT_FOUND');
   const payment=await membershipPayment(id);if(!payment||payment.account_id!==config.account||payment.mode!==config.mode)throw new Error('PAYMENT_NOT_FOUND');
+  if(sessionId&&sessionId!==payment.session_id){
+   const old=await createEventService().from('icsh_membership_checkout_history').select('session_id').eq('application_id',id).eq('session_id',String(sessionId)).maybeSingle();
+   if(old.error)throw new Error('CHECKOUT_HISTORY_UNAVAILABLE');if(old.data)return json({received:true});throw new Error('CHECKOUT_MAPPING_MISMATCH');
+  }
   if(!sessionId)sessionId=payment.session_id;
   if(typeof sessionId!=='string')throw new Error('CHECKOUT_MAPPING_PENDING');
   const session=await client.retrieve(sessionId);const outcome=client.verifiedOutcome(session,app as PaymentApplication);
