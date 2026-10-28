@@ -1,0 +1,3 @@
+import type { NextConfig } from 'next';
+const config: NextConfig = { poweredByHeader: false, async redirects() { return [{source:"/gallery/norwegian-fjords-cruise-2026",destination:"/blog/norwegian-fjords-cruise-2026",permanent:false},{source:"/gallery/:path*",destination:"/blog",permanent:false}]; }, outputFileTracingIncludes: {'/*':['./lib/event-forms/shell.html']}, async headers() { return [{ source: '/(.*)', headers: [{ key: 'X-Content-Type-Options', value: 'nosniff' }, { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' }, { key: 'X-Frame-Options', value: 'DENY' }, { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' }] }]; } };
+export default config;

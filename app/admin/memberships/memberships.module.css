@@ -1,0 +1,11 @@
+.list { display: grid; gap: 1.5rem; margin-top: 1.5rem; }
+.application { padding: clamp(1.25rem, 3vw, 2rem); }
+.heading { display: flex; gap: 1rem; justify-content: space-between; align-items: start; flex-wrap: wrap; }
+.heading h2 { margin: .4rem 0; font-size: 1.6rem; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 1rem 2rem; margin: 1.5rem 0; }
+.facts dt { font-weight: 600; }
+.facts dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.application details { margin: 1.5rem 0; }
+.application summary { cursor: pointer; font-weight: 600; }
+.application button:disabled { opacity: .55; cursor: not-allowed; }
+
