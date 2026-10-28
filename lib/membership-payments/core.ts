@@ -1,6 +1,6 @@
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
-import {MEMBERSHIP_PRICING,MEMBERSHIP_PAYMENT_TEST_FEE,isMembershipPaymentTest} from '../membership-pricing.ts';
+import {MEMBERSHIP_PRICING} from '../membership-pricing.ts';
 export type PaymentConfig={key:string;webhookSecret:string;account:string;mode:'live'|'test';origin:string};
 export function paymentRequestOrigin(config:PaymentConfig,url:string):PaymentConfig{
  const origin=new URL(url);return origin.protocol==='https:'&&config.mode==='live'&&['website-icsh.vercel.app','website-nine-beta-11.vercel.app','www.icsh.org.uk','icsh.org.uk'].includes(origin.hostname)?{...config,origin:'https://icsh.org.uk'}:config;
@@ -39,9 +39,14 @@ export function verifyStripeEvent(raw:string,header:string,config:PaymentConfig,
 }
 export type PaymentApplication={id:string;reference:string;mode:'test'|'live';category:string;feePence:number;currency:string;answers:{email:string;firstName?:string;lastName?:string}};
 export function applicationAmount(a:PaymentApplication,config:PaymentConfig){
- const testRate=a.category==='standard'&&isMembershipPaymentTest(a.answers)&&a.feePence===MEMBERSHIP_PAYMENT_TEST_FEE*100;
- const amount=testRate?MEMBERSHIP_PAYMENT_TEST_FEE*100:a.category==='standard'?MEMBERSHIP_PRICING.standardFee*100:a.category==='pensioner'?MEMBERSHIP_PRICING.pensionerFee*100:0;
- if(a.mode!==config.mode||a.currency!=='GBP'||a.feePence!==amount||![100,1500,2000].includes(amount))throw new Error('Application is not eligible for payment');return amount;
+ const amount=a.category==='standard'?MEMBERSHIP_PRICING.standardFee*100:a.category==='pensioner'?MEMBERSHIP_PRICING.pensionerFee*100:0;
+ if(a.mode!==config.mode||a.currency!=='GBP'||a.feePence!==amount||![1500,2000].includes(amount))throw new Error('Application is not eligible for payment');return amount;
+}
+/** Retain strict verification of historical receipts/refunds, never create a new discounted checkout. */
+function verificationAmount(a:PaymentApplication,config:PaymentConfig){
+ if(a.mode===config.mode&&a.currency==='GBP'&&a.category==='standard'&&a.feePence===100&&
+  a.answers.firstName?.trim().toLowerCase()==='test'&&a.answers.lastName?.trim().toLowerCase()==='test')return 100;
+ return applicationAmount(a,config);
 }
 export type PaymentRow={application_id:string;account_id:string;mode:'live'|'test';amount:number;currency:'gbp';session_id:string|null;payment_intent_id:string|null;charge_id:string|null;status:string;paid_at:string|null;refunded_amount:number;created_at:string;updated_at:string;checkout_attempt?:number;attempt_started_at?:string|null};
 export function paymentReceipt(row:PaymentRow|null){return row?{status:row.status,amount:row.amount,currency:'GBP',paidAt:row.paid_at,refundedAmount:row.refunded_amount}:null;}
@@ -60,7 +65,7 @@ export class StripeMembershipClient{
   const params=new URLSearchParams({mode:'payment',client_reference_id:a.id,customer_email:a.answers.email,
    success_url:`${this.config.origin}/membership/payment?application_id=${a.id}&result=return`,cancel_url:`${this.config.origin}/membership/payment?application_id=${a.id}&result=cancelled`,
    'line_items[0][quantity]':'1','line_items[0][price_data][currency]':'gbp','line_items[0][price_data][unit_amount]':String(amount),
-   'line_items[0][price_data][product_data][name]':amount===MEMBERSHIP_PAYMENT_TEST_FEE*100?'ICSH website payment test':`ICSH ${a.category==='pensioner'?'Pensioner':'Standard'} Membership · 12 months`,
+   'line_items[0][price_data][product_data][name]':`ICSH ${a.category==='pensioner'?'Pensioner':'Standard'} Membership · 12 months`,
    'metadata[purpose]':'icsh_website_membership_v1','metadata[application_id]':a.id,'metadata[account_id]':this.config.account,
    'payment_intent_data[metadata][purpose]':'icsh_website_membership_v1','payment_intent_data[metadata][application_id]':a.id,
    integration_identifier:'icsh_membership_portal_zqvnmhtr','adaptive_pricing[enabled]':'false'});
@@ -69,7 +74,7 @@ export class StripeMembershipClient{
  }
  async retrieve(id:string){if(!/^cs_[A-Za-z0-9_]{10,250}$/.test(id))throw new Error('Invalid checkout');return this.request('/checkout/sessions/'+id+'?expand[]=payment_intent.latest_charge');}
  validateSession(session:Record<string,any>,a:PaymentApplication){
-  const amount=applicationAmount(a,this.config);
+  const amount=verificationAmount(a,this.config);
   if(!/^cs_[A-Za-z0-9_]+$/.test(session.id)||session.livemode!==(this.config.mode==='live')||session.mode!=='payment'||session.currency!=='gbp'||session.amount_total!==amount||session.client_reference_id!==a.id||session.metadata?.purpose!=='icsh_website_membership_v1'||session.metadata?.application_id!==a.id||session.metadata?.account_id!==this.config.account)throw new Error('Checkout does not match this application');
  }
  checkoutUrl(session:Record<string,any>){let url;try{url=new URL(session.url);}catch{throw new Error('Checkout unavailable');}if(url.protocol!=='https:'||url.hostname!=='checkout.stripe.com')throw new Error('Checkout unavailable');return url.href;}

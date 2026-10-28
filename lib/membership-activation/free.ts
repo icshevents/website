@@ -7,5 +7,5 @@ export function eligibleFreeMembership(a:MembershipApplication):boolean {
  if(!(a.biginSyncStatus==='synced'||a.biginSyncStatus==='review_required'&&a.lastErrorCode==='RENEWAL'))return false;
  const created=new Date(a.createdAt);if(!Number.isFinite(created.getTime()))return false;
  const on=londonDate(created),quote=getQuote(a.answers,on);
- return Object.keys(validateApplication(a.answers,on)).length===0&&quote?.category===a.category&&quote.fee===0&&(quote.category==='student'||quote.launchTest===true);
+ return Object.keys(validateApplication(a.answers,on)).length===0&&quote?.category===a.category&&quote.fee===0&&quote.category==='student';
 }

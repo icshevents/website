@@ -6,19 +6,18 @@ import {quoteMembership,ageOn,britishToIso,isoToBritish,londonDate,priceLabel,is
 import {EMPTY_ANSWERS,validateStep,validateApplication,updateAnswer,getQuote,errorStep,registrationAgeError} from '../lib/membership-validation.ts';
 const today='2026-10-16';
 const valid={...EMPTY_ANSWERS,kind:'new',firstName:'Alex',lastName:'Taylor',dob:'16/10/1991',mobile:'07700 900123',email:'alex@example.test',terms:true,accuracy:true};
-test('Test Test has a GBP 1 live payment rate at every valid age, including students and minors',()=>{
- for(const age of [0,5,16,17,20,21,22,64,65,80])for(const education of ['yes','no'])for(const kind of ['new','renewal']){
-  const v={...valid,firstName:' tEsT ',lastName:' TEST ',dob:`16/10/${2026-age}`,education,kind,studentDeclaration:false};const q=getQuote(v,today);
-  assert.equal(q.fee,1);assert.equal(q.category,'standard');assert.equal(q.paymentTest,true);assert.equal(q.declarationRequired,false);assert.equal(registrationAgeError(q),undefined);assert.deepEqual(validateApplication(v,today),{});
+test('every name uses the published rates and age rules for joining and renewal',()=>{
+ for(const kind of ['new','renewal'])for(const firstName of ['Alex','Test',' tEsT '])for(const [dob,education,fee,category] of [['16/10/1991','no',20,'standard'],['16/10/1961','no',15,'pensioner'],['16/10/2006','yes',0,'student'],['16/10/2006','no',20,'standard'],['16/10/2010','yes',0,'minor']]){
+  const v={...valid,firstName,lastName:' TEST ',kind,dob,education,studentDeclaration:true};const q=getQuote(v,today);
+  assert.equal(q.fee,fee);assert.equal(q.category,category);assert.equal('paymentTest' in q,false);assert.equal('launchTest' in q,false);
+  assert.equal(Boolean(validateApplication(v,today).dob),category==='minor');
  }
 });
-test('changing either Test Test name restores ordinary prices, age checks and student declarations',()=>{
+test('editing names never changes prices or removes declaration requirements',()=>{
  const v={...valid,firstName:'Test',lastName:'Test',dob:'16/10/2006',education:'yes',studentDeclaration:true};
  for(const key of ['firstName','lastName']){const changed=updateAnswer(v,key,'Tester',today);assert.equal(getQuote(changed,today).fee,0);assert.equal(changed.studentDeclaration,false);assert.ok(validateStep(changed,2,today).studentDeclaration);}
- for(const lastName of ['Testing','Test Test','Test-Smith',''])assert.notEqual(getQuote({...v,lastName},today).fee,1);
- const minor={...v,dob:'16/10/2016'};assert.equal(getQuote(minor,today).fee,1);assert.equal(registrationAgeError(getQuote({...minor,firstName:'Alex'},today)),MINOR_MEMBERSHIP_NOTICE);
- assert.equal(getQuote({...v,dob:'17/10/2026'},today),null);assert.equal(getQuote({...v,dob:'31/04/2000'},today),null);
- assert.ok(validateApplication({...v,terms:false},today).terms);assert.ok(validateApplication({...v,accuracy:false},today).accuracy);
+ assert.equal(registrationAgeError(getQuote({...v,dob:'16/10/2016'},today)),MINOR_MEMBERSHIP_NOTICE);
+ assert.equal(getQuote({...v,dob:'17/10/2026'},today),null);assert.ok(validateApplication({...v,terms:false},today).terms);
 });
 for(const [age,education,category,fee] of [[0,'no','minor',0],[15,'yes','minor',0],[16,'no','minor',0],[16,'yes','minor',0],[17,'yes','student',0],[17,'no','standard',20],[18,'yes','student',0],[20,'yes','student',0],[20,'no','standard',20],[21,'yes','student',0],[21,'no','standard',20],[22,'yes','standard',20],[35,'','standard',20],[64,'','standard',20],[65,'','pensioner',15],[66,'','pensioner',15],[75,'','pensioner',15]])test(`age ${age}, education ${education||'not asked'}: ${category} ${fee}`,()=>{const q=quoteMembership(`${2026-age}-10-16`,education,today);assert.equal(q.age,age);assert.equal(q.category,category);assert.equal(q.fee,fee);assert.equal(q.months,12);assert.ok(!('startDate' in q));assert.ok(!('expiryDate' in q))});
 test('central confirmed rates and full-birthday age boundaries',()=>{assert.equal(MEMBERSHIP_PRICING.status,'confirmed');assert.equal(MEMBERSHIP_PRICING.pensionerMinimumAge,65);assert.equal(MEMBERSHIP_PRICING.studentMaximumAgeExclusive,22);assert.equal(ageOn('1961-10-17',today),64);assert.equal(ageOn('1961-10-16',today),65);assert.equal(quoteMembership('2005-10-17','yes',today).fee,0)});

@@ -1,5 +1,4 @@
 import {londonDate} from '../membership.ts';
-import {isMembershipLaunchTest} from '../membership-launch-test.ts';
 import {processFormEmails} from '../form-emails/server';
 import {ensureWebsiteMemberId} from '../member-ids/server';
 import 'server-only';
@@ -28,7 +27,7 @@ async function activateMembership(id:string,free:boolean):Promise<'active'|'revi
  const finish=async(status:'active'|'failed'|'review_required',code:string|null=null)=>{const saved=await db.rpc('icsh_membership_activation_finish',{p_id:id,p_claim:claim,p_status:status,p_error:code});if(saved.error)throw new Error('ACTIVATION_RECORD_UNAVAILABLE');return activationSchema.parse(saved.data);};
  try{
   const app=await getMembershipApplication(id,db);if(!app||app.deletedAt)throw new Error('APPLICATION_CHANGED');
-  await activateMatchedMembership(membershipActivationClient,app.answers,x.contact_id||app.biginRecordId,{Membership_Status:'Active',Payment_Status:free?'Not required':'Completed',Membership_Date:x.start_date,Expiry_Date:x.expiry_date},async contact=>{await ensureWebsiteMemberId(app,contact);const bound=await db.rpc('icsh_membership_activation_bind',{p_id:id,p_claim:claim,p_contact:contact});if(bound.error)throw new Error('ACTIVATION_BIND_UNAVAILABLE');return bound.data===true;},londonDate(),{allowExpiredLaunchTest:free&&app.answers.kind==='new'&&isMembershipLaunchTest(app.answers,londonDate(new Date(app.createdAt)))});
+  await activateMatchedMembership(membershipActivationClient,app.answers,x.contact_id||app.biginRecordId,{Membership_Status:'Active',Payment_Status:free?'Not required':'Completed',Membership_Date:x.start_date,Expiry_Date:x.expiry_date},async contact=>{await ensureWebsiteMemberId(app,contact);const bound=await db.rpc('icsh_membership_activation_bind',{p_id:id,p_claim:claim,p_contact:contact});if(bound.error)throw new Error('ACTIVATION_BIND_UNAVAILABLE');return bound.data===true;},londonDate());
   const saved=await finish('active');if(saved.status==='active')await processFormEmails().catch(()=>console.error('ICSH_FORM_EMAIL_PROCESSING_PENDING'));return saved.status==='active'?'active':'review_required';
  }catch(error){if(error instanceof ActivationReview){await finish('review_required',error.code);return'review_required';}await finish('failed',error instanceof ZohoError?error.code:'ACTIVATION_RETRY_REQUIRED');throw new Error('ACTIVATION_RETRY');}
 }

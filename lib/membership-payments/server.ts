@@ -48,6 +48,7 @@ export async function handleMembershipPayment(request:Request,id:string){
   }
   if(JSON.stringify(JSON.parse(await boundedBody(request,1024)))!=='{}')return json({error:'Invalid payment request.'},400);
   if(application.feePence===0)return json({paymentRequired:false});
+  if(![1500,2000].includes(application.feePence))return json({error:'This test payment offer has ended. Contact ICSH if you need help with a saved test application.'},409);
   if(!config)return json({error:'Online membership payments are not available yet. Your application remains saved.'},503);
   const db=createEventService();
   const prepared=await db.rpc('icsh_membership_payment_prepare',{p_application_id:id,p_account_id:config.account,p_mode:config.mode});

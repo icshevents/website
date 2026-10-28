@@ -106,16 +106,18 @@ function post(auth, body = submission(), headers = {}) {
     ...(body === null ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }),
   });
 }
-test('the server saves Test Test as GBP 1 for every age rather than trusting the browser fee',async()=>{
- for(const dob of ['01/01/2020','01/01/2006','01/01/1950']){
+test('the server calculates normal Test Test fees and rejects client-supplied discounts',async()=>{
+ for(const [dob,education,fee,category] of [['01/01/1990','no',2000,'standard'],['01/01/2006','yes',0,'student'],['01/01/1950','no',1500,'pensioner']]){
   const context=harness();const auth=await bootstrap(context);
-  const response=await handleMembershipApplications(post(auth,submission({answers:answers({firstName:' test ',lastName:'TEST',dob,education:'yes',studentDeclaration:false})})),context.deps);
-  const body=await json(response,201);assert.equal(body.application.feePence,100);assert.equal(body.application.category,'standard');assert.equal(body.application.paymentStatus,'awaiting_payment');
-  assert.equal(context.calls.save[0][0].feePence,100);assert.equal(context.calls.checkIdentity.length,1);
+  const response=await handleMembershipApplications(post(auth,submission({answers:answers({firstName:' test ',lastName:'TEST',dob,education,studentDeclaration:education==='yes'})})),context.deps);
+  const body=await json(response,201);assert.equal(body.application.feePence,fee);assert.equal(body.application.category,category);
+  assert.equal(context.calls.save[0][0].feePence,fee);assert.equal(context.calls.checkIdentity.length,1);
  }
  const context=harness();const auth=await bootstrap(context);
  assert.equal((await handleMembershipApplications(post(auth,{...submission(),feePence:100}),context.deps)).status,400);assert.equal(context.calls.save.length,0);
+ const minor=harness();const a=await bootstrap(minor);assert.equal((await handleMembershipApplications(post(a,submission({answers:answers({firstName:'Test',lastName:'Test',dob:'01/01/2020'})})),minor.deps)).status,400);assert.equal(minor.calls.save.length,0);
 });
+
 function adminPost(body = {}, headers = {}) {
   return new Request(`${adminEndpoint}/${id}/sync`, {
     method: 'POST', headers: requestHeaders({ origin, 'content-type': 'application/json' }, headers),
