@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { parseMemberSearch, normaliseMemberMobile, projectMembershipSearch } from '../lib/member-search.ts';
 import { handleMemberSearch } from '../lib/member-search-api.ts';
 import { createZohoClient } from '../lib/zoho/client.ts';
+import { checkMembershipEligibility } from '../lib/membership-eligibility.ts';
 
 const record = overrides => ({ id: '10001', fullName: 'Alex Smith', email: 'alex@example.invalid', mobile: '+447400123456', membershipStatus: 'Active', paymentStatus: 'Completed', membershipDate: '2025-12-27', membershipExpiry: '2026-12-27', ...overrides });
 const name = () => parseMemberSearch({ method: 'name', firstName: 'Alex', lastName: 'Smith' });
@@ -102,10 +103,48 @@ test('Bigin lookup is a fixed GET search, validates exact identity and projects 
   for (const input of [name(), { method: 'email', email: 'alex@example.invalid' }, { method: 'mobile', mobile: '+447400123456' }]) {
     assert.deepEqual(await client.lookupBiginMembership(input, '2026-10-22'), { status: 'found', membershipDate: '2025-12-27', membershipExpiry: '2026-12-27', daysUntilExpiry: 66 });
   }
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 8);
   for (const call of calls.slice(1)) { assert.equal(call.init.method, 'GET'); assert.equal(call.url.pathname, '/bigin/v2/Contacts/search'); }
   assert.equal(calls[1].url.searchParams.get('criteria'), '(Full_Name:equals:Alex Smith)');
   assert.equal(calls[3].url.searchParams.get('phone'), '+447400123456');
+});
+
+test('renewal matches a stored national test number when Bigin misses its country-code form', async () => {
+  const identity = { kind: 'renewal', firstName: 'Test', lastName: 'Test', email: 'renewal@example.invalid', mobile: '982123456' };
+  let requests = 0;
+  const saved = { id: '10001', Full_Name: 'Test Test', Email: identity.email, Mobile: identity.mobile, Membership_Status: 'Active', Payment_Status: 'Not required', Membership_Date: '2025-10-28', Expiry_Date: '2026-10-28' };
+  const client = createZohoClient(env, async (url, init) => {
+    const u = new URL(url);
+    if (u.hostname === 'accounts.zoho.eu') { requests++; return json({ access_token: 'fixture-token', expires_in: 3600 }); }
+    assert.equal(init.method, 'GET');
+    const found = u.searchParams.get('email') === identity.email || u.searchParams.get('phone') === identity.mobile;
+    return found ? json({ data: [saved], info: { more_records: false } }) : new Response(null, { status: 204 });
+  });
+  const lookup = value => client.searchBiginMembershipRecords(value);
+  assert.deepEqual(await checkMembershipEligibility(identity, lookup, '2026-10-28'), { status: 'allowed' });
+  assert.deepEqual(await checkMembershipEligibility({ ...identity, kind: 'new' }, lookup, '2026-10-28'), { status: 'renewal_required' });
+  saved.Membership_Date = '2026-10-28'; saved.Expiry_Date = '2027-10-28';
+  assert.equal((await checkMembershipEligibility(identity, lookup, '2026-10-28')).status, 'active');
+  assert.equal(requests, 1, 'parallel searches share a single OAuth refresh');
+});
+
+test('phone variants are combined before deciding whether the existing member is unique', async () => {
+  const identity = { kind: 'renewal', firstName: 'Alex', lastName: 'Smith', email: 'alex@example.invalid', mobile: '07400123456' };
+  const saved = { id: '10001', Full_Name: 'Alex Smith', Email: identity.email, Mobile: '+447400123456', Membership_Status: 'Active', Payment_Status: 'Completed', Membership_Date: '2025-10-28', Expiry_Date: '2026-10-28' };
+  for (const mode of ['shared', 'truncated', 'changed', 'unavailable']) {
+    const client = createZohoClient(env, async url => {
+      const u = new URL(url);
+      if (u.hostname === 'accounts.zoho.eu') return json({ access_token: 'fixture-token', expires_in: 3600 });
+      if (u.searchParams.get('phone') === '07400123456') {
+        if (mode === 'unavailable') return json({ code: 'INTERNAL_ERROR' }, { status: 500 });
+        return json({ data: [{ ...saved, ...(mode === 'shared' ? { id: '10002', Email: 'other@example.invalid', Mobile: '07400123456' } : mode === 'changed' ? { Expiry_Date: '2027-10-28' } : {}) }], info: { more_records: mode === 'truncated' } });
+      }
+      return json({ data: [saved], info: { more_records: false } });
+    });
+    const check = () => checkMembershipEligibility(identity, value => client.searchBiginMembershipRecords(value), '2026-10-28');
+    if (['changed', 'unavailable'].includes(mode)) await assert.rejects(check);
+    else assert.deepEqual(await check(), { status: 'review_required' });
+  }
 });
 
 test('Bigin 204 is no match; truncated or malformed provider results fail closed', async () => {

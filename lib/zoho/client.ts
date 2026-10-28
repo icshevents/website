@@ -1,6 +1,7 @@
 // Import this module through lib/zoho/server.ts in the application. That entry
 // point enforces the server-only boundary; this pure module is injectable in tests.
 import { membershipMobileKey, type MembershipRecordSearch } from '../membership-eligibility.ts';
+import { parsePhoneNumberFromString } from 'libphonenumber-js/min';
 import { parseMemberSearch, projectMembershipSearch, type MemberSearchInput, type MemberSearchResult, type MembershipSearchRecord } from '../member-search.ts';
 
 export type ZohoService = 'bigin' | 'campaigns';
@@ -429,10 +430,32 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
   async function searchBiginMembershipRecords(value: MemberSearchInput): Promise<MembershipRecordSearch> {
     const mobile = value?.method === 'mobile' ? membershipMobileKey(value.mobile) : null;
     const input = value?.method === 'mobile' && mobile ? { method: 'mobile' as const, mobile } : parseMemberSearch(value);
+    if (input.method === 'mobile') {
+      const phone = parsePhoneNumberFromString(input.mobile);
+      if (!phone) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+      // Bigin can store a national number exactly as entered. Its phone search
+      // does not reliably equate that value with our canonical country-code form.
+      // Search all bounded representations, then let the caller compare the
+      // normalised number. Never stop at the first match: shared phones still
+      // require review, including when contacts use different representations.
+      const variants = [...new Set([input.mobile, input.mobile.slice(1), '00' + input.mobile.slice(1),
+        phone.nationalNumber, phone.formatNational().replace(/\D/g, '')])];
+      const results = await Promise.all(variants.map(number => searchMembershipRecords(new URLSearchParams({ phone: number, page: '1', per_page: '200' }))));
+      const records = new Map<string, MembershipSearchRecord>();
+      for (const result of results) for (const record of result.records) {
+        const previous = records.get(record.id);
+        if (previous && JSON.stringify(previous) !== JSON.stringify(record)) throw new ZohoError('ZOHO_INVALID_RESPONSE');
+        records.set(record.id, record);
+      }
+      return { records: [...records.values()], hasMore: results.some(result => result.hasMore) || records.size > 200 };
+    }
     const query = new URLSearchParams({ page: '1', per_page: '200' });
     if (input.method === 'name') query.set('criteria', `(Full_Name:equals:${input.firstName} ${input.lastName})`);
-    else if (input.method === 'email') query.set('email', input.email);
-    else query.set('phone', input.mobile);
+    else query.set('email', input.email);
+    return searchMembershipRecords(query);
+  }
+
+  async function searchMembershipRecords(query: URLSearchParams): Promise<MembershipRecordSearch> {
     const response = await biginRecordGet('/bigin/v2/Contacts/search', query);
     if (response.status === 204 && response.data === null) return { records: [], hasMore: false };
     const body = response.data;
