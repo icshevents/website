@@ -5,7 +5,7 @@ import {handleRishta,decodePhoto} from '../lib/rishta/api.ts';
 
 const origin='https://icsh.test',url=origin+'/api/rishta/applications';
 const today='2026-10-23',requestKey='638fd540-a972-4b13-bd46-5092a0ead42e';
-const valid=changes=>({Name_first:'Fictional',Name_last:'Applicant',Dropdown:'Male',Date:'1992-10-23',SingleLine4:'rishta-test@example.invalid',SingleLine5:'+447700900000',SingleLine3:'Fictional test address',Dropdown1:"5'9",SingleLine2:'British',Dropdown8:"Bachelor\'s degree",SingleLine11:'Prefer to discuss',Dropdown6:'Single (Never married)',MultiLine1:'Fictional test profile.',MultiLine3:'A compatible life partner.',TermsConditions:true,...changes});
+const valid=changes=>({Name_first:'Fictional',Name_last:'Applicant',Dropdown:'Male',Date:'1992-10-23',SingleLine4:'rishta-test@example.invalid',SingleLine5:'+447700900000',SingleLine3:'Fictional test address',Dropdown1:"5'9",SingleLine2:'British',Dropdown8:"Bachelor\'s degree",SingleLine11:'Prefer to discuss',Dropdown6:'Single (Never married)',MultiLine1:'Fictional test profile.',MultiLine3:'A compatible life partner.',TermsConditions:true,SensitiveConsent:true,...changes});
 const deps=overrides=>({secret:'local-test-secret-not-production',today,available:async()=>true,rateLimit:async()=>true,save:async()=>{},...overrides});
 async function boot(d){const r=await handleRishta(new Request(url),d);const b=await r.json();return {csrf:b.csrf,cookie:r.headers.get('set-cookie')?.split(';')[0],response:r};}
 async function send(d,changes={},headers={}){const s=await boot(d);return handleRishta(new Request(url,{method:'POST',headers:{origin,'content-type':'application/json',cookie:s.cookie,'x-csrf-token':s.csrf,...headers},body:JSON.stringify({requestKey,answers:valid(),photo:null,website:'',...changes})}),d);}
@@ -14,7 +14,7 @@ test('Age uses the whole date and rejects impossible or future dates',()=>{
 });
 test('Original required questions remain required; optional fields may be blank',()=>{
  assert.deepEqual(cleanAnswers(valid(),today).errors,{});
- for(const id of ['Name_first','Name_last','Dropdown','Date','SingleLine4','SingleLine5','SingleLine3','Dropdown1','SingleLine2','Dropdown8','SingleLine11','Dropdown6','MultiLine1','MultiLine3','TermsConditions'])assert.ok(cleanAnswers(valid({[id]:''}),today).errors[id],id);
+ for(const id of ['Name_first','Name_last','Dropdown','Date','SingleLine4','SingleLine5','SingleLine3','Dropdown1','SingleLine2','Dropdown8','SingleLine11','Dropdown6','MultiLine1','MultiLine3','TermsConditions','SensitiveConsent'])assert.ok(cleanAnswers(valid({[id]:''}),today).errors[id],id);
 });
 test('Under-18 and invalid date submissions are blocked; age is recomputed',()=>{
  assert.ok(cleanAnswers(valid({Date:'2008-10-24'}),today).errors.Date);
@@ -48,7 +48,7 @@ test('Bootstrap sets an HttpOnly secure same-site cookie and returns no profiles
  const b=await boot(deps());assert.equal(b.response.status,200);assert.match(b.response.headers.get('set-cookie'),/HttpOnly; SameSite=Strict/);assert.match(b.response.headers.get('set-cookie'),/Secure/);assert.match(b.response.headers.get('cache-control'),/no-store/);assert.equal(typeof b.csrf,'string');
 });
 test('Successful save returns only the reference and status; no private answers',async()=>{
- let saved;const r=await send(deps({save:async v=>{saved=v;}}),{answers:valid({unrecognised:'discard',Radio1:'Yes'})});assert.equal(r.status,201);const b=await r.json();assert.deepEqual(Object.keys(b).sort(),['reference','status']);assert.match(b.reference,/^RIS-/);assert.equal(saved.answers.unrecognised,undefined);assert.equal(saved.answers.Radio1,undefined);assert.equal(saved.photo,null);
+ let saved;const r=await send(deps({save:async v=>{saved=v;}}),{answers:valid({unrecognised:'discard',Radio1:'Yes'})});assert.equal(r.status,201);const b=await r.json();assert.deepEqual(Object.keys(b).sort(),['reference','status']);assert.match(b.reference,/^RIS-/);assert.equal(saved.answers.unrecognised,undefined);assert.equal(saved.answers.Radio1,undefined);assert.equal(saved.photo,null);assert.equal(saved.answers.SensitiveConsent,true);assert.match(saved.termsVersion,/sensitive-consent-2026-10-27/);
 });
 test('Wrong origin, missing cookie and wrong CSRF cannot save',async()=>{
  let writes=0;const d=deps({save:async()=>{writes++;}});
@@ -61,7 +61,7 @@ test('Wrong content type and method are rejected',async()=>{
 });
 test('Validation, honeypot, invalid request keys and empty answers never save',async()=>{
  let writes=0;const d=deps({save:async()=>{writes++;}});
- for(const changes of [{answers:valid({TermsConditions:false})},{answers:valid({Date:'2030-01-01'})},{website:'spam'},{requestKey:'not-a-uuid'},{answers:null}])assert.equal((await send(d,changes)).status,400);
+ for(const changes of [{answers:valid({TermsConditions:false})},{answers:valid({SensitiveConsent:false})},{answers:valid({SensitiveConsent:undefined})},{answers:valid({Date:'2030-01-01'})},{website:'spam'},{requestKey:'not-a-uuid'},{answers:null}])assert.equal((await send(d,changes)).status,400);
  assert.equal(writes,0);
 });
 test('Rate limiting blocks writes and does not return input details',async()=>{
@@ -70,4 +70,12 @@ test('Rate limiting blocks writes and does not return input details',async()=>{
 test('Unavailable database and failed save never issue a receipt',async()=>{
  assert.equal((await handleRishta(new Request(url),deps({available:async()=>false}))).status,503);
  const r=await send(deps({save:async()=>{throw Error('secret database diagnostic');}}));assert.equal(r.status,503);const b=await r.json();assert.equal(b.reference,undefined);assert.doesNotMatch(b.error,/secret database/);
+});
+
+test('Generic submission terms cannot grant sensitive-profile consent',()=>{
+ for(const value of [undefined,false,'true','yes',1]){
+  const checked=cleanAnswers(valid({TermsConditions:true,SensitiveConsent:value}),today);
+  assert.ok(checked.errors.SensitiveConsent);
+  assert.equal(checked.answers.SensitiveConsent,false);
+ }
 });

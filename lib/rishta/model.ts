@@ -3,14 +3,14 @@ import definitions from './fields.json' with {type:'json'};
 export type Answers = Record<string,string|boolean|string[]>;
 export type RishtaField = {id:string;label:string;required:boolean;type:string;options:string[];hints:string[];other?:boolean;condition?:{field:string;values:string[]}};
 export const fields = definitions as RishtaField[];
-export const termsVersion = 'existing-rishta-terms-2026-10-23';
+export const termsVersion = 'rishta-submission-and-sensitive-consent-2026-10-27';
 export const steps = [
   {title:'Personal information',ids:['Name_first','Name_last','Dropdown','Date','Number','Dropdown1','SingleLine4','SingleLine5','DecisionBox','Checkbox','SingleLine3','SingleLine2','SingleLine6','ImageUpload']},
   {title:'Your background',ids:['Dropdown8','MultiLine','SingleLine9','SingleLine10','SingleLine11','SingleLine12','Dropdown9','Radio5','Dropdown12','Dropdown6','Radio1','Dropdown7']},
   {title:'Lifestyle & personality',ids:['MultiLine1','Radio2','MultiLine2']},
   {title:'Marriage preferences',ids:['SingleLine15','SingleLine18','SingleLine16','SingleLine17','Dropdown14','Dropdown15','Dropdown16','MultiLine3','MultiLine4']},
-  {title:'Additional information & terms',ids:['MultiLine5','TermsConditions']},
-  {title:'Review your profile',ids:[]},
+  {title:'Additional information',ids:['MultiLine5']},
+  {title:'Review your profile',ids:['TermsConditions','SensitiveConsent']},
 ];
 export function visible(field:RishtaField,answers:Answers):boolean {
   if(!field.condition)return true;
@@ -33,14 +33,14 @@ export function cleanAnswers(input:unknown,today?:string):{answers:Answers;error
     if(['ImageUpload','Number'].includes(f.id))continue;
     const value=source[f.id];
     if(f.id==='Checkbox')answers[f.id]=Array.isArray(value)?[...new Set(value.filter(v=>typeof v==='string'&&f.options.includes(v)))]:[];
-    else if(['DecisionBox','TermsConditions'].includes(f.id))answers[f.id]=value===true;
+    else if(['DecisionBox','TermsConditions','SensitiveConsent'].includes(f.id))answers[f.id]=value===true;
     else answers[f.id]=typeof value==='string'?value.trim().slice(0,f.type==='2'?65535:255):'';
   }
   for(const f of fields){
     if(!visible(f,answers)){delete answers[f.id];continue;}
     if(f.id==='Number'||f.id==='ImageUpload')continue;
     const v=answers[f.id];
-    if(f.required&&(v===false||v===''||v===undefined))errors[f.id]=f.id==='TermsConditions'?'Please read and accept the service terms.':'Please complete this field.';
+    if(f.required&&(v===false||v===''||v===undefined))errors[f.id]=f.id==='SensitiveConsent'?'Please give explicit consent to the use of sensitive profile information before submitting.':f.id==='TermsConditions'?'Please acknowledge the service terms by submitting your profile.':'Please complete this field.';
     if(f.options.length&&f.id!=='Checkbox'&&v&&!f.options.includes(String(v)))errors[f.id]='Please choose one of the listed options.';
     if(f.other&&v==='Other'){
       const other=source[f.id+'_other'];answers[f.id+'_other']=typeof other==='string'?other.trim().slice(0,150):'';

@@ -1,3 +1,4 @@
+import {isMembershipLaunchTest} from './membership-launch-test.ts';
 import {membershipMobileKey} from './membership-eligibility.ts';
 import {MEMBERSHIP_PRICING,MEMBERSHIP_PAYMENT_TEST_FEE,isMembershipPaymentTest} from './membership-pricing.ts';
 import {britishToIso,quoteMembership,isStudentAge,MINOR_MEMBERSHIP_NOTICE,type Education,type MembershipQuote} from './membership.ts';
@@ -8,10 +9,11 @@ export function getQuote(values:MembershipAnswers,on:string):MembershipQuote|nul
  const dob=britishToIso(values.dob);if(!dob)return null;
  try{
   const quote=quoteMembership(dob,values.education,on);
+  if(isMembershipLaunchTest(values,on))return {...quote,category:'standard',label:'Launch test membership',fee:0,declarationRequired:false,paymentTest:true,launchTest:true,explanation:'Test Test launch rehearsal: no payment. The initial test term expires on 28 October 2026; renewal receives the normal 12-month term.'};
   return isMembershipPaymentTest(values)?{...quote,category:'standard',label:'Live payment test',fee:MEMBERSHIP_PAYMENT_TEST_FEE,declarationRequired:false,paymentTest:true,explanation:'Test Test uses a £1.00 live payment test rate regardless of age or education. This is a real payment; membership activation is separate.'}:quote;
  }catch{return null}
 }
-export function registrationAgeError(quote:MembershipQuote|null):string|undefined {return quote&&!quote.paymentTest&&quote.age<MEMBERSHIP_PRICING.registrationMinimumAge?MINOR_MEMBERSHIP_NOTICE:undefined;}
+export function registrationAgeError(quote:MembershipQuote|null):string|undefined {return quote&&(!quote.paymentTest||quote.launchTest)&&quote.age<MEMBERSHIP_PRICING.registrationMinimumAge?MINOR_MEMBERSHIP_NOTICE:undefined;}
 export function validateStep(values:MembershipAnswers,step:number,on:string):FieldErrors {
  const errors:FieldErrors={};const quote=getQuote(values,on);
  if(step===1){

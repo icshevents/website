@@ -17,7 +17,7 @@ export default function RishtaForm(){
  function changeStep(next:number){setStep(next);setError('');requestAnimationFrame(()=>{heading.current?.focus({preventScroll:true});form.current?.scrollIntoView({behavior:'smooth',block:'start'});});}
  function validateStep(){const checked=cleanAnswers(answers);const ids=steps[step].ids;const current=Object.fromEntries(Object.entries(checked.errors).filter(([id])=>ids.some(i=>id===i||id===i+'_other')));setErrors(current);return Object.keys(current).length===0;}
  async function submit(){
-  const checked=cleanAnswers(answers);if(Object.keys(checked.errors).length){setErrors(checked.errors);changeStep(Math.max(0,steps.findIndex(s=>s.ids.some(id=>checked.errors[id]))));return;}
+  const checked=cleanAnswers({...answers,TermsConditions:true});if(Object.keys(checked.errors).length){setErrors(checked.errors);changeStep(Math.max(0,steps.findIndex(s=>s.ids.some(id=>checked.errors[id]))));return;}
   setBusy(true);setError('');
   try{
    let image=null;
@@ -34,11 +34,6 @@ export default function RishtaForm(){
   const attributes={id,'aria-required':f.required,'aria-invalid':Boolean(problem),'aria-describedby':`${id}-help ${id}-error`};
   const label=<>{f.label}{f.required?<span aria-hidden="true"> *</span>:<span className={styles.optional}>Optional</span>}</>;
   const messages=(copy=help)=><div className={styles.fieldMessages}><span className={styles.help} id={id+'-help'}>{copy}</span><span className={styles.error} id={id+'-error'}>{problem}</span></div>;
-  if(f.id==='TermsConditions')return <div key={f.id} className={`${styles.choiceField} ${styles.wide}`}>
-   <details className={styles.terms}><summary>Read the Rishta service terms & conditions</summary><div className={styles.termsCopy} tabIndex={0}>{terms.map((p,i)=><p key={i}>{p}</p>)}</div></details>
-   <label className={styles.check}><input {...attributes} type="checkbox" checked={value===true} onChange={e=>update(f.id,e.target.checked)}/><span>I accept the Terms and Conditions. *</span></label>
-   {messages('Contact ICSH to update or withdraw your profile.')}
-  </div>;
   if(f.id==='DecisionBox')return <div key={f.id} className={`${styles.choiceField} ${styles.wide}`}><label className={styles.check}><input {...attributes} type="checkbox" checked={value===true} onChange={e=>update(f.id,e.target.checked)}/><span>{f.label}</span></label>{messages()}</div>;
   if(f.id==='Checkbox'||f.type==='13')return <div key={f.id} className={`${styles.choiceField} ${styles.wide}`}>
    <fieldset className={styles.choices} aria-describedby={`${id}-help ${id}-error`} aria-required={f.required}><legend className={styles.legend}>{label}</legend>
@@ -62,7 +57,7 @@ export default function RishtaForm(){
    <label htmlFor={id}>{label}</label><div className={styles.control}>{control}</div>{messages()}
   </div>;
  }
- if(reference)return <div className={styles.success} role="status"><h2 ref={heading} tabIndex={-1}>Your profile has been received.</h2><p>Your profile is saved privately. ICSH will review it before considering introductions.</p><p className={styles.reference}>Reference: {reference}</p><p>Please keep this reference. No confirmation email has been sent. For updates or to withdraw your profile, contact <a href="mailto:events@icsh.org.uk">events@icsh.org.uk</a>.</p><Link className="button outline" href="/events">Return to Events & Services</Link></div>;
+ if(reference)return <div className={styles.success} role="status"><h2 ref={heading} tabIndex={-1}>Your profile has been received.</h2><p>Your profile is saved privately. ICSH will review it before considering introductions.</p><p className={styles.reference}>Reference: {reference}</p><p>Keep this reference. For updates or to withdraw your profile, contact <a href="mailto:events@icsh.org.uk">events@icsh.org.uk</a>.</p><Link className="button outline" href="/events">Return to Events & Services</Link></div>;
  return <form ref={form} className={styles.form} onSubmit={e=>{e.preventDefault();if(busy)return;if(step===5)void submit();else if(validateStep()&&(step!==0||!errors.ImageUpload))changeStep(step+1);}} noValidate>
   <ol className={styles.steps} aria-label="Profile progress">{steps.map((s,i)=><li key={s.title} aria-current={i===step?'step':undefined}><span className={styles.stepNumber}>{String(i+1).padStart(2,'0')}</span><span className={styles.stepName}>{s.title}</span></li>)}</ol>
   <section className={styles.panel}><h2 ref={heading} tabIndex={-1}>{steps[step].title}</h2><p className={styles.help}>{step===5?'Check your answers. Use Edit to make changes.':'Fields marked * are required; other questions are optional.'}</p>
@@ -70,6 +65,13 @@ export default function RishtaForm(){
    {Object.values(errors).some(Boolean)&&<p className={styles.errorBox} role="alert">Please check the highlighted fields.</p>}
    {step<5?<div className={styles.fields}>{steps[step].ids.map(id=>field(fields.find(f=>f.id===id)!))}</div>:steps.slice(0,5).map((s,i)=><div className={styles.review} key={s.title}><h3>{s.title}</h3><dl>{s.ids.map(id=>{const f=fields.find(x=>x.id===id)!;if(!visible(f,answers))return null;const value=id==='Number'?age:id==='ImageUpload'?(photo?.name||'Not provided'):answers[id];return <div key={id}><dt>{f.label}</dt><dd>{id==='TermsConditions'?(value?'Accepted':'Not accepted'):typeof value==='boolean'?(value?'Yes':'No'):Array.isArray(value)?(value.join(', ')||'Not provided'):String(value||'Not provided')}{answers[id+'_other']?' — '+answers[id+'_other']:''}</dd></div>;})}</dl><button type="button" onClick={()=>changeStep(i)}>Edit this section</button></div>)}
    <div className={styles.honeypot} aria-hidden="true"><label>Website<input tabIndex={-1} autoComplete="off" value={text(answers.website)} onChange={e=>update('website',e.target.value)}/></label></div>
+   {step===5&&<div className={styles.submissionNotice}>
+    <details className={styles.terms}><summary>Read the Rishta service terms & conditions</summary><div className={styles.termsCopy} tabIndex={0}>{terms.map((p,i)=><p key={i}>{p}</p>)}</div></details>
+    <label className={styles.check}><input id="rishta-SensitiveConsent" type="checkbox" checked={answers.SensitiveConsent===true} onChange={e=>update('SensitiveConsent',e.target.checked)} aria-required="true" aria-invalid={Boolean(errors.SensitiveConsent)} aria-describedby="rishta-sensitive-help rishta-sensitive-error"/><span>I explicitly consent to ICSH using the sensitive profile details I choose to provide, including religion, ethnic background and health information, for introductions and sharing relevant details with suitable potential matches, their families where appropriate, and authorised ICSH volunteers. *</span></label>
+    <p className={styles.help} id="rishta-sensitive-help">You can withdraw this consent by contacting <a href="mailto:events@icsh.org.uk">events@icsh.org.uk</a>.</p>
+    {errors.SensitiveConsent&&<p className={styles.error} id="rishta-sensitive-error">{errors.SensitiveConsent}</p>}
+    <p className={styles.help}>By selecting Submit profile, you agree to the service terms above, acknowledge our <Link href="/privacy#rishta-service" target="_blank" rel="noopener noreferrer" aria-label="Privacy policy (opens in a new tab)">privacy policy</Link>, and confirm that your information is true, accurate and complete to the best of your knowledge.</p>
+   </div>}
    <div className={styles.actions}>{step>0?<button type="button" className="button outline" disabled={busy} onClick={()=>changeStep(step-1)}>Back</button>:<Link className="text-link" href="/events">← Events & Services</Link>}<button type="submit" className="button" disabled={busy||(step===5&&!csrf)}>{busy?'Sending your profile…':step===5?'Submit profile':'Continue →'}</button></div>
   </section>
  </form>;

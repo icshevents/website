@@ -23,5 +23,11 @@ test('production payment configuration and old-alias requests always return to t
 });
 test('free confirmation never claims that payment was received',()=>{
  const c=confirmationContent({id:'4487bb98-9dbe-479c-b167-b2e36fa61a48',kind:'membership_active',activation_kind:'free',recipient:'fictional@icsh.org.uk',reference:'MEM-FREE',event_title:'',membership_number:'TEST1234',start_date:'2026-10-27',expiry_date:'2027-10-27'});
- assert.match(c.subject,/free membership is active/);assert.match(c.textbody,/No payment is required/);assert.doesNotMatch(c.textbody,/payment has been verified/);
+ assert.match(c.subject,/Your membership is active/);assert.match(c.textbody,/Your ICSH membership is now active/);for(const body of [c.subject,c.textbody,c.htmlbody])assert.doesNotMatch(body,/payment|paid|verification|verified/i);assert.match(c.textbody,/Membership number: TEST1234/);assert.match(c.textbody,/Membership starts: 27 October 2026/);assert.match(c.textbody,/Membership expires: 27 October 2027/);
+});
+
+test('free activation test wording has no payment language; paid wording retains verification',()=>{
+ const base={id:'4487bb98-9dbe-479c-b167-b2e36fa61a48',kind:'membership_active',recipient:'fictional@icsh.org.uk',reference:'MEM-FREE',event_title:'',membership_number:'TEST1234',start_date:'2026-10-27',expiry_date:'2027-10-27'};
+ const free=confirmationContent({...base,activation_kind:'free',test:true});for(const body of [free.subject,free.textbody,free.htmlbody])assert.doesNotMatch(body,/payment|paid|verification|verified/i);
+ const paid=confirmationContent({...base,activation_kind:'paid'});assert.match(paid.subject,/Payment received/);assert.match(paid.textbody,/payment has been verified/);
 });

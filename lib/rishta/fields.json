@@ -448,5 +448,13 @@
     "type": "34",
     "options": [],
     "hints": []
+  },
+  {
+    "id": "SensitiveConsent",
+    "label": "Sensitive profile information consent",
+    "required": true,
+    "type": "boolean",
+    "options": [],
+    "hints": []
   }
 ]

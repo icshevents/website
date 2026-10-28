@@ -15,7 +15,6 @@ export default async function Events(){
  return <>
   <PageHero label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
   <section className="section white our-events-section"><div className="wrap">
-   {upcomingForms.length>0&&<div className="notice"><strong>Registration is open.</strong>Online payments are not yet available. Paid bookings and monetary donation pledges remain unpaid.</div>}
    {!directory.available&&<div className="notice"><strong>The latest event forms are temporarily unavailable here.</strong><p>Please try again shortly or contact the ICSH committee.</p><Link className="text-link" href="/contact">Contact ICSH <Arrow/></Link></div>}
    {directory.available&&upcomingForms.length===0&&upcoming.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>Follow ICSH or contact the committee for news of the next event. We’ll publish dates and booking details here.</div>}
    <div className="our-event-list">{upcomingForms.map(e=><article className="panel our-event-panel" id={'registration-'+e.id} key={e.id}>
