@@ -1,0 +1,29 @@
+.introduction{margin:28px 0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px;align-items:start}
+.card{padding:30px;min-width:0}
+.card h2{font-size:35px}
+.card p{font-size:14px;line-height:1.8}
+.status{display:inline-block;background:#eef2ec;color:var(--ink);border-radius:5px;padding:9px 13px;font-weight:650}
+.setup{margin:4px 0 22px}
+.card details{margin:16px 0;font-size:13px}
+.card summary,.scope summary{cursor:pointer;font-weight:650;min-height:35px}
+.card code,.guide code{font-size:11px;overflow-wrap:anywhere}
+.card ul{padding-left:21px;line-height:1.9}
+.card li+li{margin-top:8px}
+.result{margin-top:20px}
+.error{color:#7b2c20;background:#fff3f0;border-left:3px solid #993728;padding:14px 16px}
+.success{color:var(--ink)}
+.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:4px;max-height:360px}
+.tableWrap table{border-collapse:collapse;width:100%;text-align:left;font-size:12px}
+.tableWrap th,.tableWrap td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}
+.tableWrap th{background:var(--ivory);position:sticky;top:0}
+.tableWrap caption{text-align:left;padding:12px;font-weight:600}
+.inventory{max-height:310px;overflow:auto}
+.inventory li strong,.inventory li code{display:block}
+.note{font-size:12px!important;line-height:1.8}
+.guide{margin-top:30px;padding:32px}
+.guide h2{font-size:34px}
+.guide ol{padding-left:23px;max-width:940px;line-height:1.9;font-size:14px;color:var(--muted)}
+.guide li+li{margin-top:14px}
+.scope{margin:25px 0;font-size:13px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.card,.guide{padding:24px}}

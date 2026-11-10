@@ -1,0 +1,460 @@
+[
+  {
+    "id": "Name_first",
+    "label": "First name",
+    "required": true,
+    "type": "7",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Name_last",
+    "label": "Last name",
+    "required": true,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Dropdown",
+    "label": "Gender",
+    "required": true,
+    "type": "12",
+    "options": [
+      "Male",
+      "Female"
+    ],
+    "hints": []
+  },
+  {
+    "id": "Date",
+    "label": "Date of birth",
+    "required": true,
+    "type": "5",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Number",
+    "label": "Age",
+    "required": true,
+    "type": "3",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SingleLine4",
+    "label": "Email Address",
+    "required": true,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Checkbox",
+    "label": "Select your preferred communication methods",
+    "required": false,
+    "type": "14",
+    "options": [
+      "Text / WhatsApp",
+      "Phone Calls",
+      "Email"
+    ],
+    "hints": []
+  },
+  {
+    "id": "SingleLine5",
+    "label": "Mobile Number",
+    "required": true,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "DecisionBox",
+    "label": "Is this number on WhatsApp?",
+    "required": false,
+    "type": "18",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SingleLine3",
+    "label": "Current address",
+    "required": true,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Dropdown1",
+    "label": "Height",
+    "required": true,
+    "type": "12",
+    "options": [
+      "4'10",
+      "4'11",
+      "5'0",
+      "5'1",
+      "5'2",
+      "5'3",
+      "5'4",
+      "5'5",
+      "5'6",
+      "5'7",
+      "5'8",
+      "5'9",
+      "5'10",
+      "5'11",
+      "6'0",
+      "6'1",
+      "6'2",
+      "6'3",
+      "6'4",
+      "6'5",
+      "6'6"
+    ],
+    "hints": []
+  },
+  {
+    "id": "ImageUpload",
+    "label": "Upload a recent Photograph",
+    "required": false,
+    "type": "32",
+    "options": [],
+    "hints": [
+      "Optional. JPG, PNG or WebP, up to 3 MB."
+    ]
+  },
+  {
+    "id": "SingleLine2",
+    "label": "Nationality",
+    "required": true,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SingleLine6",
+    "label": "Place of Birth",
+    "required": false,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Dropdown8",
+    "label": "Highest Education Level",
+    "required": true,
+    "type": "12",
+    "options": [
+      "A levels",
+      "Bachelor's degree",
+      "Master's degree",
+      "Doctoral degree/PHD",
+      "Prefer not to say"
+    ],
+    "hints": []
+  },
+  {
+    "id": "MultiLine",
+    "label": "Field of Study",
+    "required": false,
+    "type": "2",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SingleLine9",
+    "label": "Occupation",
+    "required": false,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SingleLine10",
+    "label": "Work Location",
+    "required": false,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SingleLine11",
+    "label": "Religion",
+    "required": true,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SingleLine12",
+    "label": "Sect (eg Sunni, Shia, Other)",
+    "required": false,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Dropdown9",
+    "label": "Cultural Background",
+    "required": false,
+    "type": "12",
+    "options": [
+      "Afgani",
+      "Arab",
+      "Benjali",
+      "Indian",
+      "Pakistani",
+      "Other"
+    ],
+    "hints": [],
+    "other": true
+  },
+  {
+    "id": "Radio5",
+    "label": "Do you practise your faith regularly?",
+    "required": false,
+    "type": "12",
+    "options": [
+      "Yes",
+      "No",
+      "Sometimes"
+    ],
+    "hints": [],
+    "condition": {
+      "field": "Dropdown",
+      "values": [
+        "Male"
+      ]
+    }
+  },
+  {
+    "id": "Dropdown12",
+    "label": "Do you practise your faith regularly?",
+    "required": false,
+    "type": "12",
+    "options": [
+      "Yes",
+      "No",
+      "Prefer not to say"
+    ],
+    "hints": [],
+    "condition": {
+      "field": "Dropdown",
+      "values": [
+        "Female"
+      ]
+    }
+  },
+  {
+    "id": "Dropdown6",
+    "label": "Current Marital Status",
+    "required": true,
+    "type": "12",
+    "options": [
+      "Single (Never married)",
+      "Single (Divorced/ Widowed)",
+      "Separated/Divorce in progress"
+    ],
+    "hints": []
+  },
+  {
+    "id": "Radio1",
+    "label": "Do you have children?",
+    "required": true,
+    "type": "13",
+    "options": [
+      "Yes",
+      "No"
+    ],
+    "hints": [],
+    "condition": {
+      "field": "Dropdown6",
+      "values": [
+        "Single (Divorced/ Widowed)",
+        "Separated/Divorce in progress"
+      ]
+    }
+  },
+  {
+    "id": "Dropdown7",
+    "label": "Who do Children live with",
+    "required": false,
+    "type": "12",
+    "options": [
+      "Me",
+      "My previous partner",
+      "Other"
+    ],
+    "hints": [],
+    "condition": {
+      "field": "Radio1",
+      "values": [
+        "Yes"
+      ]
+    },
+    "other": true
+  },
+  {
+    "id": "MultiLine1",
+    "label": "Describe your personality",
+    "required": true,
+    "type": "2",
+    "options": [],
+    "hints": [
+      "Are you a fun person, adventurous, serious, independent, etc?"
+    ]
+  },
+  {
+    "id": "Radio2",
+    "label": "Do you smoke?",
+    "required": false,
+    "type": "13",
+    "options": [
+      "Yes",
+      "No"
+    ],
+    "hints": []
+  },
+  {
+    "id": "MultiLine2",
+    "label": "Hobbies & Interests",
+    "required": false,
+    "type": "2",
+    "options": [],
+    "hints": [
+      "e.g. Traveling, Islamic studies, Charity work, Reading, watching Netflix"
+    ]
+  },
+  {
+    "id": "SingleLine15",
+    "label": "Preferred Age Range",
+    "required": false,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SingleLine18",
+    "label": "Preferred Religious Level",
+    "required": false,
+    "type": "1",
+    "options": [],
+    "hints": [
+      "e.g. Not religious, Slightly religious, Moderately religious, Religious, Very religious"
+    ]
+  },
+  {
+    "id": "SingleLine16",
+    "label": "Preferred Height Range",
+    "required": false,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Dropdown14",
+    "label": "Will you consider someone who is divorced/widowed?",
+    "required": false,
+    "type": "12",
+    "options": [
+      "Yes",
+      "No",
+      "Maybe"
+    ],
+    "hints": []
+  },
+  {
+    "id": "SingleLine17",
+    "label": "Preferred Education Level",
+    "required": false,
+    "type": "1",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "Dropdown15",
+    "label": "Will you consider someone who has children?",
+    "required": false,
+    "type": "12",
+    "options": [
+      "Yes",
+      "No",
+      "Maybe"
+    ],
+    "hints": [],
+    "condition": {
+      "field": "Dropdown14",
+      "values": [
+        "Yes",
+        "Maybe"
+      ]
+    }
+  },
+  {
+    "id": "Dropdown16",
+    "label": "Meher preference",
+    "required": false,
+    "type": "12",
+    "options": [
+      "No preference / open to discussion",
+      "Prefer a simple / symbolic Meher",
+      "Prefer a reasonable / moderate Meher",
+      "Prefer to follow Sunnah / family tradition",
+      "Prefer to discuss later"
+    ],
+    "hints": [],
+    "condition": {
+      "field": "Dropdown",
+      "values": [
+        "Female"
+      ]
+    }
+  },
+  {
+    "id": "MultiLine3",
+    "label": "What are you looking for in a Spouse?",
+    "required": true,
+    "type": "2",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "MultiLine4",
+    "label": "Long term goals",
+    "required": false,
+    "type": "2",
+    "options": [],
+    "hints": [
+      "Share your long time goals: personal, family, career, religious, and lifestyle aspirations"
+    ]
+  },
+  {
+    "id": "MultiLine5",
+    "label": "Anything else you would like to add that you feel is significant for compatibility? E.g, medical conditions, living situation, parent care obligations, dietary needs, preferences, or any other information you consider important ?",
+    "required": false,
+    "type": "2",
+    "options": [],
+    "hints": [
+      "This information is optional and will be treated with privacy and respect. It helps us support compatibility and ensure transparency in the matching process."
+    ]
+  },
+  {
+    "id": "TermsConditions",
+    "label": "Terms and Conditions",
+    "required": true,
+    "type": "34",
+    "options": [],
+    "hints": []
+  },
+  {
+    "id": "SensitiveConsent",
+    "label": "Sensitive profile information consent",
+    "required": true,
+    "type": "boolean",
+    "options": [],
+    "hints": []
+  }
+]

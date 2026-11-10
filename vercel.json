@@ -1,0 +1,14 @@
+{
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/membership-activation",
+      "schedule": "0 2 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  }
+}
