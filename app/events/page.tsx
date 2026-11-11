@@ -13,7 +13,7 @@ export default async function Events(){
  const upcoming=events.filter(e=>e.end>=today).sort((a,b)=>a.start.localeCompare(b.start));
  const past=events.filter(e=>e.end<today).sort((a,b)=>b.start.localeCompare(a.start));
  return <>
-  <PageHero label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
+  <PageHero className="events-page-hero" label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
   <section className="section white our-events-section"><div className="wrap">
    {!directory.available&&<div className="notice"><strong>The latest event forms are temporarily unavailable here.</strong><p>Please try again shortly or contact the ICSH committee.</p><Link className="text-link" href="/contact">Contact ICSH <Arrow/></Link></div>}
    {directory.available&&upcomingForms.length===0&&upcoming.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>Follow ICSH or contact the committee for news of the next event. We’ll publish dates and booking details here.</div>}
