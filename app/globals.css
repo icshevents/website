@@ -100,3 +100,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:0;line-h
 .hero h1{letter-spacing:0}
 .home-title>span{display:block;white-space:nowrap}
 @media(max-width:650px){.hero .home-title{font-size:clamp(30px,10.5vw,56px)}}
+
+/* Allow the Events & Services introduction to use the available desktop width. */
+.events-page-hero p{max-width:none}
+@media(min-width:760px){.events-page-hero p{white-space:nowrap}}
