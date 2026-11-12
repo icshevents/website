@@ -3,26 +3,29 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { verifyOrganiserAccess } from '@/lib/organiser-access';
+import {passwordOrganiserSignIn} from '@/lib/organiser-signin';
+import {headers} from 'next/headers';
+import {createHmac} from 'node:crypto';
+import {createEventService} from '@/lib/event-forms/service.js';
 
 export type SignInState = { error: string };
 
 export async function signIn(_previous: SignInState, form: FormData): Promise<SignInState> {
-  const email = String(form.get('email') ?? '').trim();
-  const password = String(form.get('password') ?? '');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !password || password.length > 1024) {
-    return { error: 'Enter your organiser email and password.' };
-  }
-  try {
-    const supabase = await createSupabaseServerClient(true);
-    if (!supabase) return { error: 'Organiser sign-in is awaiting its connection settings. Please contact ICSH.' };
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error || !data.user) return { error: 'Unable to sign in. Check your email and password, then try again.' };
-    const access = await verifyOrganiserAccess(supabase);
-    if (access.status !== 'organiser') {
-      await supabase.auth.signOut({ scope: 'local' });
-      return { error: access.status === 'forbidden' ? 'This account does not have organiser access. Please contact ICSH.' : 'Your account was recognised, but organiser permissions are not ready yet. Please contact ICSH.' };
+  const result=await passwordOrganiserSignIn(form,{
+    client:()=>createSupabaseServerClient(true),
+    verify:verifyOrganiserAccess,
+    allowAttempt:async()=>{
+      const requestHeaders=await headers();
+      const address=(requestHeaders.get('x-vercel-forwarded-for')||requestHeaders.get('x-forwarded-for')||'unknown').split(',')[0].trim();
+      const secret=process.env.SUPABASE_SECRET_KEY;
+      if(!secret)throw new Error('Sign-in connection unavailable');
+      const key=createHmac('sha256',secret).update('organiser-signin:'+address).digest('hex');
+      const limited=await createEventService().rpc('icsh_event_rate_limit',{p_key:key,p_max:10});
+      if(limited.error)throw new Error('Sign-in limiter unavailable');
+      return limited.data===true;
     }
-  } catch { return { error: 'Sign-in is temporarily unavailable. Please try again shortly.' }; }
+  });
+  if('error' in result)return result;
   redirect('/admin');
 }
 
