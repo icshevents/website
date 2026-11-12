@@ -3,6 +3,8 @@ import {after} from 'next/server';
 import {randomUUID} from 'node:crypto';
 import {createEventService} from '../event-forms/service.js';
 import {emailConfiguration,sendConfirmation,type Confirmation} from './core';
+import {eventWhen} from '../iftari/core';
+import type {BookingRow} from '../iftari/stripe';
 
 export async function processFormEmails(maximum=1) {
   if(!emailConfiguration(process.env))return {enabled:false,processed:0};
@@ -19,6 +21,16 @@ export async function processFormEmails(maximum=1) {
         else if(value.kind==='membership_active'){
           const details=await db.rpc('icsh_membership_email_details',{p_id:value.id,p_claim:claim});
           outcome=details.error||!details.data?{status:'review_required',code:'MEMBERSHIP_DETAILS_UNAVAILABLE'}:await sendConfirmation({...value,...details.data},process.env);
+        }else outcome=await sendConfirmation(value,process.env);
+      }else if(value.kind==='event'){
+        const source=await db.from('icsh_form_emails').select('source_table,source_id').eq('id',value.id).single();
+        if(source.error)throw new Error('EMAIL_SOURCE_UNAVAILABLE');
+        if(source.data.source_table==='icsh_iftari_bookings'){
+          const saved=await db.from('icsh_iftari_bookings').select('*').eq('id',source.data.source_id).single();
+          const b=saved.data as (BookingRow & {needs_review:boolean})|null;
+          outcome=saved.error||!b||b.status!=='paid'||b.needs_review||b.mode!=='live'||b.contact.email!==value.recipient
+            ?{status:'failed',code:'IFTARI_STATE_CHANGED'}
+            :await sendConfirmation({...value,iftari:{venue:b.event_snapshot.venue,when:eventWhen(b.event_snapshot),lines:b.quote.lines,donation:b.quote.donation,total:b.total,guests:b.quote.guests}},process.env);
         }else outcome=await sendConfirmation(value,process.env);
       }else outcome=await sendConfirmation(value,process.env);
     }catch{outcome={status:'failed',code:'EMAIL_INPUT_OR_CONFIGURATION_INVALID'};}

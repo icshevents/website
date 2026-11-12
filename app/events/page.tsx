@@ -3,6 +3,7 @@ import {PageHero,Photo,Arrow,CTA} from '@/components/Shared';
 import {displayDate} from '@/lib/content';
 import {getEventDirectory,londonDate,londonTime} from '@/lib/event-directory';
 import events from '@/content/events.json';
+import IftariEventCard from '@/components/IftariEventCard';
 export const metadata={title:'Events & Services',description:'Explore ICSH events, get involved in Harrow Food Festival and find event application forms.',alternates:{canonical:'/events'}};
 export const dynamic='force-dynamic';
 const gbp=(n:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
@@ -17,7 +18,7 @@ export default async function Events(){
   <section className="section white our-events-section"><div className="wrap">
    {!directory.available&&<div className="notice"><strong>The latest event forms are temporarily unavailable here.</strong><p>Please try again shortly or contact the ICSH committee.</p><Link className="text-link" href="/contact">Contact ICSH <Arrow/></Link></div>}
    {directory.available&&upcomingForms.length===0&&upcoming.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>Follow ICSH or contact the committee for news of the next event. We’ll publish dates and booking details here.</div>}
-   <div className="our-event-list">{upcomingForms.map(e=><article className="panel our-event-panel" id={'registration-'+e.id} key={e.id}>
+   <div className="our-event-list"><IftariEventCard/>{upcomingForms.map(e=><article className="panel our-event-panel" id={'registration-'+e.id} key={e.id}>
     <div className="our-event-summary"><span className="tag">Community event</span><h3>{e.title}</h3><p className="our-event-date"><strong>{londonDate(e.startsAt)}</strong><br/>{londonTime(e.startsAt)} – {londonTime(e.endsAt)} (UK time)<br/>{e.venue}</p><p>{e.description}</p></div>
     <div className="our-event-forms"><h4>Get involved</h4>{e.forms.map(form=><div className="our-event-form" key={form.url}><a className={'button '+(form.kind==='stall'?'outline':'')} href={form.url}>{form.label} <Arrow/></a><p>{form.kind==='participation'?'Free to complete · cooks, donors and volunteers welcome':form.kind==='stall'?`Stall hire from ${gbp(form.feeFromPence??0)} · application subject to approval`:form.feeFromPence!==undefined?`Tickets from ${gbp(form.feeFromPence)}`:''}</p></div>)}</div>
    </article>)}</div>
