@@ -30,7 +30,7 @@ function MembershipEmail({ label, value, onChange, csrf, disabled = false }: { l
 }
 export default function BookingForm() {
   const [settings, setSettings] = useState<Settings | null>(null), [csrf, setCsrf] = useState('');
-  const [quantities, setQuantities] = useState({ member: 0, nonmember: 1, child: 0, under5: 0 });
+  const [quantities, setQuantities] = useState({ member: 0, nonmember: 0, child: 0, under5: 0 });
   const [firstName, setFirstName] = useState(''), [lastName, setLastName] = useState(''), [email, setEmail] = useState(''), [mobile, setMobile] = useState('');
   const [donationChoice, setDonationChoice] = useState('0'), [customDonation, setCustomDonation] = useState('');
   const [quote, setQuote] = useState<Quote | null>(null), [quoteError, setQuoteError] = useState(''), [quotePending, setQuotePending] = useState(false);
@@ -46,7 +46,9 @@ export default function BookingForm() {
   useEffect(() => {
     if (!csrf) return;
     const turn = ++quoteSequence.current, controller = new AbortController();
-    setQuotePending(true); setQuote(null); setQuoteError('');
+    setQuote(null); setQuoteError('');
+    if (ticketKeys.every(key => quantities[key] === 0)) { setQuotePending(false); return; }
+    setQuotePending(true);
     const timer = setTimeout(async () => {
       try {
         const response = await fetch('/api/iftari/quote', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ quantities, donation }) });
@@ -96,10 +98,9 @@ export default function BookingForm() {
           <label className={styles.field}>UK mobile number<input type="tel" required autoComplete="tel" maxLength={25} placeholder="07… or +447…" value={mobile} onChange={e => setMobile(e.target.value)} /></label>
         </div></fieldset>
         <fieldset disabled={busy || Boolean(saved)}><legend><span>02</span> Book Tickets</legend><p>Anyone aged 12 or above needs an adult ticket. Children aged 5–11 pay the same price whether members or non-members. Member-priced tickets require an active membership for the lead booker.</p>
-          {ticketKeys.map(key => <div className={styles.ticket} key={key}><label htmlFor={'quantity-' + key}><strong>{ticketLabels[key]}</strong><small>{settings.prices[key] === null ? 'Price to be confirmed · booking unavailable' : `${gbp(settings.prices[key]!)} each`}</small></label><input id={'quantity-' + key} aria-label={`${ticketLabels[key]} quantity`} type="number" min={0} max={settings.maxGuests} step={1} value={quantities[key]} disabled={settings.prices[key] === null} onChange={e => quantityChange(key, Number(e.target.value))} /></div>)}
-          <p className={styles.note}>Maximum {settings.maxGuests} guests per booking. Please contact ICSH before booking a place for a child under 5 while the price is awaiting confirmation.</p>
+          {ticketKeys.map(key => <div className={styles.ticket} key={key}><label htmlFor={'quantity-' + key}><strong>{ticketLabels[key]}</strong><small>{settings.prices[key] === 0 ? key === 'under5' ? 'Free · Please enter number of children under 5' : 'Free' : settings.prices[key] === null ? 'Price to be confirmed' : `${gbp(settings.prices[key]!)} each`}</small></label><input id={'quantity-' + key} aria-label={`${ticketLabels[key]} quantity`} type="number" min={0} max={settings.maxGuests} step={1} value={quantities[key] || ''} disabled={settings.prices[key] === null} onChange={e => quantityChange(key, Number(e.target.value))} /></div>)}
         </fieldset>
-        <fieldset disabled={busy || Boolean(saved)}><label className={styles.field}>Additional notes (optional)<textarea rows={4} maxLength={2000} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Please tell us about allergies, dietary requirements or anything else we should know." /></label><p className={styles.note}>Please contact ICSH directly if an allergy or requirement needs confirmation before you book.</p></fieldset>
+        <fieldset disabled={busy || Boolean(saved)}><label className={styles.field}>Additional notes (optional)<textarea rows={4} maxLength={2000} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Please tell us about allergies, dietary requirements or anything else we should know." /></label></fieldset>
         <fieldset disabled={busy || Boolean(saved)}><legend><span>03</span> An optional act of kindness</legend><p>Would you like to make an additional donation to support ICSH and its community activities?</p><div className={styles.donations}>{['0', '5', '10', '20', '50', 'other'].map(amount => <label key={amount} className={donationChoice === amount ? styles.selected : ''}><input type="radio" name="donation" value={amount} checked={donationChoice === amount} onChange={() => { setQuote(null); setQuotePending(true); setDonationChoice(amount); }} />{amount === '0' ? 'No donation' : amount === 'other' ? 'Other amount' : '£' + amount}</label>)}</div>
           {donationChoice === 'other' && <label className={styles.field}>Donation amount (£)<input type="text" inputMode="decimal" required maxLength={12} placeholder="0.00" value={customDonation} onChange={e => { setQuote(null); setQuotePending(true); setCustomDonation(e.target.value); }} /></label>}<p className={styles.note}>Entirely optional. Your donation defaults to £0.</p>
         </fieldset>
@@ -111,6 +112,6 @@ export default function BookingForm() {
         <p className={styles.note}>Your places are confirmed after Stripe confirms successful payment. Card details are handled securely by Stripe.</p>
       </form>
     </div>
-    <aside className={styles.summary}><span className="eyebrow">Your evening, together</span><h2>Booking summary</h2><p>{settings.title}<br/>{settings.venue}</p><div aria-live="polite" aria-atomic="true">{quotePending ? <p>Updating your total…</p> : quoteError ? <p className={styles.error}>{quoteError}</p> : quote ? <><dl>{quote.lines.map(line => <div key={line.key}><dt>{line.key === 'donation' ? line.label : `${line.quantity} × ${line.label}`}<small>{line.key !== 'donation' ? `${gbp(line.unitAmount)} each` : 'Thank you for your support'}</small></dt><dd>{gbp(line.amount)}</dd></div>)}{!quote.donation && <div><dt>Optional ICSH Donation</dt><dd>£0.00</dd></div>}</dl><div className={styles.total}><span>Total payable</span><strong>{gbp(quote.total)}</strong></div><p className={styles.note}>{quote.guests} {quote.guests === 1 ? 'guest' : 'guests'} · All prices in GBP<br/>Member prices subject to verification.</p></> : null}</div><div className={styles.summaryFooter}>Secure payment with Stripe<br/><Link href="/contact">Need help with your booking?</Link></div></aside>
+    <aside className={styles.summary}><span className="eyebrow">Your evening, together</span><h2>Booking summary</h2><p>{settings.title}<br/>{settings.venue}</p><div aria-live="polite" aria-atomic="true">{quotePending ? <p>Updating your total…</p> : quoteError ? <p className={styles.error}>{quoteError}</p> : quote ? <><dl>{quote.lines.map(line => <div key={line.key}><dt>{line.key === 'donation' ? line.label : `${line.quantity} × ${line.label}`}<small>{line.key !== 'donation' ? `${gbp(line.unitAmount)} each` : 'Thank you for your support'}</small></dt><dd>{gbp(line.amount)}</dd></div>)}{!quote.donation && <div><dt>Optional ICSH Donation</dt><dd>£0.00</dd></div>}</dl><div className={styles.total}><span>Total payable</span><strong>{gbp(quote.total)}</strong></div><p className={styles.note}>{quote.guests} {quote.guests === 1 ? 'guest' : 'guests'} · All prices in GBP<br/>Member prices subject to verification.</p></> : <><p>Select your tickets to see your booking summary.</p><div className={styles.total}><span>Total payable</span><strong>£0.00</strong></div></>}</div><div className={styles.summaryFooter}>Secure payment with Stripe<br/><Link href="/contact">Need help with your booking?</Link></div></aside>
   </div>;
 }

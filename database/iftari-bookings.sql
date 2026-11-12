@@ -7,7 +7,7 @@ create table public.icsh_iftari_settings (
  updated_at timestamptz not null default now()
 );
 insert into public.icsh_iftari_settings(slug,configuration) values ('ramadan-iftari-2027',
- '{"version":1,"title":"ICSH Ramadan Iftari 2027","venue":"The Clay Oven Restaurant, Wembley","date":"2027-02-20","time":"16:45","status":"draft","prices":{"member":2550,"nonmember":2800,"child":1300,"under5":null},"capacity":null,"maxGuests":12,"allowRepeatMemberDiscounts":false}');
+ '{"version":1,"title":"ICSH Ramadan Iftari 2027","venue":"The Clay Oven Restaurant, Wembley","date":"2027-02-20","time":"16:45","status":"draft","prices":{"member":2550,"nonmember":2800,"child":1300,"under5":0},"capacity":null,"maxGuests":12,"allowRepeatMemberDiscounts":false}');
 create table public.icsh_iftari_bookings (
  id uuid primary key, event_slug text not null references public.icsh_iftari_settings(slug),
  request_hash text not null check(request_hash~'^[a-f0-9]{64}$'), capability_hash text not null check(capability_hash~'^[a-f0-9]{64}$'),

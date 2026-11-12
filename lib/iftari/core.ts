@@ -25,7 +25,7 @@ export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = {
   version: 1, title: 'ICSH Ramadan Iftari 2027', venue: 'The Clay Oven Restaurant, Wembley',
   date: '2027-02-20', time: '16:45', status: 'draft',
-  prices: { member: 2550, nonmember: 2800, child: 1300, under5: null },
+  prices: { member: 2550, nonmember: 2800, child: 1300, under5: 0 },
   capacity: null, maxGuests: 12, allowRepeatMemberDiscounts: false,
 };
 const email = z.string().trim().pipe(z.email().max(254)).transform(v => v.toLowerCase());

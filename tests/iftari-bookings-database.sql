@@ -14,7 +14,7 @@ begin
  raised:=false;
  begin perform public.icsh_iftari_reserve(id1,repeat('a',64),repeat('b',64),contact,qty,emails,1000,(c->>'version')::integer,11500,'acct_fixture','test');
  exception when sqlstate 'P2702' then raised:=true;end;assert raised,'draft blocked';
- c:=public.icsh_iftari_configure(c||'{"status":"published","capacity":6}',(c->>'version')::integer);
+ c:=public.icsh_iftari_configure(jsonb_set(c,'{prices,under5}','null'::jsonb)||'{"status":"published","capacity":6}',(c->>'version')::integer);
  raised:=false;
  begin perform public.icsh_iftari_reserve(id2,repeat('a',64),repeat('b',64),contact,qty,array['guest@example.invalid'],1000,(c->>'version')::integer,11500,'acct_fixture','test');
  exception when sqlstate '22023' then raised:=true;end;assert raised,'another attendee email cannot grant a lead-booker discount';
