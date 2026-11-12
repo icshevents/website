@@ -32,10 +32,10 @@ export default function BookingForm() {
   const [settings, setSettings] = useState<Settings | null>(null), [csrf, setCsrf] = useState('');
   const [quantities, setQuantities] = useState({ member: 0, nonmember: 1, child: 0, under5: 0 });
   const [firstName, setFirstName] = useState(''), [lastName, setLastName] = useState(''), [email, setEmail] = useState(''), [mobile, setMobile] = useState('');
-  const [memberEmails, setMemberEmails] = useState<string[]>([]), [donationChoice, setDonationChoice] = useState('0'), [customDonation, setCustomDonation] = useState('');
+  const [donationChoice, setDonationChoice] = useState('0'), [customDonation, setCustomDonation] = useState('');
   const [quote, setQuote] = useState<Quote | null>(null), [quoteError, setQuoteError] = useState(''), [quotePending, setQuotePending] = useState(false);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState<{ id: string; capability: string } | null>(null);
-  const [website, setWebsite] = useState('');
+  const [website, setWebsite] = useState(''), [notes, setNotes] = useState('');
   const quoteSequence = useRef(0);
   const donation = donationChoice === 'other' ? customDonation : donationChoice;
   useEffect(() => {
@@ -60,7 +60,6 @@ export default function BookingForm() {
   function quantityChange(key: TicketKey, value: number) {
     if (!Number.isSafeInteger(value) || value < 0 || value > (settings?.maxGuests || 12)) return;
     setQuote(null); setQuotePending(true); setQuantities(v => ({ ...v, [key]: value }));
-    if (key === 'member') setMemberEmails(old => Array.from({ length: value }, (_, i) => old[i] || ''));
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!settings || !quote || quotePending) return;
@@ -70,7 +69,7 @@ export default function BookingForm() {
       // Retain the same booking after a lost response. A retry never creates a second charge.
       sessionStorage.setItem('icsh-iftari-' + identity.id, identity.capability);
       setSaved(identity);
-      const response = await fetch('/api/iftari/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ ...identity, firstName, lastName, email, mobile, quantities, memberEmails, donation, expectedVersion: quote.version, expectedTotal: quote.total, website }) });
+      const response = await fetch('/api/iftari/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ ...identity, firstName, lastName, email, mobile, quantities, donation, notes, expectedVersion: quote.version, expectedTotal: quote.total, website }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error);
       window.location.assign(data.url || data.returnUrl);
     } catch (e) {
@@ -88,7 +87,7 @@ export default function BookingForm() {
   return <div className={`wrap ${styles.layout}`}>
     <div>
       <div className={styles.eventDetails}><span className="tag">Ramadan · Together as a community</span><h2>A warm welcome to your table.</h2><p>Join ICSH members, families and friends for Iftari at {settings.venue}. Share an evening of food, friendship and community.</p><p><strong>{eventWhen(settings)}</strong><br/>Organised by the Islamic &amp; Cultural Society of Harrow (ICSH)</p></div>
-      {!open && <div className="notice"><strong>{settings.status === 'closed' ? 'Bookings are closed.' : 'Bookings will open soon.'}</strong><p>You can explore the form and ticket prices below. Date and time will be confirmed by ICSH.</p></div>}
+      {!open && <div className="notice"><strong>{settings.status === 'closed' ? 'Bookings are closed.' : 'Bookings will open soon.'}</strong><p>You can explore the form and ticket prices below. Bookings will open once the final arrangements are ready.</p></div>}
       <form onSubmit={submit} className={styles.form}>
         <fieldset disabled={busy || Boolean(saved)}><legend><span>01</span> Lead booker details</legend><p>Book places for yourself, your family and friends. Non-members are welcome.</p><div className={styles.grid}>
           <label className={styles.field}>First name<input required autoComplete="given-name" maxLength={80} value={firstName} onChange={e => setFirstName(e.target.value)} /></label>
@@ -96,11 +95,11 @@ export default function BookingForm() {
           <MembershipEmail label="Email address" value={email} onChange={setEmail} csrf={csrf} />
           <label className={styles.field}>UK mobile number<input type="tel" required autoComplete="tel" maxLength={25} placeholder="07… or +447…" value={mobile} onChange={e => setMobile(e.target.value)} /></label>
         </div></fieldset>
-        <fieldset disabled={busy || Boolean(saved)}><legend><span>02</span> Your guests</legend><p>Anyone aged 12 or above needs an adult ticket. Children aged 5–11 pay the same price whether members or non-members.</p>
+        <fieldset disabled={busy || Boolean(saved)}><legend><span>02</span> Book Tickets</legend><p>Anyone aged 12 or above needs an adult ticket. Children aged 5–11 pay the same price whether members or non-members. Member-priced tickets require an active membership for the lead booker.</p>
           {ticketKeys.map(key => <div className={styles.ticket} key={key}><label htmlFor={'quantity-' + key}><strong>{ticketLabels[key]}</strong><small>{settings.prices[key] === null ? 'Price to be confirmed · booking unavailable' : `${gbp(settings.prices[key]!)} each`}</small></label><input id={'quantity-' + key} aria-label={`${ticketLabels[key]} quantity`} type="number" min={0} max={settings.maxGuests} step={1} value={quantities[key]} disabled={settings.prices[key] === null} onChange={e => quantityChange(key, Number(e.target.value))} /></div>)}
           <p className={styles.note}>Maximum {settings.maxGuests} guests per booking. Please contact ICSH before booking a place for a child under 5 while the price is awaiting confirmation.</p>
-          {memberEmails.length > 0 && <div className={styles.memberList}><h3>Member ticket verification</h3><p>Enter a different active membership email for each adult member ticket. A lead booker's membership does not apply to other guests.</p>{memberEmails.map((address, i) => <div key={i} className={styles.memberRow}><MembershipEmail label={`Member ticket ${i + 1} – attendee email`} value={address} csrf={csrf} onChange={value => setMemberEmails(old => old.map((s, n) => n === i ? value : s))} />{i === 0 && email && <button className={styles.linkButton} type="button" onClick={() => setMemberEmails(old => old.map((s, n) => n === 0 ? email : s))}>Use my email for this ticket</button>}</div>)}</div>}
         </fieldset>
+        <fieldset disabled={busy || Boolean(saved)}><label className={styles.field}>Additional notes (optional)<textarea rows={4} maxLength={2000} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Please tell us about allergies, dietary requirements or anything else we should know." /></label><p className={styles.note}>Please contact ICSH directly if an allergy or requirement needs confirmation before you book.</p></fieldset>
         <fieldset disabled={busy || Boolean(saved)}><legend><span>03</span> An optional act of kindness</legend><p>Would you like to make an additional donation to support ICSH and its community activities?</p><div className={styles.donations}>{['0', '5', '10', '20', '50', 'other'].map(amount => <label key={amount} className={donationChoice === amount ? styles.selected : ''}><input type="radio" name="donation" value={amount} checked={donationChoice === amount} onChange={() => { setQuote(null); setQuotePending(true); setDonationChoice(amount); }} />{amount === '0' ? 'No donation' : amount === 'other' ? 'Other amount' : '£' + amount}</label>)}</div>
           {donationChoice === 'other' && <label className={styles.field}>Donation amount (£)<input type="text" inputMode="decimal" required maxLength={12} placeholder="0.00" value={customDonation} onChange={e => { setQuote(null); setQuotePending(true); setCustomDonation(e.target.value); }} /></label>}<p className={styles.note}>Entirely optional. Your donation defaults to £0.</p>
         </fieldset>

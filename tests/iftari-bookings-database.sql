@@ -4,7 +4,7 @@ set local role service_role;
 do $$
 declare c jsonb;b jsonb;b2 jsonb;id1 uuid:=gen_random_uuid();id2 uuid:=gen_random_uuid();id3 uuid:=gen_random_uuid();
  contact jsonb:='{"firstName":"Fictional","lastName":"Booker","email":"iftari-fixture@example.invalid","mobile":"+447700900123"}';
- qty jsonb:='{"member":2,"nonmember":1,"child":2,"under5":0}';emails text[]:=array['iftari-member1@example.invalid','iftari-member2@example.invalid'];raised boolean;
+ qty jsonb:='{"member":2,"nonmember":1,"child":2,"under5":0}';emails text[]:=array['iftari-fixture@example.invalid'];raised boolean;
 begin
  assert not has_table_privilege('anon','public.icsh_iftari_bookings','select');
  assert not has_table_privilege('authenticated','public.icsh_iftari_bookings','select');
@@ -15,6 +15,13 @@ begin
  begin perform public.icsh_iftari_reserve(id1,repeat('a',64),repeat('b',64),contact,qty,emails,1000,(c->>'version')::integer,11500,'acct_fixture','test');
  exception when sqlstate 'P2702' then raised:=true;end;assert raised,'draft blocked';
  c:=public.icsh_iftari_configure(c||'{"status":"published","capacity":6}',(c->>'version')::integer);
+ raised:=false;
+ begin perform public.icsh_iftari_reserve(id2,repeat('a',64),repeat('b',64),contact,qty,array['guest@example.invalid'],1000,(c->>'version')::integer,11500,'acct_fixture','test');
+ exception when sqlstate '22023' then raised:=true;end;assert raised,'another attendee email cannot grant a lead-booker discount';
+ raised:=false;
+ begin perform public.icsh_iftari_reserve(id2,repeat('a',64),repeat('b',64),contact,qty,array[emails[1],emails[1]],1000,(c->>'version')::integer,11500,'acct_fixture','test');
+ exception when sqlstate '22023' then raised:=true;end;assert raised,'multiple member tickets consume one lead email claim';
+
  b:=public.icsh_iftari_reserve(id1,repeat('a',64),repeat('b',64),contact,qty,emails,1000,(c->>'version')::integer,11500,'acct_fixture','test');
  assert (b->>'total')::integer=11500 and (b->'quote'->>'tickets')::integer=10500 and (b->'quote'->>'donation')::integer=1000,'authoritative £115 quote';
  assert b->>'status'='pending' and b->>'paid_at' is null,'pending is not confirmed';

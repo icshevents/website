@@ -7,7 +7,7 @@ create table public.icsh_iftari_settings (
  updated_at timestamptz not null default now()
 );
 insert into public.icsh_iftari_settings(slug,configuration) values ('ramadan-iftari-2027',
- '{"version":1,"title":"ICSH Ramadan Iftari 2027","venue":"The Clay Oven Restaurant, Wembley","date":null,"time":null,"status":"draft","prices":{"member":2550,"nonmember":2800,"child":1300,"under5":null},"capacity":null,"maxGuests":12,"allowRepeatMemberDiscounts":false}');
+ '{"version":1,"title":"ICSH Ramadan Iftari 2027","venue":"The Clay Oven Restaurant, Wembley","date":"2027-02-20","time":"16:45","status":"draft","prices":{"member":2550,"nonmember":2800,"child":1300,"under5":null},"capacity":null,"maxGuests":12,"allowRepeatMemberDiscounts":false}');
 create table public.icsh_iftari_bookings (
  id uuid primary key, event_slug text not null references public.icsh_iftari_settings(slug),
  request_hash text not null check(request_hash~'^[a-f0-9]{64}$'), capability_hash text not null check(capability_hash~'^[a-f0-9]{64}$'),
@@ -66,7 +66,7 @@ begin
   end if;
  end loop;
  if guests not between 1 and (c->>'maxGuests')::integer or tickets+p_donation<30 or tickets+p_donation is distinct from p_expected_total
-  or cardinality(p_member_emails) is distinct from (p_quantities->>'member')::integer
+  or p_member_emails is distinct from (case when (p_quantities->>'member')::integer>0 then array[lower(btrim(p_contact->>'email'))] else array[]::text[] end)
   or cardinality(p_member_emails)<>(select count(distinct lower(btrim(e))) from unnest(p_member_emails) e)
   or exists(select 1 from unnest(p_member_emails) e where e is null or e<>lower(btrim(e)) or e!~'^[^[:space:]@<>]+@[^[:space:]@<>]+\.[^[:space:]@<>]+$') then raise exception using errcode='22023',message='Invalid quote or membership emails';end if;
  select coalesce(sum(existing.guests),0)::integer into places from public.icsh_iftari_bookings existing where event_slug='ramadan-iftari-2027' and mode=p_mode and status not in ('failed','expired','refunded');

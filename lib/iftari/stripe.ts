@@ -4,7 +4,7 @@ import type { Quote, Settings } from './core.ts';
 export const iftariPurpose = 'icsh_iftari_booking_v1';
 export type BookingRow = {
   id: string; event_slug: string; request_hash: string; capability_hash: string;
-  reference: string; contact: { firstName: string; lastName: string; email: string; mobile: string };
+  reference: string; contact: { firstName: string; lastName: string; email: string; mobile: string; notes?: string };
   member_emails: string[]; quantities: { member: number; nonmember: number; child: number; under5: number };
   event_snapshot: Settings; quote: Quote; total: number; mode: 'test' | 'live'; account_id: string;
   status: 'pending' | 'paid' | 'failed' | 'expired' | 'refunded' | 'partially_refunded' | 'disputed';

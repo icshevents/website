@@ -130,8 +130,8 @@ export async function handleIftari(request: Request, path: string) {
       await verifyMemberTickets(input, searchBiginMembershipRecords);
       const saved = await createEventService().rpc('icsh_iftari_reserve', {
         p_id: input.id, p_request_hash: requestHash, p_capability_hash: digest(input.capability),
-        p_contact: { firstName: input.firstName, lastName: input.lastName, email: input.email, mobile: membershipMobileKey(input.mobile) },
-        p_quantities: input.quantities, p_member_emails: input.memberEmails, p_donation: quote.donation,
+        p_contact: { firstName: input.firstName, lastName: input.lastName, email: input.email, mobile: membershipMobileKey(input.mobile), notes: input.notes },
+        p_quantities: input.quantities, p_member_emails: input.quantities.member ? [input.email] : [], p_donation: quote.donation,
         p_expected_version: input.expectedVersion, p_expected_total: input.expectedTotal, p_account: config.account, p_mode: config.mode,
       });
       if (saved.error || !saved.data) databaseError(saved.error);

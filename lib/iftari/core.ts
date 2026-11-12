@@ -24,7 +24,7 @@ export const settingsSchema = z.object({
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = {
   version: 1, title: 'ICSH Ramadan Iftari 2027', venue: 'The Clay Oven Restaurant, Wembley',
-  date: null, time: null, status: 'draft',
+  date: '2027-02-20', time: '16:45', status: 'draft',
   prices: { member: 2550, nonmember: 2800, child: 1300, under5: null },
   capacity: null, maxGuests: 12, allowRepeatMemberDiscounts: false,
 };
@@ -38,8 +38,8 @@ const name = z.string().trim().min(1).max(80).refine(v => !/[<>\u0000-\u001f]/.t
 export const bookingInputSchema = quoteInputSchema.extend({
   id: z.uuid(), capability: z.string().regex(/^[a-f0-9]{64}$/),
   firstName: name, lastName: name, email,
+  notes: z.string().trim().max(2000).default(''),
   mobile: z.string().trim().max(25).refine(v => /^\+447\d{9}$/.test(membershipMobileKey(v) || ''), 'Enter a UK mobile number.'),
-  memberEmails: z.array(email).max(50),
   expectedVersion: z.number().int().positive(), expectedTotal: z.number().int().min(0).max(12000000),
   website: z.literal(''),
 }).strict();
@@ -92,16 +92,14 @@ export async function verifyMember(value: string, lookup: BookingLookup, on = lo
     return r.membershipStatus?.trim().toLowerCase() === 'active' && start <= on ? 'active' : 'inactive';
   } catch { return 'unavailable'; }
 }
+/** One fresh lead-booker lookup qualifies all member-priced tickets in this booking. */
 export async function verifyMemberTickets(input: BookingInput, lookup: BookingLookup) {
-  if (input.memberEmails.length !== input.quantities.member) throw new IftariError('Enter one membership email for every member ticket.');
-  if (new Set(input.memberEmails).size !== input.memberEmails.length) throw new IftariError('Each member email can only be used once in this booking.');
-  // Sequential, bounded lookups avoid exhausting the existing Zoho OAuth grant.
-  for (let i = 0; i < input.memberEmails.length; i++) {
-    const status = await verifyMember(input.memberEmails[i], lookup);
-    if (status !== 'active') throw new IftariError(`Member ticket ${i + 1}: ${membershipMessages[status]}`, status === 'unavailable' ? 503 : 409);
-  }
+  if (!input.quantities.member) return;
+  const status = await verifyMember(input.email, lookup);
+  if (status !== 'active') throw new IftariError(`Lead booker: ${membershipMessages[status]}`, status === 'unavailable' ? 503 : 409);
 }
 export function eventWhen(settings: Pick<Settings, 'date' | 'time'>) {
-  const day = settings.date ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(settings.date + 'T12:00:00Z')) : 'Date to be confirmed';
-  return `${day} · ${settings.time ? settings.time + ' (UK time)' : 'Time to be confirmed'}`;
+  const day = settings.date ? new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(settings.date + 'T12:00:00Z')) : 'Date to be confirmed';
+  const arrival = settings.time ? new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' }).format(new Date('2000-01-01T' + settings.time + ':00Z')).replace(' ', '') : null;
+  return `${day} · ${arrival ? 'Please arrive by ' + arrival + ' (UK time)' : 'Time to be confirmed'}`;
 }
