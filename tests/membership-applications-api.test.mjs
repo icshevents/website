@@ -818,3 +818,17 @@ test('current notice records invitations for Standard, Pensioner and Student wit
   assert.equal(saved.category,category);assert.equal(saved.feePence,feePence);assert.equal(saved.paymentStatus,paymentStatus);
  }
 });
+
+test('renewal with a changed mobile cannot save or resume without verified email proof',async()=>{
+ for(const verifier of[undefined,async()=>false]){
+  const context=harness({checkIdentity:async()=>({status:'allowed',mobileChanged:true}),verifyMobileChange:verifier});const auth=await bootstrap(context);
+  const r=await handleMembershipApplications(post(auth,submission({answers:answers({kind:'renewal'})})),context.deps);
+  assert.equal(r.status,409);assert.equal((await r.json()).error.code,'MOBILE_VERIFICATION_REQUIRED');assert.equal(context.calls.save.length,0);
+ }
+});
+test('verified mobile proof permits renewal but the secret never appears in its public receipt',async()=>{
+ const challenge='f56aefee-629f-4d7f-b3d1-7bb09d6937a4',proof='c'.repeat(64);
+ const context=harness({checkIdentity:async()=>({status:'allowed',mobileChanged:true}),verifyMobileChange:async(a,t,requestId)=>a.mobileVerificationId===challenge&&t===proof&&requestId===id});const auth=await bootstrap(context);
+ const r=await handleMembershipApplications(post(auth,submission({answers:answers({kind:'renewal',mobileVerificationId:challenge}),mobileProofToken:proof})),context.deps);
+ assert.equal(r.status,201);const text=await r.text();assert.ok(!text.includes(proof));assert.ok(!text.includes(challenge));assert.equal(context.calls.save[0][0].answers.mobileVerificationId,challenge);assert.ok(!JSON.stringify(context.calls.save[0]).includes(proof));
+});

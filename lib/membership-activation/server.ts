@@ -2,6 +2,9 @@ import {londonDate} from '../membership.ts';
 import {processFormEmails} from '../form-emails/server';
 import {ensureWebsiteMemberId} from '../member-ids/server';
 import 'server-only';
+import {mobileVerificationForApplication,completeVerifiedMobileChange} from '../membership-mobile/server';
+import {verifiedMobileIdentity} from '../membership-mobile/core';
+import {activationIdentityMatches} from '../zoho/membership-activation';
 import {eligibleFreeMembership} from './free';
 import {randomUUID,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
@@ -25,18 +28,20 @@ async function activateMembership(id:string,free:boolean):Promise<'active'|'revi
  const config=free?null:paymentConfiguration(process.env,false);if(!activationEnabled()||(!free&&(!config||config.mode!=='live')))return'skipped';const db=createEventService(),claim=randomUUID();
  if(free){const app=await getMembershipApplication(id,db);if(!app||!eligibleFreeMembership(app))return'skipped';}
  const prepared=free?await db.rpc('icsh_free_membership_activation_claim',{p_id:id,p_claim:claim}):await db.rpc('icsh_membership_activation_claim',{p_id:id,p_account:config!.account,p_claim:claim});if(prepared.error)throw new Error('ACTIVATION_CLAIM_UNAVAILABLE');if(!prepared.data)return'skipped';
- const x=activationSchema.parse(prepared.data.activation);if(!prepared.data.claimed){if(x.status==='active')return'active';if(x.status==='review_required')return'review_required';throw new Error('ACTIVATION_RETRY');}
+ const x=activationSchema.parse(prepared.data.activation);if(!prepared.data.claimed){if(x.status==='active'){await completeVerifiedMobileChange(id).catch(()=>false);return'active';}if(x.status==='review_required')return'review_required';throw new Error('ACTIVATION_RETRY');}
  const finish=async(status:'active'|'failed'|'review_required',code:string|null=null)=>{const saved=await db.rpc('icsh_membership_activation_finish',{p_id:id,p_claim:claim,p_status:status,p_error:code});if(saved.error)throw new Error('ACTIVATION_RECORD_UNAVAILABLE');return activationSchema.parse(saved.data);};
  try{
   const app=await getMembershipApplication(id,db);if(!app||app.deletedAt)throw new Error('APPLICATION_CHANGED');
+  const mobile=app.answers.mobileVerificationId?await mobileVerificationForApplication(app.id):null;
   const membershipType=membershipTypeForApplication(app);
   if(free!==(membershipType==='Student'))throw new ActivationReview('MEMBERSHIP_CATEGORY_INVALID');
   await activateMatchedMembership(membershipActivationClient,app.answers,x.contact_id||app.biginRecordId,{Membership_Status:'Active',Membership_Type:membershipType,Payment_Status:free?'Not required':'Completed',Membership_Date:x.start_date,Expiry_Date:x.expiry_date},async contact=>{await ensureWebsiteMemberId(app,contact);const bound=await db.rpc('icsh_membership_activation_bind',{p_id:id,p_claim:claim,p_contact:contact});if(bound.error)throw new Error('ACTIVATION_BIND_UNAVAILABLE');return bound.data===true;},londonDate(),app.answers.kind==='renewal'?async contact=>{
    const term=await db.rpc('icsh_membership_activation_extend',{p_id:id,p_claim:claim,p_start:contact.membershipDate,p_expiry:contact.membershipExpiry});
    if(term.error||!term.data)throw new ActivationReview('RENEWAL_TERM_REQUIRES_REVIEW');
    return activationSchema.parse(term.data).expiry_date;
-  }:undefined);
+  }:undefined,contact=>activationIdentityMatches(contact,app.answers)||verifiedMobileIdentity(app,contact,mobile));
   const saved=await finish('active');if(saved.status==='active'){
+   await completeVerifiedMobileChange(id).catch(()=>console.error('ICSH_MOBILE_CHANGE_PENDING'));
    await processFormEmails().catch(()=>console.error('ICSH_FORM_EMAIL_PROCESSING_PENDING'));
    await requestMembershipInvitation(id).catch(()=>console.error('ICSH_WHATSAPP_INVITATION_PENDING'));
   }return saved.status==='active'?'active':'review_required';

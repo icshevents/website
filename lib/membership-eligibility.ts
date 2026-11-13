@@ -4,7 +4,7 @@ import { normaliseMemberName, type MemberSearchInput, type MembershipSearchRecor
 
 export type MembershipIdentity = { kind: 'new' | 'renewal'; firstName: string; lastName: string; email: string; mobile: string };
 export type MembershipEligibility =
-  | { status: 'allowed' }
+  | { status: 'allowed'; mobileChanged?:true }
   | { status: 'active'; membershipDate: string; membershipExpiry: string; daysUntilExpiry: number }
   | { status: 'identity_conflict' | 'review_required' | 'renewal_required' | 'new_required' };
 export type MembershipRecordSearch = { records: MembershipSearchRecord[]; hasMore: boolean };
@@ -46,15 +46,17 @@ export async function checkMembershipEligibility(value: MembershipIdentity, sear
   // Retain existing-contact identity verification on this email-selected record.
   // Sharing that same number with other contacts does not make it ambiguous.
   if (normaliseMemberName(member.fullName ?? '') !== normaliseMemberName(identity.firstName + ' ' + identity.lastName) ||
-    !member.mobile || membershipMobileKey(member.mobile) !== identity.mobile) return { status: 'identity_conflict' };
+    (identity.kind!=='renewal' && (!member.mobile || membershipMobileKey(member.mobile) !== identity.mobile))) return { status: 'identity_conflict' };
+  const mobileChanged=identity.kind==='renewal'&&membershipMobileKey(member.mobile||'')!==identity.mobile;
+  const allowed=():MembershipEligibility=>({status:'allowed',...(mobileChanged?{mobileChanged:true as const}:{})});
   const start = member.membershipDate?.trim(), expiry = member.membershipExpiry?.trim();
   // The agreed lookup policy treats missing dates as needing renewal.
-  if (!start || !expiry) return { status: identity.kind === 'renewal' ? 'allowed' : 'renewal_required' };
+  if (!start || !expiry) return identity.kind === 'renewal'?allowed():{status:'renewal_required'};
   if (!parseDate(start) || !parseDate(expiry) || start >= expiry) return { status: 'review_required' };
-  if (expiry <= on) return { status: identity.kind === 'renewal' ? 'allowed' : 'renewal_required' };
+  if (expiry <= on) return identity.kind === 'renewal'?allowed():{status:'renewal_required'};
   if (start > on || member.membershipStatus?.trim().toLowerCase() !== 'active') return { status: 'review_required' };
   // A verified renewal may preserve the remaining days during the last 30 days.
-  if(identity.kind==='renewal' && Math.ceil((Date.parse(expiry+'T12:00:00Z')-Date.parse(on+'T12:00:00Z'))/86400000)<=30)return {status:'allowed'};
+  if(identity.kind==='renewal' && Math.ceil((Date.parse(expiry+'T12:00:00Z')-Date.parse(on+'T12:00:00Z'))/86400000)<=30)return allowed();
   return { status: 'active', membershipDate: start, membershipExpiry: expiry,
     daysUntilExpiry: Math.ceil((Date.parse(expiry + 'T12:00:00Z') - Date.parse(on + 'T12:00:00Z')) / 86400000) };
 }
@@ -63,7 +65,7 @@ export function membershipEligibilityMessage(result: MembershipEligibility): str
   switch (result.status) {
     case 'allowed': return 'Your details have been checked. You can continue.';
     case 'active': return 'You are still an active ICSH member. You do not need to join or renew yet.';
-    case 'identity_conflict': return 'Your details do not match the membership record for this email address. Check your full name, email and registered mobile number, or contact ICSH for help. Mobile numbers may be shared.';
+    case 'identity_conflict': return 'Your details do not match the membership record for this email address. Check your full name and membership email address, or contact ICSH for help. For new applications, also check the mobile number. Mobile numbers may be shared.';
     case 'review_required': return 'We need to confirm your membership details before you can continue. Please contact ICSH for help.';
     case 'renewal_required': return 'Your membership needs renewal. Please choose Membership Renewal to continue with your existing details.';
     case 'new_required': return 'We cannot find an existing membership under this email address. Check your details or choose New Member.';
@@ -77,5 +79,5 @@ export function publicMembershipEligibility(result: MembershipEligibility): Memb
     return { status: 'active', membershipDate: result.membershipDate, membershipExpiry: result.membershipExpiry, daysUntilExpiry: result.daysUntilExpiry };
   }
   if (!['allowed', 'identity_conflict', 'review_required', 'renewal_required', 'new_required'].includes(result.status)) throw new Error('INVALID_MEMBERSHIP_DECISION');
-  return { status: result.status };
+  return result.status==='allowed'&&result.mobileChanged===true?{status:'allowed',mobileChanged:true}:{ status: result.status };
 }

@@ -523,6 +523,15 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     const records=object(response.data)&&Array.isArray(response.data.data)?response.data.data:[];
     if(records.length!==1||!object(records[0])||records[0].code!=='SUCCESS'||records[0].status!=='success'||!object(records[0].details)||records[0].details.id!==id)throw new ZohoError('ZOHO_PROVIDER_REJECTED');
   }
+  async function updateBiginMobile(id:string,mobile:string):Promise<void>{
+    if(env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED!=='true'||env.ZOHO_BIGIN_MEMBERSHIP_ACTIVATION_ENABLED!=='true')throw new ZohoError('ZOHO_MEMBERSHIP_WRITES_DISABLED');
+    if(!contactId(id)||membershipMobileKey(mobile)!==mobile)throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    const {configuration}=inspectConfiguration('bigin',env);if(!configuration)throw new ZohoError('ZOHO_CONFIGURATION_INVALID');
+    const token=await accessToken(configuration,stateFor('bigin',configuration));
+    const response=await request(new URL('/bigin/v2/Contacts/'+id,configuration.api),{method:'PUT',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Zoho-oauthtoken ${token.value}`},body:JSON.stringify({data:[{Mobile:mobile}],trigger:[]})});
+    if(hasProviderError(response.data))throw providerError(response.status,response.data);
+    const b=response.data;if(!object(b)||!Array.isArray(b.data)||b.data.length!==1||!object(b.data[0])||b.data[0].code!=='SUCCESS'||b.data[0].status!=='success'||!object(b.data[0].details)||b.data[0].details.id!==id)throw new ZohoError('ZOHO_PROVIDER_REJECTED');
+  }
   async function searchBiginContactsByMemberId(value:string):Promise<{ids:string[];hasMore:boolean}>{
     if(!/^\p{L}{4}[0-9]{4}$/u.test(value))throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
     const response=await biginRecordGet('/bigin/v2/Contacts/search',new URLSearchParams({criteria:`(Member_ID:equals:${value})`,page:'1',per_page:'2'}));
@@ -602,7 +611,7 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
       return 'accepted';
     }catch{return 'unknown';}
   }
-  return { get, listBiginRenewalContacts, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, updateBiginPaidMembership, searchBiginContactsByMemberId,updateBiginMemberId,requestBiginInvitation,inspectBiginInvitationFields,lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
+  return { get, listBiginRenewalContacts, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, updateBiginPaidMembership, updateBiginMobile, searchBiginContactsByMemberId,updateBiginMemberId,requestBiginInvitation,inspectBiginInvitationFields,lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
 }
 
 const defaultClient = createZohoClient();

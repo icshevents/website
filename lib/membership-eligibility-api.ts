@@ -51,9 +51,9 @@ export async function handleMembershipEligibility(request: Request, deps: Member
     if(result.status==='allowed'&&quoteInput){
       const quote=testMembershipQuote(getQuote({...EMPTY_ANSWERS,...identity,...quoteInput},(deps.today??londonDate)()),identity.email,deps.testPricingEnabled);
       if(!quote||registrationAgeError(quote))return reply({error:'Enter a valid date of birth and membership category.'},400);
-      return reply({status:'allowed',quote:{category:quote.category,feePence:quote.fee*100,currency:'GBP'}});
+      return reply({status:'allowed',...(result.mobileChanged?{mobileChanged:true}:{}),quote:{category:quote.category,feePence:quote.fee*100,currency:'GBP'}});
     }
-    return reply({ status: result.status });
+    return reply({ status: result.status,...(result.status==='allowed'&&result.mobileChanged?{mobileChanged:true}:{}) });
   } catch {
     return reply({ error: 'We could not check your membership right now. Please try again later. You cannot continue until the check succeeds.' }, 503);
   }

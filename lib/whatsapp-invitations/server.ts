@@ -1,4 +1,5 @@
 import 'server-only';
+import {mobileReadyForInvitation} from '../membership-mobile/server';
 import {z} from 'zod';
 import {createEventService} from '../event-forms/service.js';
 import {getMembershipApplication} from '../membership-applications/store';
@@ -17,6 +18,7 @@ function dependencies(config:InvitationConfiguration){
 }
 /** Called after successful activation; failures must never fail a verified membership. */
 export async function requestMembershipInvitation(id:string){
+ if(!await mobileReadyForInvitation(id))return {status:'skipped' as const};
  const app=await getMembershipApplication(id);if(!app)return {status:'skipped' as const};
  const config=invitationConfiguration(process.env,app.feePence===0?'free':'paid');if(!config)return {status:'skipped' as const};
  return processInvitation(id,config,dependencies(config));
@@ -32,7 +34,7 @@ export async function reconcileMembershipInvitations(){
   const parsed=z.array(z.object({application_id:z.uuid()}).strict()).max(5).safeParse(result.data);
   if(!parsed.success)throw new Error('INVITATION_CANDIDATES_INVALID');
   const deps=dependencies(config);
-  for(const row of parsed.data.slice(0,2)){counts.processed++;try{const r=await processInvitation(row.application_id,config,deps);if(r.status==='request_accepted')counts.requested++;else if(r.status==='skipped')counts.skipped++;else counts.review++;}catch{counts.review++;}}
+  for(const row of parsed.data.slice(0,2)){counts.processed++;try{if(!await mobileReadyForInvitation(row.application_id)){counts.skipped++;continue;}const r=await processInvitation(row.application_id,config,deps);if(r.status==='request_accepted')counts.requested++;else if(r.status==='skipped')counts.skipped++;else counts.review++;}catch{counts.review++;}}
  }
  return counts;
 }

@@ -9,6 +9,7 @@ import type { MembershipApplication, MembershipBiginSyncOutcome, SaveMembershipA
 import {testMembershipQuote,ownerTestEmail} from '../membership-test-pricing.ts';
 
 export type MembershipApiDependencies = {
+  verifyMobileChange?:(answers:MembershipAnswers,token:string|undefined,applicationId:string)=>Promise<boolean>;
   secret: string;
   available: () => Promise<boolean>;
   checkIdentity: (identity: MembershipIdentity) => Promise<MembershipEligibility>;
@@ -41,11 +42,12 @@ const answersSchema = z.object({
   kind: z.enum(['new', 'renewal']), firstName: z.string().max(80), lastName: z.string().max(80),
   dob: z.string().max(10), mobile: z.string().max(25), email: z.string().max(254),
   education: z.enum(['', 'yes', 'no']), studentDeclaration: z.boolean(), terms: z.boolean(), accuracy: z.boolean(),
+  mobileVerificationId:z.string().uuid().optional(),
   whatsappInvitation: z.boolean().optional(),
   communicationsNotice: z.enum(MEMBERSHIP_COMMUNICATIONS_NOTICE_VERSIONS).optional(),
 }).strict();
 const submissionSchema = z.object({
-  requestKey: uuid, receiptToken: token, answers: answersSchema,
+  requestKey: uuid, receiptToken: token, answers: answersSchema,mobileProofToken:token.optional(),
   testData: z.literal(false).optional().default(false), website: z.literal(''),
 }).strict();
 
@@ -213,6 +215,7 @@ export async function handleMembershipApplications(request: Request, deps: Membe
       if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(await deliverSavedMembershipApplication(saved, deps)) }, { headers });
       return Response.json({ ok: false, error: { code: 'MEMBERSHIP_CHECK_BLOCKED', message: membershipEligibilityMessage(eligibility) }, eligibility }, { status: 409, headers });
     }
+    if((eligibility.mobileChanged||answers.mobileVerificationId)&&(!deps.verifyMobileChange||!await deps.verifyMobileChange(answers,parsed.data.mobileProofToken,parsed.data.requestKey)))throw new ApiError(409,'MOBILE_VERIFICATION_REQUIRED','Please verify your new mobile number using the code sent to your membership email.',{mobile:'Verify your new number before continuing.'});
     const input:SaveMembershipApplicationInput = {
       id: parsed.data.requestKey.toLowerCase(), mode: 'live', requestHash, capabilityHash: hash(parsed.data.receiptToken),
       answers, category: quote.category, feePence: quote.fee * 100,

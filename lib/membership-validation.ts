@@ -1,7 +1,7 @@
 import {membershipMobileKey} from './membership-eligibility.ts';
 import {MEMBERSHIP_PRICING} from './membership-pricing.ts';
 import {britishToIso,quoteMembership,isStudentAge,MINOR_MEMBERSHIP_NOTICE,type Education,type MembershipQuote} from './membership.ts';
-export type MembershipAnswers={kind:''|'new'|'renewal';firstName:string;lastName:string;dob:string;mobile:string;email:string;education:Education;studentDeclaration:boolean;terms:boolean;accuracy:boolean;whatsappInvitation?:boolean;communicationsNotice?:'2026-11-06-membership-service-v1'|'2026-11-06-all-tiers-v2'};
+export type MembershipAnswers={mobileVerificationId?:string;kind:''|'new'|'renewal';firstName:string;lastName:string;dob:string;mobile:string;email:string;education:Education;studentDeclaration:boolean;terms:boolean;accuracy:boolean;whatsappInvitation?:boolean;communicationsNotice?:'2026-11-06-membership-service-v1'|'2026-11-06-all-tiers-v2'};
 export type FieldErrors=Partial<Record<keyof MembershipAnswers,string>>;
 export const EMPTY_ANSWERS:MembershipAnswers={kind:'',firstName:'',lastName:'',dob:'',mobile:'',email:'',education:'no',studentDeclaration:false,terms:false,accuracy:false,whatsappInvitation:false};
 export function getQuote(values:MembershipAnswers,on:string):MembershipQuote|null {
@@ -32,6 +32,7 @@ export function validateStep(values:MembershipAnswers,step:number,on:string):Fie
 export function validateApplication(values:MembershipAnswers,on:string):FieldErrors {return Object.assign({},...[1,2,3,4].map(step=>validateStep(values,step,on)));}
 export function updateAnswer<K extends keyof MembershipAnswers>(values:MembershipAnswers,key:K,value:MembershipAnswers[K],on:string):MembershipAnswers {
  const next={...values,[key]:value,...(key!=='accuracy'?{accuracy:false}:{})};
+ if(['kind','email','mobile','firstName','lastName'].includes(key))delete next.mobileVerificationId;
  if(key==='firstName'||key==='lastName')next.studentDeclaration=false;
  if(key==='dob'||key==='education'){next.studentDeclaration=false;const quote=getQuote(next,on);if(!quote||!isStudentAge(quote.age))next.education='no';}
  if((getQuote(next,on)?.fee??0)===0)next.whatsappInvitation=false;

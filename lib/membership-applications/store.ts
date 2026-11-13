@@ -27,6 +27,7 @@ const answers = z.object({
   dob: z.string().min(1).max(10), mobile: z.string().min(1).max(25),
   email: z.string().max(254).regex(/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/),
   education: z.enum(['', 'yes', 'no']), studentDeclaration: z.boolean(), terms: z.literal(true), accuracy: z.literal(true),
+  mobileVerificationId:z.string().uuid().optional(),
   whatsappInvitation: z.boolean().optional(),
   communicationsNotice: z.enum(MEMBERSHIP_COMMUNICATIONS_NOTICE_VERSIONS).optional(),
 }).strict();

@@ -11,6 +11,7 @@ import {EMPTY_ANSWERS,getQuote,validateStep,validateApplication,updateAnswer,err
 function eligibilityResult(value:unknown):MembershipEligibility|null {
  if(!object(value)||typeof value.status!=='string')return null;
  if(value.status==='active'){if(typeof value.membershipDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value.membershipDate)||!Number.isFinite(Date.parse(value.membershipDate))||typeof value.membershipExpiry!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value.membershipExpiry)||!Number.isFinite(Date.parse(value.membershipExpiry))||!Number.isSafeInteger(value.daysUntilExpiry)||Number(value.daysUntilExpiry)<1)return null;return {status:'active',membershipDate:value.membershipDate,membershipExpiry:value.membershipExpiry,daysUntilExpiry:Number(value.daysUntilExpiry)};}
+ if(value.status==='allowed')return {status:'allowed',...(value.mobileChanged===true?{mobileChanged:true}:{})};
  return ['allowed','identity_conflict','review_required','renewal_required','new_required'].includes(value.status)?{status:value.status} as MembershipEligibility:null;
 }
 const steps=['Personal details','Review & Declaration','Confirmation'];
@@ -40,7 +41,9 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
  const [values,setValues]=useState<MembershipAnswers>({...EMPTY_ANSWERS,kind:renewal?'renewal':newMember?'new':''});
  const [step,setStep]=useState(1);const [errors,setErrors]=useState<FieldErrors>({});
  const [submitting,setSubmitting]=useState(false);const [paymentRedirectError,setPaymentRedirectError]=useState('');const [submissionError,setSubmissionError]=useState('');const [receipt,setReceipt]=useState<SavedApplication|null>(null);
- const [checkingDelivery,setCheckingDelivery]=useState(false);const [deliveryError,setDeliveryError]=useState('');const deliveryNotice=useRef<HTMLParagraphElement>(null);const [checkingMembership,setCheckingMembership]=useState(false);const [eligibility,setEligibility]=useState<MembershipEligibility|null>(null);const [membershipCheckError,setMembershipCheckError]=useState('');const membershipNotice=useRef<HTMLDivElement>(null);const busy=submitting||checkingDelivery||checkingMembership;
+ const [checkingDelivery,setCheckingDelivery]=useState(false);const [deliveryError,setDeliveryError]=useState('');const deliveryNotice=useRef<HTMLParagraphElement>(null);const [checkingMembership,setCheckingMembership]=useState(false);const [eligibility,setEligibility]=useState<MembershipEligibility|null>(null);const [membershipCheckError,setMembershipCheckError]=useState('');const membershipNotice=useRef<HTMLDivElement>(null);
+ const [mobileProof,setMobileProof]=useState<{id:string;token:string}|null>(null);const [mobileBusy,setMobileBusy]=useState(false);const [mobilePhase,setMobilePhase]=useState<'confirm'|'code'>('confirm');const [mobileChallenge,setMobileChallenge]=useState('');const [mobileCode,setMobileCode]=useState('');const [mobileError,setMobileError]=useState('');const mobileDialog=useRef<HTMLDialogElement>(null);const mobileCodeInput=useRef<HTMLInputElement>(null);
+ const busy=submitting||checkingDelivery||checkingMembership||mobileBusy;
  const submissionLock=useRef(false);const attempt=useRef<SubmissionAttempt|null>(null);
  const heading=useRef<HTMLHeadingElement>(null);const errorSummary=useRef<HTMLDivElement>(null);const calendar=useRef<HTMLInputElement>(null);const mounted=useRef(false);
  const [checkedPrice,setCheckedPrice]=useState<{key:string;feePence:number}|null>(null);
@@ -49,7 +52,7 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
  const quote=baseQuote&&checkedPrice?.key===priceKey?{...baseQuote,fee:checkedPrice.feePence/100}:baseQuote;
  const studentAge=quote!==null&&isStudentAge(quote.age);
  useEffect(()=>{if(mounted.current)heading.current?.focus({preventScroll:false});mounted.current=true;},[step]);
- function change<K extends keyof MembershipAnswers>(key:K,value:MembershipAnswers[K]) {if(submissionLock.current)return;if(['email','dob','education'].includes(key))setCheckedPrice(null);attempt.current=null;setReceipt(null);setEligibility(null);setMembershipCheckError('');setSubmissionError('');setDeliveryError('');const on=londonDate();setToday(on);const ageError=key==='dob'?registrationAgeError(getQuote({...values,[key]:value},on)):undefined;setValues(current=>{const next=updateAnswer(current,key,value,on);return key==='education'?{...next,studentDeclaration:value==='yes'}:next;});setErrors(current=>({...current,[key]:ageError,...(key==='dob'||key==='education'?{studentDeclaration:undefined,education:undefined}:{})}));}
+ function change<K extends keyof MembershipAnswers>(key:K,value:MembershipAnswers[K]) {if(submissionLock.current)return;if(['kind','email','mobile','firstName','lastName'].includes(key))setMobileProof(null);if(['email','dob','education'].includes(key))setCheckedPrice(null);attempt.current=null;setReceipt(null);setEligibility(null);setMembershipCheckError('');setSubmissionError('');setDeliveryError('');const on=londonDate();setToday(on);const ageError=key==='dob'?registrationAgeError(getQuote({...values,[key]:value},on)):undefined;setValues(current=>{const next=updateAnswer(current,key,value,on);return key==='education'?{...next,studentDeclaration:value==='yes'}:next;});setErrors(current=>({...current,[key]:ageError,...(key==='dob'||key==='education'?{studentDeclaration:undefined,education:undefined}:{})}));}
  function blur(key:keyof MembershipAnswers,stage:number){setErrors(current=>({...current,[key]:validateStep(values,stage,londonDate())[key]}));}
  function showErrors(next:FieldErrors){setErrors(next);requestAnimationFrame(()=>errorSummary.current?.focus());}
  function goTo(next:number){if(submissionLock.current)return;setErrors({});setSubmissionError('');setDeliveryError('');setStep(next);}
@@ -74,8 +77,29 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
    } catch(error){checked=null;setMembershipCheckError(error instanceof Error&&!['TimeoutError','AbortError','TypeError'].includes(error.name)?error.message:'We could not check your membership. Please try again later. You cannot continue until the check succeeds.');}
    finally{submissionLock.current=false;setCheckingMembership(false);}
    if(checked?.status!=='allowed'){requestAnimationFrame(()=>membershipNotice.current?.focus());return;}
+   if(checked.mobileChanged&&(!mobileProof||mobileProof.id!==values.mobileVerificationId)){setMobilePhase('confirm');setMobileError('');setMobileCode('');setMobileChallenge('');mobileDialog.current?.showModal();return;}
   }
   goTo(step+1);
+ }
+ function closeMobileDialog(){if(mobileBusy)return;mobileDialog.current?.close();requestAnimationFrame(()=>document.getElementById('mobile')?.focus());}
+ async function requestMobileCode(){
+  if(submissionLock.current)return;submissionLock.current=true;setMobileBusy(true);setMobileError('');
+  try{
+   const response=await fetch('/api/membership/mobile-verification',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'start',identity:{kind:values.kind,firstName:values.firstName,lastName:values.lastName,email:values.email,mobile:values.mobile}}),signal:AbortSignal.timeout(30000)});
+   const body=await response.json();if(!response.ok||typeof body.challengeId!=='string')throw Error(body.error||'A code could not be sent. Please try again later.');
+   setMobileChallenge(body.challengeId);setMobilePhase('code');setMobileCode('');requestAnimationFrame(()=>mobileCodeInput.current?.focus());
+  }catch(error){setMobileError(error instanceof Error&&!['TypeError','TimeoutError','AbortError'].includes(error.name)?error.message:'A code could not be confirmed. Please wait before trying again.');}
+  finally{submissionLock.current=false;setMobileBusy(false);}
+ }
+ async function verifyMobileCode(){
+  if(submissionLock.current)return;if(!/^\d{6}$/.test(mobileCode)){setMobileError('Enter the six-digit code from your membership email.');return;}
+  submissionLock.current=true;setMobileBusy(true);setMobileError('');
+  try{
+   const response=await fetch('/api/membership/mobile-verification',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'verify',challengeId:mobileChallenge,code:mobileCode}),signal:AbortSignal.timeout(20000)});
+   const body=await response.json();if(!response.ok||body.verified!==true||typeof body.proofToken!=='string'||!/^[a-f0-9]{64}$/.test(body.proofToken))throw Error(body.error||'The code could not be verified.');
+   setMobileProof({id:mobileChallenge,token:body.proofToken});setValues(current=>({...current,mobileVerificationId:mobileChallenge}));mobileDialog.current?.close();setStep(2);
+  }catch(error){setMobileError(error instanceof Error&&!['TypeError','TimeoutError','AbortError'].includes(error.name)?error.message:'The code could not be verified. Please try again.');}
+  finally{submissionLock.current=false;setMobileBusy(false);}
  }
  async function complete(){
   if(submissionLock.current)return;
@@ -92,14 +116,14 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
    const session:unknown=await sessionResponse.json().catch(()=>null);
    if(!sessionResponse.ok||!object(session)||session.ok!==true||session.mode!=='live'||session.available!==true||typeof session.csrf!=='string'||!/^[a-f0-9]{64}$/i.test(session.csrf))throw new Error(responseMessage(session)||'Submissions are not available right now. Your answers are still here; please try again later.');
    saveStarted=true;
-   const response=await fetch('/api/membership/applications',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify({...attempt.current,answers:submittedValues,testData:false,website:''}),signal:AbortSignal.timeout(30000)});
+   const response=await fetch('/api/membership/applications',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify({...attempt.current,answers:submittedValues,...(mobileProof?{mobileProofToken:mobileProof.token}:{}),testData:false,website:''}),signal:AbortSignal.timeout(30000)});
    const body:unknown=await response.json().catch(()=>null);
    const confirmed=object(body)&&body.ok===true?savedApplication(body.application):null;
    if(!response.ok||!confirmed){
     const blocked=object(body)?eligibilityResult(body.eligibility):null;
     if(blocked){setEligibility(blocked);setStep(1);}
     const fields=responseFields(body);const firstField=Object.keys(fields)[0] as keyof MembershipAnswers|undefined;
-    if(firstField){setErrors(fields);setStep(screenForError(firstField));}
+    if(firstField){setErrors(fields);setStep(screenForError(firstField));if(firstField==='mobile'){setMobileProof(null);setValues(current=>{const next={...current};delete next.mobileVerificationId;return next;});}}
     throw new Error(responseMessage(body)||'We could not confirm that your application was saved. Your answers are still here. Retry without changing them to check the same application.');
    }
    setReceipt(confirmed);setStep(3);
@@ -127,11 +151,20 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
   finally {submissionLock.current=false;setCheckingDelivery(false);}
  }
  function openCalendar(){try{calendar.current?.showPicker()}catch{document.getElementById('dob')?.focus()}}
- function startAgain(){if(submissionLock.current)return;setCheckedPrice(null);attempt.current=null;setReceipt(null);setEligibility(null);setMembershipCheckError('');setSubmissionError('');setDeliveryError('');setValues({...EMPTY_ANSWERS});setErrors({});setStep(1);}
+ function startAgain(){if(submissionLock.current)return;setMobileProof(null);mobileDialog.current?.close();setCheckedPrice(null);attempt.current=null;setReceipt(null);setEligibility(null);setMembershipCheckError('');setSubmissionError('');setDeliveryError('');setValues({...EMPTY_ANSWERS});setErrors({});setStep(1);}
  const fieldError=(key:keyof MembershipAnswers)=>errors[key]?<span className="field-error" id={`${key}-error`}>{errors[key]}</span>:null;
  function textField(key:'firstName'|'lastName'|'email',label:string,type='text') {return <div className="form-field"><label htmlFor={key}>{label} <span aria-hidden="true">*</span></label><input id={key} type={type} autoComplete="off" required maxLength={key==='email'?254:80} value={values[key]} onChange={event=>change(key,event.target.value)} onBlur={()=>blur(key,1)} aria-invalid={Boolean(errors[key])} aria-describedby={[key==='email'?'test-email-hint':'',errors[key]?`${key}-error`:''].filter(Boolean).join(' ')||undefined} placeholder={key==='email'?'you@example.com':undefined}/>{key==='email'&&<span className="field-hint" id="test-email-hint">Use a separate email address for each member.</span>}{fieldError(key)}</div>}
  const summary=<aside className="membership-live-summary" aria-label="Your ICSH membership"><span className="tag">12 months of belonging</span><h3>Your ICSH Membership</h3><div className="live-summary-price" aria-live="polite" aria-atomic="true">{quote?priceLabel(quote.fee):'—'}{quote&&<small>Annual membership fee · GBP</small>}</div><dl><div><dt>Membership Type</dt><dd>{quote?.label||'Calculated automatically'}</dd></div><div><dt>Membership Duration</dt><dd>{MEMBERSHIP_PRICING.durationMonths} Months</dd></div>{quote&&<div><dt>Your age</dt><dd>{quote.age}</dd></div>}</dl><p className="quiet-note">Paid membership starts after verified payment; free membership starts after ICSH confirmation.</p></aside>;
  return <div className="registration-area" aria-label="ICSH membership form">
+  <dialog ref={mobileDialog} aria-labelledby="mobile-change-heading" aria-describedby="mobile-change-description" onCancel={event=>{if(mobileBusy)event.preventDefault();}} style={{margin:'auto',maxHeight:'calc(100dvh - 32px)',overflowY:'auto',maxWidth:480,width:'calc(100% - 32px)',padding:28,border:'1px solid #AD925A',borderRadius:8,color:'#263B32',background:'#F8F7F2'}}>
+   <h3 id="mobile-change-heading" style={{fontSize:28,margin:'0 0 16px'}}>{mobilePhase==='confirm'?'Have you changed your number?':'Check your membership email'}</h3>
+   <p id="mobile-change-description">{mobilePhase==='confirm'?<>The mobile number you entered is different from your membership record. Is <strong>{values.mobile}</strong> your new number?</>:<>We sent a six-digit code to <strong>{values.email}</strong>. Enter it below to confirm your new mobile number.</>}</p>
+   <p style={{fontSize:14,marginTop:12,marginBottom:16}}>Your current number will stay unchanged until your renewal is confirmed.</p>
+   {mobilePhase==='code'&&<div className="form-field"><label htmlFor="mobile-email-code">Email verification code</label><input id="mobile-email-code" ref={mobileCodeInput} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={mobileCode} disabled={mobileBusy} onChange={event=>setMobileCode(event.target.value.replace(/\D/g,''))} onKeyDown={event=>{if(event.key==='Enter'){event.preventDefault();verifyMobileCode();}}} aria-describedby={mobileError?'mobile-verification-error':undefined}/></div>}
+   {mobileError&&<p role="alert" id="mobile-verification-error" className="notice">{mobileError}</p>}
+   <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:20}}><button type="button" className="button" disabled={mobileBusy} onClick={mobilePhase==='confirm'?requestMobileCode:verifyMobileCode}>{mobileBusy?'Please wait…':mobilePhase==='confirm'?'Yes, send me a code':'Verify and continue'}</button><button type="button" className="button outline" disabled={mobileBusy} onClick={closeMobileDialog}>Edit my number</button></div>
+   {mobilePhase==='code'&&<button type="button" className="text-button" disabled={mobileBusy} onClick={requestMobileCode}>Send a new code</button>}
+  </dialog>
   <ol className="membership-stepper" aria-label="Membership form progress">{steps.map((label,index)=><li key={label} className={step===index+1?'current':step>index+1?'done':''} aria-current={step===index+1?'step':undefined}><span aria-hidden="true">{step>index+1?'✓':index+1}</span><span>{label}</span></li>)}</ol>
   {(Object.values(errors).some(Boolean)||submissionError)&&<div className="validation-summary" role="alert" tabIndex={-1} ref={errorSummary}><strong>{submissionError?'Application save not confirmed':'Please check your answers'}</strong>{submissionError&&<p>{submissionError}</p>}<ul>{Object.entries(errors).filter(([,message])=>message).map(([key,message])=><li key={key}><a href={`#${key}`} onClick={event=>{event.preventDefault();document.getElementById(key)?.focus()}}>{message}</a></li>)}</ul></div>}
   {submitting&&<p className="notice" role="status" aria-live="polite">Saving your application. Please keep this page open.</p>}
@@ -142,7 +175,7 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
      <p className="form-intro">Fields marked * are required. We check your details against existing membership records.</p>
      <fieldset className="registration-choice" id="kind" tabIndex={-1} aria-describedby={errors.kind?'kind-error':undefined}><legend>Membership Category <span aria-hidden="true">*</span></legend><label><input type="radio" name="kind" value="new" required checked={values.kind==='new'} onChange={()=>change('kind','new')}/> New Member</label><label><input type="radio" name="kind" value="renewal" required checked={values.kind==='renewal'} onChange={()=>change('kind','renewal')}/> Membership Renewal</label></fieldset>{fieldError('kind')}
      {values.kind==='new'&&<p className="form-context">New Member Information</p>}
-     {values.kind==='renewal'&&<div className="renewal-guidance"><strong>Membership Renewal</strong><p>Use your existing membership details.</p><details className="member-search-inline"><summary>Member Search Tool</summary><div style={{paddingTop:24}}><MemberSearch/></div></details><button className="text-button" type="button" onClick={()=>change('kind','new')}>Switch to New Member</button></div>}
+     {values.kind==='renewal'&&<div className="renewal-guidance"><strong>Membership Renewal</strong><p>Use your membership email address. If you have a new mobile number, enter it here; we will ask you to confirm the change by email.</p><details className="member-search-inline"><summary>Member Search Tool</summary><div style={{paddingTop:24}}><MemberSearch/></div></details><button className="text-button" type="button" onClick={()=>change('kind','new')}>Switch to New Member</button></div>}
      <div className="form-row">{textField('firstName','First Name')}{textField('lastName','Last Name')}</div>
      <div className="form-field"><label htmlFor="dob">Date of Birth <span aria-hidden="true">*</span></label><div className="dob-control"><input id="dob" type="text" inputMode="numeric" autoComplete="off" required placeholder="DD/MM/YYYY" maxLength={10} value={values.dob} onChange={event=>change('dob',event.target.value)} onBlur={()=>blur('dob',1)} aria-invalid={Boolean(errors.dob)} aria-describedby={`dob-hint${errors.dob?' dob-error':''}`}/><button type="button" className="calendar-picker-button" onClick={openCalendar} aria-label="Open date of birth date picker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h3M14 14h3M7 18h3"/></svg></button><input ref={calendar} className="dob-calendar-input" type="date" min="1900-01-01" max={today} value={britishToIso(values.dob)||''} onChange={event=>change('dob',isoToBritish(event.target.value))} tabIndex={-1} aria-hidden="true"/></div><span className="field-hint" id="dob-hint">Use DD/MM/YYYY or the calendar. This form is for ages 17 and above.</span>{fieldError('dob')}</div>
      {studentAge&&<div className="student-declaration"><label><input id="studentDeclaration" type="checkbox" checked={values.education==='yes'&&values.studentDeclaration} onChange={event=>change('education',event.target.checked?'yes':'no')} aria-invalid={Boolean(errors.studentDeclaration)} aria-describedby={errors.studentDeclaration?'studentDeclaration-error':undefined}/><span>{STUDENT_DECLARATION}</span></label>{fieldError('studentDeclaration')}</div>}
@@ -151,7 +184,7 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
      <div className="member-status-note"><strong>Not sure if you are a member already?</strong><p><Link href="/membership/search" target="_blank" rel="noopener noreferrer">Check your membership dates <span className="sr-only">(opens in a new tab)</span></Link> using your name, email address or mobile number.</p></div>
     </>}
     {step===2&&<>
-     <p>Check your details and annual fee before submitting.</p><dl className="review-details"><div><dt>Name</dt><dd>{values.firstName} {values.lastName}</dd></div><div><dt>Date of birth</dt><dd>{values.dob}</dd></div><div><dt>Email</dt><dd>{values.email}</dd></div><div><dt>Mobile</dt><dd>{values.mobile}</dd></div></dl><div className="membership-fee-detail"><span>Annual membership fee</span><strong>{quote?priceLabel(quote.fee):'—'}</strong><p>{paymentsEnabled?'If a fee is due, secure checkout opens after your application is saved.':'No payment is collected through this form.'}</p></div>
+     <p>Check your details and annual fee before submitting.</p>{mobileProof&&<p className="notice">Your new mobile number has been verified. It will be applied after renewal is confirmed.</p>}<dl className="review-details"><div><dt>Name</dt><dd>{values.firstName} {values.lastName}</dd></div><div><dt>Date of birth</dt><dd>{values.dob}</dd></div><div><dt>Email</dt><dd>{values.email}</dd></div><div><dt>Mobile</dt><dd>{values.mobile}</dd></div></dl><div className="membership-fee-detail"><span>Annual membership fee</span><strong>{quote?priceLabel(quote.fee):'—'}</strong><p>{paymentsEnabled?'If a fee is due, secure checkout opens after your application is saved.':'No payment is collected through this form.'}</p></div>
      <details className="membership-terms" id="membership-terms"><summary>Read the membership terms</summary>{terms.map(([title,body])=><div key={title}><h5>{title}</h5><p>{body}</p></div>)}</details>
     </>}
 

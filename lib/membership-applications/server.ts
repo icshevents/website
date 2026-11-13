@@ -1,6 +1,7 @@
 import {activateFreeMembership,membershipActivation,publicActivation} from '../membership-activation/server';
 import {ensureWebsiteMemberId} from '../member-ids/server';
 import 'server-only';
+import {validMobileProof} from '../membership-mobile/server';
 
 import { createEventService } from '../event-forms/service.js';
 import { organiserSession } from '../supabase/server';
@@ -43,6 +44,7 @@ function dependencies(): MembershipApiDependencies {
   return {
     secret,
     checkIdentity: checkRetryMembershipEligibility,
+    verifyMobileChange:validMobileProof,
     resume: resumeUnpaidApplication,
     retryReceipt: retryReceiptAllowed,
     available: async () => {
