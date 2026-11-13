@@ -406,6 +406,21 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     };
   }
 
+  /** Narrow scheduled-reminder discovery; complete pagination is required before any send. */
+  async function listBiginRenewalContacts(page:number):Promise<{records:BiginContact[];hasMore:boolean}>{
+    if(!Number.isSafeInteger(page)||page<1||page>50)throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    const fields='First_Name,Last_Name,Email,Mobile,Membership_Status,Payment_Status,Email_Opt_Out,Membership_Date,Expiry_Date,Member_ID,Membership_Type';
+    const response=await biginRecordGet('/bigin/v2/Contacts',new URLSearchParams({fields,page:String(page),per_page:'200',sort_by:'id',sort_order:'asc'}));
+    if(response.status===204&&response.data===null)return{records:[],hasMore:false};
+    const b=response.data;if(!object(b)||!Array.isArray(b.data)||b.data.length>200||!object(b.info)||typeof b.info.more_records!=='boolean')throw new ZohoError('ZOHO_INVALID_RESPONSE');
+    const records:BiginContact[]=[];
+    for(const r of b.data){if(!object(r)||!contactId(r.id))throw new ZohoError('ZOHO_INVALID_RESPONSE');
+      const email=contactEmail(r.Email);if(!email)continue;
+      const t=(v:unknown)=>typeof v==='string'&&v.length<=300&&!/[\u0000-\u001f]/.test(v)?v:null;
+      records.push({id:r.id,email,firstName:t(r.First_Name),lastName:t(r.Last_Name),mobile:t(r.Mobile),membershipStatus:t(r.Membership_Status),paymentStatus:t(r.Payment_Status),emailOptOut:typeof r.Email_Opt_Out==='boolean'?r.Email_Opt_Out:null,membershipDate:t(r.Membership_Date),membershipExpiry:t(r.Expiry_Date),memberId:t(r.Member_ID),membershipType:t(r.Membership_Type)});
+    }return{records,hasMore:b.info.more_records};
+  }
+
   async function createBiginContact(value: BiginPendingContactCreate): Promise<{ contactId: string }> {
     if (env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED !== 'true') throw new ZohoError('ZOHO_MEMBERSHIP_WRITES_DISABLED');
     const payload = pendingContactPayload(value);
@@ -587,7 +602,7 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
       return 'accepted';
     }catch{return 'unknown';}
   }
-  return { get, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, updateBiginPaidMembership, searchBiginContactsByMemberId,updateBiginMemberId,requestBiginInvitation,inspectBiginInvitationFields,lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
+  return { get, listBiginRenewalContacts, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, updateBiginPaidMembership, searchBiginContactsByMemberId,updateBiginMemberId,requestBiginInvitation,inspectBiginInvitationFields,lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
 }
 
 const defaultClient = createZohoClient();

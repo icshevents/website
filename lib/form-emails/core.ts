@@ -60,10 +60,13 @@ function providerRejection(body:unknown){
   return codes.size?'ZOHO_'+[...codes].join('_'):'EMAIL_PROVIDER_REJECTED';
 }
 export async function sendConfirmation(value:Confirmation,env:MailEnvironment,fetchImpl:typeof fetch=fetch):Promise<SendResult> {
+  return sendTransactionalContent(value.id,value.recipient,confirmationContent(value),env,fetchImpl);
+}
+export async function sendTransactionalContent(id:string,recipient:string,content:{subject:string;textbody:string;htmlbody:string},env:MailEnvironment,fetchImpl:typeof fetch=fetch):Promise<SendResult>{
+  if(!/^[a-f0-9-]{36}$/i.test(id)||!email(recipient)||/[\r\n]/.test(content.subject)||content.subject.length>250||content.htmlbody.length>100000)throw new Error('EMAIL_INPUT_INVALID');
   const config=emailConfiguration(env);if(!config)throw new Error('EMAIL_DISABLED');
-  const content=confirmationContent(value);
   try {
-    const response=await fetchImpl(config.origin+'/v1.1/email',{method:'POST',redirect:'error',signal:AbortSignal.timeout(8000),headers:{Authorization:'Zoho-enczapikey '+config.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({from:{address:config.from,name:'ICSH'},to:[{email_address:{address:value.recipient}}],reply_to:[{address:config.from,name:'ICSH'}],...content,track_clicks:false,track_opens:false,client_reference:value.id})});
+    const response=await fetchImpl(config.origin+'/v1.1/email',{method:'POST',redirect:'error',signal:AbortSignal.timeout(8000),headers:{Authorization:'Zoho-enczapikey '+config.token,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({from:{address:config.from,name:'ICSH'},to:[{email_address:{address:recipient}}],reply_to:[{address:config.from,name:'ICSH'}],...content,track_clicks:false,track_opens:false,client_reference:id})});
     if(response.status===429)return {status:'retry',code:'EMAIL_RATE_LIMITED'};
     if(response.status>=400&&response.status<500){
       let code='EMAIL_PROVIDER_REJECTED';try{code=providerRejection(await response.json());}catch{}
@@ -76,3 +79,4 @@ export async function sendConfirmation(value:Confirmation,env:MailEnvironment,fe
     return {status:'accepted',providerId:body.request_id};
   }catch{return {status:'review_required',code:'EMAIL_OUTCOME_UNKNOWN'};}
 }
+

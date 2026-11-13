@@ -13,8 +13,9 @@ export default async function Membership({searchParams}:{searchParams:Promise<{c
   <section className="section" id="join"><div className="wrap"><div className="section-head"><h2>Become a Member</h2></div><MembershipForm today={londonDate()} renewal={category==='renewal'} newMember={category==='new'} paymentsEnabled={Boolean(paymentConfiguration())}/></div></section>
   <section className="section white" id="how-it-works"><div className="wrap reading"><h2>Membership questions</h2>{[
    ['Can family members share a mobile or WhatsApp number?','Yes. Each member needs a separate email address, but family members may share the same mobile or WhatsApp number. Your email identifies your membership.'],
-   ['What if I am already a member?','Choose Membership Renewal and use your existing details. A current membership blocks a duplicate application. Contact ICSH if your details need correcting.'],
+   ['What if I am already a member?','Choose Membership Renewal and use your existing details. Renewal opens in the final 30 days of your current term. An active membership still blocks a new-member application. Contact ICSH if your details need correcting.'],
    ['When does membership begin?','Paid membership activates after verified payment and lasts 12 months from the UK payment date. Free membership begins after confirmation from ICSH.'],
+   ['Can I renew before my membership expires?','Yes, during the final 30 days. Once renewal is confirmed, 12 months are added after your existing expiry date, so you keep all remaining days.'],
    ['What if I paid in December 2025?','Membership paid in December 2025 expires on 31 December 2026, regardless of the December payment date, to honour the full 2026 membership promised. Memberships paid from January 2026 onwards follow the rolling 12-month validity.'],
    ['Can I edit my answers?','Use Back or Edit before submitting. To correct a saved application, contact ICSH with its reference.'],
    ['How is my information used?','Your details are checked against membership records and saved privately to manage your application. See our privacy information for details.'],

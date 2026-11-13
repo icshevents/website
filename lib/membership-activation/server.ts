@@ -31,7 +31,11 @@ async function activateMembership(id:string,free:boolean):Promise<'active'|'revi
   const app=await getMembershipApplication(id,db);if(!app||app.deletedAt)throw new Error('APPLICATION_CHANGED');
   const membershipType=membershipTypeForApplication(app);
   if(free!==(membershipType==='Student'))throw new ActivationReview('MEMBERSHIP_CATEGORY_INVALID');
-  await activateMatchedMembership(membershipActivationClient,app.answers,x.contact_id||app.biginRecordId,{Membership_Status:'Active',Membership_Type:membershipType,Payment_Status:free?'Not required':'Completed',Membership_Date:x.start_date,Expiry_Date:x.expiry_date},async contact=>{await ensureWebsiteMemberId(app,contact);const bound=await db.rpc('icsh_membership_activation_bind',{p_id:id,p_claim:claim,p_contact:contact});if(bound.error)throw new Error('ACTIVATION_BIND_UNAVAILABLE');return bound.data===true;},londonDate());
+  await activateMatchedMembership(membershipActivationClient,app.answers,x.contact_id||app.biginRecordId,{Membership_Status:'Active',Membership_Type:membershipType,Payment_Status:free?'Not required':'Completed',Membership_Date:x.start_date,Expiry_Date:x.expiry_date},async contact=>{await ensureWebsiteMemberId(app,contact);const bound=await db.rpc('icsh_membership_activation_bind',{p_id:id,p_claim:claim,p_contact:contact});if(bound.error)throw new Error('ACTIVATION_BIND_UNAVAILABLE');return bound.data===true;},londonDate(),app.answers.kind==='renewal'?async contact=>{
+   const term=await db.rpc('icsh_membership_activation_extend',{p_id:id,p_claim:claim,p_start:contact.membershipDate,p_expiry:contact.membershipExpiry});
+   if(term.error||!term.data)throw new ActivationReview('RENEWAL_TERM_REQUIRES_REVIEW');
+   return activationSchema.parse(term.data).expiry_date;
+  }:undefined);
   const saved=await finish('active');if(saved.status==='active'){
    await processFormEmails().catch(()=>console.error('ICSH_FORM_EMAIL_PROCESSING_PENDING'));
    await requestMembershipInvitation(id).catch(()=>console.error('ICSH_WHATSAPP_INVITATION_PENDING'));

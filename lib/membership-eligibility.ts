@@ -53,6 +53,8 @@ export async function checkMembershipEligibility(value: MembershipIdentity, sear
   if (!parseDate(start) || !parseDate(expiry) || start >= expiry) return { status: 'review_required' };
   if (expiry <= on) return { status: identity.kind === 'renewal' ? 'allowed' : 'renewal_required' };
   if (start > on || member.membershipStatus?.trim().toLowerCase() !== 'active') return { status: 'review_required' };
+  // A verified renewal may preserve the remaining days during the last 30 days.
+  if(identity.kind==='renewal' && Math.ceil((Date.parse(expiry+'T12:00:00Z')-Date.parse(on+'T12:00:00Z'))/86400000)<=30)return {status:'allowed'};
   return { status: 'active', membershipDate: start, membershipExpiry: expiry,
     daysUntilExpiry: Math.ceil((Date.parse(expiry + 'T12:00:00Z') - Date.parse(on + 'T12:00:00Z')) / 86400000) };
 }

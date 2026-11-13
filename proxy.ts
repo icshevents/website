@@ -4,7 +4,7 @@ import { supabaseConfig } from '@/lib/supabase/config';
 
 export async function proxy(request: NextRequest) {
   const host=request.nextUrl.hostname;
-  if(process.env.VERCEL_ENV==='production'&&['GET','HEAD'].includes(request.method)&&(host==='www.icsh.org.uk'||host.endsWith('.vercel.app'))){
+  if(process.env.VERCEL_ENV==='production'&&!request.nextUrl.pathname.startsWith('/api/cron/')&&['GET','HEAD'].includes(request.method)&&(host==='www.icsh.org.uk'||host.endsWith('.vercel.app'))){
     const target=new URL(request.nextUrl.pathname+request.nextUrl.search,'https://icsh.org.uk');
     return NextResponse.redirect(target,308);
   }
@@ -34,3 +34,4 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = { matcher: ['/((?!api/|_next/|assets/|fonts/|event-forms-assets/|favicon.ico|robots.txt|sitemap.xml).*)', '/admin/:path*', '/api/event-forms/:path*', '/api/zoho/:path*', '/api/membership/admin/:path*', '/api/iftari/admin/:path*'] };
+
