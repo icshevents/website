@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ticketKeys, ticketLabels, gbp, eventWhen, type Settings, type Quote, type TicketKey } from '@/lib/iftari/core';
 import styles from './iftari.module.css';
 import MenuPopup from './MenuPopup';
+import noticeStyles from './booking-notice.module.css';
 
 type Result = { status: string; message: string };
 function MembershipEmail({ label, value, onChange, csrf, disabled = false }: { label: string; value: string; onChange: (value: string) => void; csrf: string; disabled?: boolean }) {
@@ -89,8 +90,8 @@ export default function BookingForm() {
   const open = settings.status === 'published';
   return <div className={`wrap ${styles.layout}`}>
     <div>
+      {!open && <div className={noticeStyles.banner} role="status"><h2>{settings.status === 'closed' ? 'Bookings are closed' : 'Bookings are not yet open'}</h2><p>{settings.status === 'closed' ? 'We are no longer accepting new bookings for this event.' : 'You can view the menu and ticket prices below. Bookings will open once the final arrangements are ready.'}</p></div>}
       <div className={styles.eventDetails}><span className="tag">Ramadan · Together as a community</span><h2>A warm welcome to your table.</h2><p>Join ICSH members, families and friends for Iftari at {settings.venue}. Share an evening of food, friendship and community.</p><p><strong>{eventWhen(settings)}</strong></p><MenuPopup /></div>
-      {!open && <div className="notice"><strong>{settings.status === 'closed' ? 'Bookings are closed.' : 'Bookings will open soon.'}</strong><p>You can explore the form and ticket prices below. Bookings will open once the final arrangements are ready.</p></div>}
       <form onSubmit={submit} className={styles.form}>
         <fieldset disabled={busy || Boolean(saved)}><legend><span>01</span> Lead booker details</legend><p>Book places for yourself, your family and friends. Non-members are welcome.</p><div className={styles.grid}>
           <label className={styles.field}>First name<input required autoComplete="given-name" maxLength={80} value={firstName} onChange={e => setFirstName(e.target.value)} /></label>
