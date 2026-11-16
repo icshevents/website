@@ -67,7 +67,7 @@ type Proof = { eventId: string; eventVersion: number; checkedOn: string; entries
 const proofs = new WeakMap<object, Proof>();
 export async function prepareEventMembershipChecks(event: Event, attendees: Attendee[], lookup: Lookup, on = londonDate()): Promise<object | null> {
   if (event.membershipCheckRequired !== true) return null;
-  const needed = attendees.map((attendee, index) => ({ attendee, index })).filter(item => item.attendee.ticket !== 'nonmember');
+  const needed = attendees.map((attendee, index) => ({ attendee, index })).filter(item => item.attendee.ticket !== 'nonmember' && item.attendee.ticket !== 'child');
   if (!needed.length) return null;
   const entries: Proof['entries'] = new Map();
   const contacts = new Set<string>();
@@ -87,7 +87,7 @@ export async function prepareEventMembershipChecks(event: Event, attendees: Atte
   return proof;
 }
 export function verifiedEventAttendee(event: Event, attendee: Attendee, index: number, proof: object | null | undefined, on = londonDate()): EventMemberResult | null {
-  if (event.membershipCheckRequired !== true || attendee.ticket === 'nonmember') return null;
+  if (event.membershipCheckRequired !== true || (attendee.ticket === 'nonmember' || attendee.ticket === 'child')) return null;
   const checked = proof && proofs.get(proof), entry = checked && checked.entries.get(index);
   if (!checked || !entry || checked.eventId !== event.id || checked.eventVersion !== (event.version ?? 0) || checked.checkedOn !== on || entry.key !== attendeeIdentity(attendee).key) throw new EventMembershipError('Membership needs to be checked again before confirming these tickets. Review the registration again.', 409);
   return { ...entry.result };
