@@ -5,6 +5,7 @@ import EventView from '@/components/events-hub/EventView';
 import '@/components/events-hub/hub.css';
 import { PageHero } from '@/components/Shared';
 import BookingForm from './BookingForm';
+export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Ramadan Iftari 2027 – Book your places', description: 'Join ICSH members, families and friends for Ramadan Iftari at The Clay Oven Restaurant, Wembley.', alternates: { canonical: '/ramadan-iftari-2027' } };
 export default async function IftariPage() {
   const catalog=await publicEvents('ramadan-iftari-2027');
