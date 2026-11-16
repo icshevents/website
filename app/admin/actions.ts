@@ -1,5 +1,6 @@
 'use server';
 
+import {startPortalSession,endPortalSession} from '@/lib/events-hub/session';
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { verifyOrganiserAccess } from '@/lib/organiser-access';
@@ -26,10 +27,23 @@ export async function signIn(_previous: SignInState, form: FormData): Promise<Si
     }
   });
   if('error' in result)return result;
-  redirect('/admin');
+  try {
+    const client=await createSupabaseServerClient(true);
+    const auth=await client?.auth.getSession();
+    const session=auth?.data.session;
+    if(!session)throw new Error('Missing session');
+    const claims=JSON.parse(Buffer.from(session.access_token.split('.')[1],'base64url').toString('utf8'));
+    await startPortalSession(session.user.id,'membership','',claims.session_id);
+  } catch {
+    const client=await createSupabaseServerClient(true);
+    await client?.auth.signOut({scope:'local'});
+    return {error:'Membership portal access could not be confirmed. Please contact ICSH.'};
+  }
+  redirect('/admin/membership');
 }
 
 export async function signOut() {
+  await endPortalSession('membership');
   const supabase = await createSupabaseServerClient(true);
   if (supabase) {
     const { error } = await supabase.auth.signOut({ scope: 'local' });

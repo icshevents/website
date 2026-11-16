@@ -8,10 +8,10 @@ export async function proxy(request: NextRequest) {
     const target=new URL(request.nextUrl.pathname+request.nextUrl.search,'https://icsh.org.uk');
     return NextResponse.redirect(target,308);
   }
-  if(!/^\/(?:admin(?:\/|$)|api\/(?:event-forms|zoho|membership\/admin|iftari\/admin)(?:\/|$))/.test(request.nextUrl.pathname))return NextResponse.next();
+  if(!/^\/(?:admin(?:\/|$)|api\/(?:event-custom-forms|events-hub|event-forms|zoho|membership\/admin|iftari\/admin)(?:\/|$))/.test(request.nextUrl.pathname))return NextResponse.next();
   let response = NextResponse.next({ request });
   const config = supabaseConfig();
-  if (config) {
+  if (config && !request.nextUrl.pathname.startsWith('/admin/events') && (!request.nextUrl.pathname.startsWith('/api/events-hub')||request.nextUrl.pathname.startsWith('/api/events-hub/access')) && !request.nextUrl.pathname.startsWith('/api/event-custom-forms')) {
     const supabase = createServerClient(config.url, config.key, {
       cookieOptions: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' },
       global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store', signal: init?.signal ?? AbortSignal.timeout(12000) }) },
@@ -33,5 +33,5 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/((?!api/|_next/|assets/|fonts/|event-forms-assets/|favicon.ico|robots.txt|sitemap.xml).*)', '/admin/:path*', '/api/event-forms/:path*', '/api/zoho/:path*', '/api/membership/admin/:path*', '/api/iftari/admin/:path*'] };
+export const config = { matcher: ['/((?!api/|_next/|assets/|fonts/|event-forms-assets/|favicon.ico|robots.txt|sitemap.xml).*)', '/admin/:path*', '/api/event-custom-forms/:path*', '/api/events-hub/:path*', '/api/event-forms/:path*', '/api/zoho/:path*', '/api/membership/admin/:path*', '/api/iftari/admin/:path*'] };
 

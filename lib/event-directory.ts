@@ -27,7 +27,7 @@ export async function getEventDirectory():Promise<Directory>{
   const result=await db.from('icsh_forms').select('kind,configuration').eq('status','published');
   if(result.error)throw new Error('Directory unavailable');
   const state={festivalConfig:null as unknown,stallForms:[] as unknown[],events:[] as unknown[]};
-  for(const form of result.data){if(form.kind==='participation')state.festivalConfig=form.configuration;else if(form.kind==='stall')state.stallForms.push(form.configuration);else state.events.push(form.configuration);}
+  for(const form of result.data){if(form.kind==='participation')state.festivalConfig=form.configuration;else if(form.kind==='stall')state.stallForms.push(form.configuration);else if(form.kind==='tickets')state.events.push(form.configuration);}
   return {available:true,mode:'live',events:parseEventDirectory(eventDirectory(state))};
  }catch{return {available:false,mode:'live',events:[]};}
 }

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { supabaseConfig } from './config';
+import {portalSession} from '../events-hub/session';
 import { verifyOrganiserAccess } from '../organiser-access';
 
 export async function createSupabaseServerClient(writable = false) {
@@ -23,5 +24,9 @@ export async function createSupabaseServerClient(writable = false) {
 export async function organiserSession() {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { status: 'configuration' as const };
-  return verifyOrganiserAccess(supabase);
+  const access=await verifyOrganiserAccess(supabase);
+  if(access.status!=='organiser')return access;
+  const portal=await portalSession('membership');
+  if(!portal||portal.user_id!==access.user.id)return {status:'signed-out' as const};
+  return access;
 }

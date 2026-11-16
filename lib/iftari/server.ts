@@ -1,3 +1,4 @@
+import {bookingAccess} from '../events-hub/booking-access';
 import 'server-only';
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
@@ -69,6 +70,12 @@ async function openCheckout(request: Request, b: BookingRow, capability: string)
 }
 export async function handleIftari(request: Request, path: string) {
   try {
+    if(process.env.ICSH_EVENTS_HUB_ENABLED==='true'&&path.startsWith('admin/'))throw new IftariError('Use the Events Hub for event management and entries.',403);
+    if(path==='settings'||['quote','membership','bookings'].includes(path)){
+      const access=await bookingAccess('iftari',IFTARI_SLUG);
+      if(!access.visible)throw new IftariError('This event is not published.',404);
+      if(request.method==='POST'&&!access.canBook)throw new IftariError(access.cancelled?'This event has been cancelled.':'Bookings are closed.',409);
+    }
     const secret = process.env.SUPABASE_SECRET_KEY || '';
     if (!secret) throw new IftariError('The booking service is being prepared.', 503);
     const sessionName = process.env.NODE_ENV === 'production' ? '__Host-icsh-iftari-session' : 'icsh-iftari-session';

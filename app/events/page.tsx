@@ -1,3 +1,7 @@
+import FormLinks from '@/components/events-hub/FormLinks';
+import {publicEvents} from '@/lib/events-hub/server';
+import EventView from '@/components/events-hub/EventView';
+import '@/components/events-hub/hub.css';
 import Link from 'next/link';
 import {PageHero,Photo,Arrow,CTA} from '@/components/Shared';
 import {displayDate} from '@/lib/content';
@@ -9,6 +13,13 @@ export const metadata={title:'Events & Services',description:'Explore ICSH event
 export const dynamic='force-dynamic';
 const gbp=(n:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
 export default async function Events(){
+ const managed=await publicEvents();
+ if(managed!==null){const next=managed.filter(e=>e.status!=='completed');return <>
+ <PageHero label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
+ <section className="section white"><div className="wrap">{next.length===0&&<p>New event dates will be announced soon.</p>}{next.map(e=><div key={e.id}><EventView content={e.content} slug={e.slug} status={e.status} sourceType={e.sourceType} sourceKey={e.sourceKey}/><FormLinks forms={e.forms}/><Link className="text-link" href={'/events/'+e.slug}>View event details ↗</Link></div>)}</div></section>
+ <section className="section services-directory"><div className="wrap"><h2>Community services</h2><article className="panel"><h3>Rishta service</h3><p>A confidential, community-supported service for people seeking a life partner.</p><Link className="button" href="/rishta-service">Explore Rishta service ↗</Link></article></div></section>
+ <section className="section"><div className="wrap"><div className="eyebrow">Together, throughout the year</div><h2>The activities that bring us together.</h2><p>Our programme includes community gatherings, cultural celebrations, shared lunches, food festivals and charity fundraising, summer picnics, sports outings and quiz nights.</p></div></section>
+ <CTA/></>;}
  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Europe/London'});
  const [directory,iftari]=await Promise.all([getEventDirectory(),iftariSettings().catch(()=>null)]);
  const upcomingForms=directory.events.filter(e=>new Date(e.endsAt).toLocaleDateString('en-CA',{timeZone:'Europe/London'})>=today);

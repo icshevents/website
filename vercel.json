@@ -20,7 +20,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "main": false
+      "main": false,
+      "feature/events-hub": false
     }
   }
 }
