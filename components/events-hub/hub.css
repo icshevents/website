@@ -32,3 +32,8 @@
 .hub-access-row:not(.hub-access-add)>.hub-checkbox,.hub-access-row:not(.hub-access-add)>.button{margin-top:calc(var(--access-label-height) + var(--access-label-gap));align-self:start;min-height:var(--access-control-height)}
 .hub-access-row:not(.hub-access-add)>.button{height:var(--access-control-height);padding:10px 18px}
 @media(max-width:800px){.hub-access-row:not(.hub-access-add)>.hub-checkbox,.hub-access-row:not(.hub-access-add)>.button{margin-top:0}}
+
+/* Equal portal cards with readable descriptions and consistently placed actions. */
+.hub-portals{align-items:stretch}.hub-portal{min-width:0}
+.hub-portal>p{flex:0 0 auto;width:100%;max-width:52ch;margin:0 0 28px;line-height:1.7;text-wrap:pretty}
+.hub-portal>.button{margin-top:auto;min-height:46px;min-width:min(200px,100%);max-width:100%;justify-content:space-between;gap:20px}
