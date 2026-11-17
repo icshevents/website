@@ -19,7 +19,7 @@ main:focus{outline:none}.split>*,.hero>*,.intro-grid>*,.form-row>*,.feature>div{
 .committee-placeholder{aspect-ratio:1/1.08;border:1px solid #c8d2c3;background:#eaf0e5;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#54745d;gap:25px}.committee-placeholder svg{width:90px;height:90px}.committee-placeholder span{font-size:10px;letter-spacing:2px}
 
 /* Owner-supplied brand palette, 15 October 2026. */
-:root{--green:#4c6259;--emerald:#4c6259;--ivory:#f8f7f2;--gold:#ad925a;--ink:#2f4239;--muted:#526359;--line:#dce1d8}
+:root{--green:#185844;--emerald:#185844;--ivory:#f2ebdd;--gold:#b08a4f;--ink:#102f27;--muted:#52665a;--line:#d6ddd2}
 body{background:var(--ivory)}.brand img{width:64px;height:64px;border-radius:5px;background:var(--ivory);object-fit:contain}.footer-brand img{width:64px;height:64px}.site-header .brand{gap:9px}.announcement{background:#eef0e8}.membership-stamp{color:var(--green)}.photo-caption span{color:#e6d6ad}.cta .eyebrow{color:#ead9b3}.footer-label{color:#ead9b3}.footer-top p{color:#d3ded2}.footer-top>div>a:not(.brand){color:#dce5d7}.footer-bottom{color:#d0dccf}.contact-illustration small{color:#ead9b3}.contact-illustration .ornament{color:var(--gold)}.feature-number{color:#806a3d}.committee-placeholder{background:#edf0e9;color:var(--green)}
 @media(max-width:650px){.brand img{width:55px;height:55px}.brand span{font-size:11px}.footer-brand img{width:58px;height:58px}}
 
