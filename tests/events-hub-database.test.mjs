@@ -24,6 +24,7 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
  await db.exec(fs.readFileSync(new URL('../database/events-hub-task-files-and-duplicates.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-enforce-membership-sessions.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-password-vault.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../database/events-hub-direct-save.sql',import.meta.url),'utf8'));
  const eventUser='00000000-0000-4000-8000-000000000001',memberUser='00000000-0000-4000-8000-000000000002';
  await db.query('insert into auth.users(id) values ($1),($2)',[eventUser,memberUser]);await db.query("insert into public.icsh_portal_access values($1,'events'),($2,'membership')",[eventUser,memberUser]);
  const token='a'.repeat(64),membership='b'.repeat(64),hash=v=>createHash('sha256').update(v).digest('hex');
@@ -191,6 +192,37 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
   await assert.rejects(rpc('icsh_admin_save_events_access_viewable',[membership,account.id,account.version,'Invalid',hash,lookup,true,null]),/Unable to store/);
   account=await rpc('icsh_admin_save_events_access',[membership,account.id,account.version,'Older save path','scrypt-v1$'+'7'.repeat(64)+'$'+'8'.repeat(128),'5f'.repeat(32),true]);assert.equal(await rpc('icsh_admin_events_password',[membership,account.id]),null);
   await db.query("update public.icsh_portal_sessions set expires_at=now()-interval '1 second' where token_hash=$1",[createHash('sha256').update(membership).digest('hex')]);await assert.rejects(rpc('icsh_admin_events_password',[membership,account.id]),/Sign in/);await db.query("update public.icsh_portal_sessions set expires_at=now()+interval '8 hours' where token_hash=$1",[createHash('sha256').update(membership).digest('hex')]);
+ });
+ await t.test('direct event save publishes immediately, includes posters, and removes them without approval',async()=>{
+  let e=await rpc('icsh_hub_save_live',[token,null,0,'direct-save-event',{...c,title:'Direct save example'},'event-posters/00000000-0000-4000-8000-000000000999.png']);
+  assert.equal(e.status,'published');assert.equal(e.visible,true);assert.equal(e.published.title,'Direct save example');assert.equal(e.published_image,e.draft_image);assert.equal((await rpc('icsh_events_public',[e.slug]))[0].content.image,'/api/events-image/'+e.id);
+  const form=(await db.query('select * from public.icsh_forms where id=$1',[e.source_key])).rows[0];assert.equal(form.status,'published');
+  const old=e;e=await rpc('icsh_hub_save_live',[token,e.id,e.version,e.slug,{...e.draft,title:'Updated title',image:''},null]);assert.equal(e.published.title,'Updated title');assert.equal(e.draft_image,null);assert.equal(e.published_image,null);assert.equal((await rpc('icsh_events_public',[e.slug]))[0].content.image,'');
+  await assert.rejects(rpc('icsh_hub_save_live',[token,e.id,old.version,e.slug,e.draft,null]),/changed elsewhere/);
+  await assert.rejects(rpc('icsh_hub_save_live',[membership,e.id,e.version,e.slug,e.draft,null]),/Sign in/);
+  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(rpc('icsh_hub_save_live',[token,e.id,e.version,e.slug,e.draft,null]),/permission denied/);await db.exec('reset role');}
+  for(const action of ['cancel','complete','unpublish','archive']){
+   let example=await rpc('icsh_hub_save_live',[token,null,0,'direct-save-'+action,{...c,title:'Original '+action},null]);example=await rpc('icsh_hub_publish',[token,example.id,example.version,action]);
+   const saved=await rpc('icsh_hub_save_live',[token,example.id,example.version,example.slug,{...example.draft,title:'Edited '+action},null]);assert.equal(saved.published.title,'Edited '+action);assert.equal(saved.visible,example.visible);assert.equal(saved.archived,example.archived);assert.equal(saved.published_status,example.published_status);assert.equal((await rpc('icsh_events_booking_access',['tickets',saved.slug])).canBook,false);
+  }
+ });
+ await t.test('a failed direct publish rolls back content and keeps existing booking snapshots unchanged',async()=>{
+  let e=await rpc('icsh_hub_save_live',[token,null,0,'direct-save-capacity',{...c,title:'Capacity before',capacity:3},null]);
+  const id='00000000-0000-4000-8000-000000000979',answers={record:{id,mode:'live',status:'confirmed_paid',attendees:[{name:'Guest one'},{name:'Guest two'}],unitPricePence:1850,totalPence:3700}};
+  await db.query("insert into public.icsh_submissions(id,form_id,mode,answers) values($1,$2,'live',$3)",[id,e.source_key,answers]);
+  await assert.rejects(rpc('icsh_hub_save_live',[token,e.id,e.version,e.slug,{...e.draft,title:'Must roll back',capacity:1},null]),/Capacity/);
+  const after=(await rpc('icsh_hub_event',[token,e.id])).event;assert.equal(after.version,e.version);assert.equal(after.draft.title,'Capacity before');assert.equal(after.published.title,'Capacity before');assert.deepEqual((await db.query('select answers from public.icsh_submissions where id=$1',[id])).rows[0].answers,answers);
+ });
+ await t.test('Published, Hidden and Archive are distinct and can be changed without an approval step',async()=>{
+  let e=await rpc('icsh_hub_save_live',[token,null,0,'visibility-states',{...c,title:'Working event'},null,'hidden']);assert.equal(e.visible,false);assert.equal(e.archived,false);assert.equal(e.published_status,'published');assert.deepEqual(await rpc('icsh_events_public',[e.slug]),[]);assert.equal((await rpc('icsh_events_booking_access',['tickets',e.slug])).canBook,false);
+  for(const state of ['published','hidden','archive','hidden','published']){
+   const version=e.version;e=await rpc('icsh_hub_set_visibility',[token,e.id,version,state]);assert.equal(e.visible,state==='published');assert.equal(e.published_status,state==='archive'?'completed':'published');assert.equal(e.archived,false);assert.equal((await rpc('icsh_events_public',[e.slug])).length,state==='published'?1:0);assert.equal((await rpc('icsh_events_booking_access',['tickets',e.slug])).canBook,state==='published');
+   if(state==='archive')assert.equal(e.published.title,'Working event');
+   await assert.rejects(rpc('icsh_hub_set_visibility',[token,e.id,version,state]),/changed elsewhere/);
+  }
+  e=await rpc('icsh_hub_save_live',[token,e.id,e.version,e.slug,{...e.draft,title:'Archive on save'},null,'archive']);assert.equal(e.visible,false);assert.equal(e.published.title,'Archive on save');assert.equal(e.published_status,'completed');
+  await assert.rejects(rpc('icsh_hub_set_visibility',[membership,e.id,e.version,'published']),/Sign in/);await assert.rejects(rpc('icsh_hub_set_visibility',[token,e.id,e.version,'ready_for_review']),/Choose Published/);
+  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(rpc('icsh_hub_set_visibility',[token,e.id,e.version,'published']),/permission denied/);await db.exec('reset role');}
  });
  await t.test('audits include timestamp and password-assigned actor; logout revokes Events access without revoking membership',async()=>{
   const history=(await rpc('icsh_hub_event',[token,event.id])).history;assert.ok(history.length>0);assert.equal(history[0].actor,'Fictional organiser');assert.ok(history[0].occurred_at);

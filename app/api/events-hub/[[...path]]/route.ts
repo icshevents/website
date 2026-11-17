@@ -1,3 +1,4 @@
+import {readEventSaveRequest} from '@/lib/events-hub/event-save-request';
 import {sealEventPassword,openEventPassword} from '@/lib/events-hub/password-vault';
 import {taskFileRequest} from '@/lib/events-hub/task-files-server';
 import {organiserSession} from '@/lib/supabase/server';
@@ -77,6 +78,17 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
    }
   }
   if(req.method!=='POST')throw new HubError('Action not found.',404);
+  if(path==='save-live'){
+   let parsed:Awaited<ReturnType<typeof readEventSaveRequest>>;
+   try{parsed=await readEventSaveRequest(req);}catch(e){if(e instanceof z.ZodError)throw e;throw new HubError(e instanceof Error?e.message:'Check the event details.');}
+   const {input,poster}=parsed,db=createEventService();let key:string|null=null;
+   if(poster){key='event-posters/'+randomUUID()+'.'+poster.ext;const uploaded=await db.storage.from('icsh-event-images').upload(key,poster.bytes,{contentType:poster.mime,upsert:false});if(uploaded.error)throw new HubError('Poster could not be uploaded. No event changes were saved.',503);}
+   try{return json(await hubRpc('icsh_hub_save_live',{p_id:input.id,p_version:input.version,p_slug:input.slug,p_content:input.content,p_image_key:key,p_visibility:input.visibility}));}catch(e){
+    // An ambiguous transport failure may have committed. Never delete an image now referenced by an event.
+    if(key){const linked=await db.from('icsh_events').select('id').or('draft_image.eq.'+key+',published_image.eq.'+key).limit(1);if(!linked.error&&linked.data.length===0)await db.storage.from('icsh-event-images').remove([key]);}
+    throw e;
+   }
+  }
   if(path==='upload'){
    const id=z.uuid().parse(url.searchParams.get('id'));const detail=await hubRpc('icsh_hub_event',{p_id:id}) as EventDetail;
    const reader=req.body?.getReader();if(!reader)throw new HubError('Choose an image.');let size=0;const chunks:Uint8Array[]=[];
@@ -95,6 +107,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
   if(path==='form/duplicate'){const b=z.object({sourceEventId:z.uuid(),sourceFormId:z.uuid(),sourceVersion:z.number().int().nonnegative(),targetEventId:z.uuid(),targetVersion:z.number().int().positive(),title:z.string().trim().min(1).max(140)}).strict().parse(body);return json(await hubRpc('icsh_hub_form_duplicate',{p_source_event:b.sourceEventId,p_source_form:b.sourceFormId,p_source_version:b.sourceVersion,p_target_event:b.targetEventId,p_target_version:b.targetVersion,p_title:b.title}));}
   if(path==='form/save')return json(await hubRpc('icsh_hub_form_save',{p_form:customFormSchema.parse(body)}));
   if(path==='form/state'){const b=z.object({eventId:z.uuid(),formId:z.uuid(),version:z.number().int().nonnegative(),status:z.enum(['published','closed'])}).strict().parse(body);return json(await hubRpc('icsh_hub_form_state',{p_event:b.eventId,p_form:b.formId,p_version:b.version,p_status:b.status}));}
+  if(path==='visibility'){const b=z.object({id:z.uuid(),version:z.number().int().positive(),visibility:z.enum(['published','hidden','archive'])}).strict().parse(body);return json(await hubRpc('icsh_hub_set_visibility',{p_id:b.id,p_version:b.version,p_visibility:b.visibility}));}
   if(path==='save'){const b=saveSchema.parse(body);return json(await hubRpc('icsh_hub_save',{p_id:b.id,p_version:b.version,p_slug:b.slug,p_content:b.content,p_status:b.status}));}
   if(path==='publish'){const b=z.object({id:z.uuid(),version:z.number().int().positive(),action:z.enum(['publish','unpublish','cancel','complete','archive','restore'])}).strict().parse(body);return json(await hubRpc('icsh_hub_publish',{p_id:b.id,p_version:b.version,p_action:b.action}));}
   if(path==='planning'){const b=planningSchema.parse(body);return json(await hubRpc('icsh_hub_planning',{p_event:b.eventId,p_version:b.version,p_notes:b.notes,p_requirements:b.requirements}));}
