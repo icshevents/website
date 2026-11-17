@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createHash} from 'node:crypto';
+import {sealEventPassword,openEventPassword} from '../lib/events-hub/password-vault.ts';
 import {emptyContent,eventContentSchema} from '../lib/events-hub/core.ts';
 const engine=process.env.ICSH_TEST_PGLITE_MODULE;
 test('Events Hub isolated PostgreSQL migration and permission regression', {skip:!engine},async t=>{
@@ -24,6 +25,7 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
  await db.exec(fs.readFileSync(new URL('../database/events-hub-task-files-and-duplicates.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-enforce-membership-sessions.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-password-vault.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../database/events-hub-password-minimum.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-direct-save.sql',import.meta.url),'utf8'));
  await db.exec(`create table public.icsh_membership_applications(id uuid primary key,deleted_at timestamptz);create table public.icsh_donations(id uuid primary key);create table public.icsh_rishta_profiles(id uuid primary key);grant all on public.icsh_membership_applications,public.icsh_donations,public.icsh_rishta_profiles to service_role;`);
  await db.exec(fs.readFileSync(new URL('../database/organiser-entry-management.sql',import.meta.url),'utf8'));
@@ -272,6 +274,12 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
   const saved=await rpc('icsh_hub_save_live',[token,before.id,before.version,before.slug,{...before.draft,menu},null,'published']);assert.deepEqual(saved.published.menu,menu);assert.deepEqual((await rpc('icsh_events_public',[saved.slug]))[0].content.menu,menu);
   const afterSettings=(await db.query('select configuration from public.icsh_iftari_settings where slug=$1',[before.source_key])).rows[0].configuration;
   assert.deepEqual(afterSettings.prices,settings.prices);assert.equal(afterSettings.capacity,settings.capacity);assert.deepEqual((await db.query('select * from public.icsh_iftari_bookings where event_slug=$1 order by id',[before.source_key])).rows,bookings);
+ });
+ await t.test('long viewable passwords fit database validation without changing existing accounts',async()=>{
+  const lookup=createHash('sha256').update('long-password-test-only').digest('hex'),secret='isolated-fixture-secret-'.repeat(3),password='漢'.repeat(128),encrypted=sealEventPassword(password,lookup,secret),hash='scrypt-v1$'+'7'.repeat(64)+'$'+'8'.repeat(128);
+  assert.ok(encrypted.length>512);
+  const account=await rpc('icsh_admin_save_events_access_viewable',[membership,null,0,'Long password fixture',hash,lookup,true,encrypted]);
+  const saved=await rpc('icsh_admin_events_password',[membership,account.id]);assert.equal(openEventPassword(saved.encrypted,saved.lookup,secret),password);
  });
  await t.test('audits include timestamp and password-assigned actor; logout revokes Events access without revoking membership',async()=>{
   const history=(await rpc('icsh_hub_event',[token,event.id])).history;assert.ok(history.length>0);assert.equal(history[0].actor,'Fictional organiser');assert.ok(history[0].occurred_at);

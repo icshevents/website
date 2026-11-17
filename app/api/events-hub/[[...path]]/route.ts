@@ -49,7 +49,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
    }
    if(req.method==='POST'&&path==='access/save'){
     if(!req.headers.get('content-type')?.startsWith('application/json'))throw new HubError('Invalid request.',415);
-    const b=z.object({id:z.uuid().nullable(),version:z.number().int().nonnegative(),firstName:z.string().trim().min(1).max(60),password:z.union([z.literal(''),z.string().length(6)]),enabled:z.boolean()}).strict().parse(JSON.parse(await boundedBody(req,4000)));
+    const b=z.object({id:z.uuid().nullable(),version:z.number().int().nonnegative(),firstName:z.string().trim().min(1).max(60),password:z.union([z.literal(''),z.string().min(6,'Use at least 6 characters.').max(128,'Use no more than 128 characters.')]),enabled:z.boolean()}).strict().parse(JSON.parse(await boundedBody(req,4000)));
     if(!b.id&&!b.password)throw new HubError('Enter a password for this person.');
     const hash=b.password?await hashPassword(b.password):null,lookup=b.password?passwordLookup(b.password,secret):null;
     const r=await db.rpc('icsh_admin_save_events_access_viewable',{p_token:token,p_id:b.id,p_version:b.version,p_name:b.firstName,p_hash:hash,p_lookup:lookup,p_enabled:b.enabled,p_encrypted:b.password?sealEventPassword(b.password,lookup!,secret):null});

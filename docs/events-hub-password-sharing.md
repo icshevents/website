@@ -11,3 +11,5 @@ Reveal uses a CSRF-protected, rate-limited POST with `private, no-store` respons
 Existing passwords have no encrypted copy and cannot be recovered. They need replacing once before Show/Copy becomes available. No existing user password was reset during implementation.
 
 Validation: encryption round trips, distinct nonces, altered ciphertext, wrong keys/contexts, invalid envelopes, role denial, forged/expired/Events-only tokens, legacy-password handling, version conflicts, retention after renaming, stale-copy invalidation and audits are covered by automated tests. Production checks do not reset credentials or create test accounts.
+
+Events Hub passwords now accept 6–128 characters in both add/change forms and the server API. Login already supports this range. Encrypted copies and their database validation support the resulting longer UTF-8 payloads. Existing passwords are unchanged.

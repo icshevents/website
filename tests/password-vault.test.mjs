@@ -11,3 +11,8 @@ test('administrator password copy is encrypted with a fresh nonce and authentica
  for(const invalid of ['', 'not-encrypted',one+'.extra',one.slice(0,-1)])assert.throws(()=>openEventPassword(invalid,lookup,secret));
  assert.throws(()=>sealEventPassword('short',lookup,secret));assert.throws(()=>sealEventPassword('Abc123',lookup,'short'));assert.throws(()=>sealEventPassword('Abc123','invalid',secret));
 });
+
+test('six-character and longer passwords round-trip, including long Unicode passwords',()=>{
+ for(const password of ['Abc123','Longer-event-password!','A'.repeat(128),'漢'.repeat(128)])assert.equal(openEventPassword(sealEventPassword(password,lookup,secret),lookup,secret),password);
+ for(const password of ['','12345','A'.repeat(129)])assert.throws(()=>sealEventPassword(password,lookup,secret),/6 and 128/);
+});
