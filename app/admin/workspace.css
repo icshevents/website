@@ -1,5 +1,5 @@
 /* The private portals have their own identity; public pages keep the ICSH green theme. */
-body:has(.organiser-workspace){--green:#1f2a44;--emerald:#1f2a44;--ink:#1f2a44;--muted:#556075;--ivory:#f6f1e9;--line:#d9d6d0;--gold:#c6a75e;background:#f6f1e9;color:#1f2a44}
+body:has(.organiser-workspace){--green:#1f2a44;--emerald:#1f2a44;--ink:#1f2a44;--muted:#556075;--ivory:#f6f1e9;--line:#d9d6d0;--gold:#c6a75e;--focus:#c6a75e;background:#f6f1e9;color:#1f2a44}
 body:has(.organiser-workspace) .site-header{border-bottom:1px solid #d9d6d0}
 body:has(.organiser-workspace) .site-header nav a.nav-membership-cta{background:#1f2a44;border-color:#1f2a44}
 body:has(.organiser-workspace) .site-header nav a.nav-membership-cta:hover{background:#31415f}
