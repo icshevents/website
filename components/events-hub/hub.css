@@ -23,3 +23,12 @@
 .hub-saved-password-field{display:grid;gap:7px;min-width:0}.hub-password-field-label{font-size:14px;font-weight:600}.hub-saved-password{display:flex;align-items:center;justify-content:space-between;gap:15px;text-align:left;border:1px solid #b9bfca;border-radius:6px;background:#fff;color:var(--ink);padding:12px;min-height:49px;width:100%;font:inherit}.hub-saved-password>span:first-child{letter-spacing:4px;font-size:18px;line-height:1}.hub-saved-password>span:last-child{font-size:12px;font-weight:600}.hub-saved-password:hover{background:var(--ivory)}.hub-password-cancel{font-size:12px;justify-self:start}.hub-password-help{font-size:13px;margin:10px 0 18px}
 
 .hub-password-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:12px}.hub-saved-password>span.hub-revealed-password{letter-spacing:1px;font-family:var(--font-body);font-size:17px;user-select:text}.hub-saved-password-field>small{font-size:12px;line-height:1.5;max-width:480px}
+
+/* Keep all access controls aligned independently of password actions and help text. */
+.hub-access-row:not(.hub-access-add){--access-label-height:23px;--access-label-gap:7px;--access-control-height:48px;align-items:start}
+.hub-access-row:not(.hub-access-add)>label:not(.hub-checkbox),.hub-access-row:not(.hub-access-add) .hub-saved-password-field>label{line-height:var(--access-label-height);gap:var(--access-label-gap)}
+.hub-access-row:not(.hub-access-add) .hub-password-field-label{line-height:var(--access-label-height)}
+.hub-access-row:not(.hub-access-add) input:not([type=checkbox]):not([type=hidden]),.hub-access-row:not(.hub-access-add) .hub-saved-password{height:var(--access-control-height);min-height:var(--access-control-height)}
+.hub-access-row:not(.hub-access-add)>.hub-checkbox,.hub-access-row:not(.hub-access-add)>.button{margin-top:calc(var(--access-label-height) + var(--access-label-gap));align-self:start;min-height:var(--access-control-height)}
+.hub-access-row:not(.hub-access-add)>.button{height:var(--access-control-height);padding:10px 18px}
+@media(max-width:800px){.hub-access-row:not(.hub-access-add)>.hub-checkbox,.hub-access-row:not(.hub-access-add)>.button{margin-top:0}}
