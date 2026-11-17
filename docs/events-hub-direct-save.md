@@ -17,3 +17,7 @@ Hub screen changes now create browser history entries. Both browser Back/Forward
 Event Calendar is removed from the hub. Unpublished and Archived Events are the user-facing labels; existing stored hidden/archive values remain compatible and older history entries are normalised.
 
 The Iftari menu is editable in Event details. Existing courses are used as the fallback until an organiser saves a replacement. Menu heading, course names, dishes and button visibility save in the existing event JSON; no new service/table or redeployment is needed for subsequent menu edits. Both the closed-booking page and open booking form use the same published menu. Optional private preview shows the edited pop-up. Menu schema bounds headings, courses and dishes; isolated save tests preserve Iftari pricing, capacity and booking evidence.
+
+Every event now has a separate optional Event menu editor. Non-Iftari events start with their menu switched off and no inherited dishes. The existing Iftari menu remains the fallback. Published menus appear in public event cards and detail pages, with independent accessible pop-ups when several events have menus. Poster/image fields remain separate. Empty menu lines are ignored on the server; a completely empty enabled course produces a clear named-course validation message.
+
+Organiser action buttons and table dropdowns are compact and vertically aligned. Booking/review status cells and dates stay on one line; tables retain horizontal scrolling on smaller screens. Event forms actions share a spaced footer row, stacking on mobile.

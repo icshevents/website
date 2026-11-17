@@ -50,3 +50,11 @@
 .hub-event-visibility{display:grid;gap:5px;min-width:160px}.hub-event-visibility>span{font-size:12px;font-weight:600;color:var(--muted)}.hub-event-visibility select{font:inherit;font-size:14px;min-height:42px;padding:8px 12px;border:1px solid #b9bfca;border-radius:7px;background:white;color:var(--ink)}
 
 .hub-menu-editor{border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:16px;margin:8px 0}.hub-menu-editor legend{font-weight:700;padding:0 8px}.hub-menu-editor>p{margin:0;color:var(--muted);font-size:14px}.hub-menu-editor .hub-menu-course{display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:8px;background:#faf9f5}.hub-menu-editor button{justify-self:start}.hub-menu-editor label{margin:0}
+
+/* Keep everyday actions compact and aligned without affecting public pages. */
+.organiser-workspace .hub-shell .button{min-height:38px;padding:8px 14px;font-size:13px;line-height:1.4;gap:8px}
+.hub-event-forms-panel{display:grid;gap:18px;margin-top:24px}
+.hub-event-forms-panel>h3,.hub-event-forms-panel>p{margin:0}
+.hub-event-forms-panel .hub-form-row{margin:0;padding:12px 0;border-bottom:1px solid var(--line);gap:16px}
+.hub-event-forms-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:4px}
+@media(max-width:600px){.organiser-workspace .hub-shell .button{min-height:44px}.hub-event-forms-actions{align-items:stretch;flex-direction:column}.hub-event-forms-actions .button{align-self:flex-start;max-width:100%;white-space:normal;text-align:left}}
