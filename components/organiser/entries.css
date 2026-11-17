@@ -8,8 +8,8 @@
 .organiser-workspace .entry-table td{overflow-wrap:break-word}
 .organiser-workspace .entry-table .entry-status-cell,.organiser-workspace .entry-table .entry-date-cell,.organiser-workspace .entry-table .entry-action-cell{white-space:nowrap;width:1%}
 .organiser-workspace .entry-table .entry-contact-cell{min-width:165px;overflow-wrap:anywhere}
-.organiser-workspace .entry-table .button{min-height:36px;padding:7px 12px;font-size:13px;line-height:1.4;gap:8px;margin:0;white-space:nowrap}
-.organiser-workspace .entry-table select{min-height:36px;height:36px;padding:6px 28px 6px 10px;font-size:13px;line-height:1.4;min-width:145px;width:auto;margin:0}
+.organiser-workspace .entry-table .button{min-height:38px;padding:7px 12px;font-size:13px;line-height:1.4;gap:8px;margin:0;white-space:nowrap}
+.organiser-workspace .entry-table select{min-height:38px;height:38px;padding:6px 28px 6px 10px;font-size:13px;line-height:1.4;min-width:145px;width:auto;margin:0}
 .organiser-workspace .entry-table-tools{gap:14px}
 .organiser-workspace .entry-table-tools input{min-height:38px;padding:8px 10px;font-size:14px}
 .organiser-workspace .entry-table-tools label{font-size:13px}
