@@ -11,6 +11,8 @@ import { boundedBody } from '@/lib/payments/server';
 import { createEventService } from '@/lib/event-forms/service.js';
 import { signedPublicSession,constantEqual } from '@/lib/event-forms/security.js';
 import { eventsSignIn,endPortalSession,portalSession,limitPortal,portalToken } from '@/lib/events-hub/session';
+import { bookedGuests } from '@/lib/events-hub/booking-counts';
+import type { HubEvent } from '@/lib/events-hub/core';
 import { hubRpc,allEntries,HubError,type EventDetail } from '@/lib/events-hub/server';
 import { saveSchema,taskSchema,planningSchema,entryReviewSchema,entriesCsv,customFormSchema } from '@/lib/events-hub/core';
 export const dynamic='force-dynamic';
@@ -64,7 +66,14 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
   const url=new URL(req.url);
   if(req.method==='GET'){
    if(path==='forms')return json(await hubRpc('icsh_hub_forms',{p_event:z.uuid().parse(new URL(req.url).searchParams.get('id'))}));
-   if(path==='dashboard')return json(await hubRpc('icsh_hub_dashboard'));
+   if(path==='dashboard'){
+    const dashboard = await hubRpc('icsh_hub_dashboard') as { events: HubEvent[]; tasks: unknown; team: unknown };
+    const bookingCounts = await bookedGuests(createEventService(), dashboard.events).catch(() => {
+     console.error('Events Hub booking totals unavailable');
+     return {};
+    });
+    return json({ ...dashboard, bookingCounts });
+   }
    const id=z.uuid().parse(url.searchParams.get('id'));
    if(path==='event')return json(await hubRpc('icsh_hub_event',{p_id:id}));
    if(path==='overview')return json(await hubRpc('icsh_hub_booking_overview',{p_event:id}));
