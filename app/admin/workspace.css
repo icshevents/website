@@ -1,0 +1,46 @@
+/* The private portals have their own identity; public pages keep the ICSH green theme. */
+body:has(.organiser-workspace){--green:#1f2a44;--emerald:#1f2a44;--ink:#1f2a44;--muted:#556075;--ivory:#f6f1e9;--line:#d9d6d0;--gold:#c6a75e;background:#f6f1e9;color:#1f2a44}
+body:has(.organiser-workspace) .site-header{border-bottom:1px solid #d9d6d0}
+body:has(.organiser-workspace) .site-header nav a.nav-membership-cta{background:#1f2a44;border-color:#1f2a44}
+body:has(.organiser-workspace) .site-header nav a.nav-membership-cta:hover{background:#31415f}
+body:has(.organiser-workspace) footer{background:#1f2a44;color:#fff}
+.organiser-workspace{min-height:65vh;background:#f6f1e9;--font-display:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.organiser-workspace h1,.organiser-workspace h2,.organiser-workspace h3{font-family:var(--font-display);font-weight:650;letter-spacing:-.035em;line-height:1.2;color:#1f2a44}
+.organiser-workspace h1,.organiser-workspace .hub-heading h1{font-size:clamp(32px,4vw,48px)}
+.organiser-workspace h2,.organiser-workspace .hub-portal h2{font-size:clamp(26px,3vw,34px)}
+.organiser-workspace h3,.organiser-workspace .panel h3{font-size:22px;letter-spacing:-.02em}
+.workspace-context{background:#1f2a44;color:#fff;border-bottom:3px solid #c6a75e}
+.workspace-context-inner{width:min(1360px,calc(100% - 72px));margin:auto;display:flex;align-items:center;justify-content:space-between;gap:22px;padding:17px 0}
+.workspace-context-title{display:flex;align-items:center;gap:12px;font-size:15px;font-weight:650;letter-spacing:.02em}
+.workspace-context-title svg{width:21px;height:21px;color:#c6a75e;flex-shrink:0}
+.workspace-context-title small{display:block;color:#e8dcc8;font-size:12px;font-weight:400;letter-spacing:0;margin-top:2px}
+.workspace-context a{color:#fff;font-size:13px;font-weight:600;border:1px solid #a8afbd;padding:8px 14px;border-radius:7px;white-space:nowrap}
+.workspace-context a:hover{background:#31415f}.workspace-context a:focus-visible{outline-color:#c6a75e}
+.organiser-workspace .page-hero{background:#e8dcc8;border-top:0;padding:44px 0}
+.organiser-workspace .page-hero p{max-width:780px;line-height:1.7;font-size:16px}
+.organiser-workspace .eyebrow{color:#39465d;font-size:11px;letter-spacing:1.7px}
+.organiser-workspace .section.white{background:transparent}
+.organiser-workspace .section{padding:48px 0}
+.organiser-workspace .panel{border-radius:12px;border-color:#d9d6d0;box-shadow:0 3px 14px #1f2a4405;background:#fff}
+.organiser-workspace .tag{background:#eee7da;color:#1f2a44;font-weight:650}
+.organiser-workspace .button{border-radius:7px;background:#1f2a44;border-color:#1f2a44;color:#fff;min-height:42px}
+.organiser-workspace .button:hover{background:#31415f;transform:none}
+.organiser-workspace .button.outline{background:transparent;color:#1f2a44;border-color:#9ba3b1}
+.organiser-workspace .button.outline:hover{background:#eee7da}
+.organiser-workspace input,.organiser-workspace select,.organiser-workspace textarea{accent-color:#1f2a44}
+.organiser-workspace input:not([type=checkbox]):not([type=radio]),.organiser-workspace select,.organiser-workspace textarea{border-color:#b9bfca;color:#1f2a44}
+.organiser-workspace .notice,.organiser-workspace .hub-message,.organiser-workspace .hub-event-progress{background:#f1e9dc;border-color:#d9d6d0}
+.organiser-workspace .hub-event-progress{border-top:3px solid #c6a75e}
+.organiser-workspace .hub-tabs button{background:#fff;border-color:#cbd0d8;color:#1f2a44}
+.organiser-workspace .hub-tabs button[aria-current=page]{background:#1f2a44;color:#fff;border-color:#1f2a44}
+.organiser-workspace .hub-stats article{border-color:#d9d6d0;border-top:3px solid #c6a75e;background:#fff}
+.organiser-workspace .hub-board-table thead th,.organiser-workspace .entry-table thead th{background:#1f2a44;color:#fff}
+.organiser-workspace .entry-table caption{background:#eee7da;color:#1f2a44}
+.organiser-workspace .hub-board-scroll,.organiser-workspace .entry-table-scroll{border-color:#d9d6d0}
+.organiser-workspace .hub-board-row:hover,.organiser-workspace .hub-board-row.is-open,.organiser-workspace .hub-board-cell-edit:hover{background:#f3eee5}
+.organiser-workspace .hub-board-editor-row>td,.organiser-workspace .hub-new-task{background:#faf7f2}
+.organiser-workspace .hub-task-editor .hub-team-options label{background:#f6f1e9}
+.organiser-workspace .hub-avatar{background:#e8dcc8;color:#1f2a44}
+.organiser-workspace .entry-table tbody tr:nth-child(even){background:#faf7f2}
+.organiser-workspace .entry-table tbody tr:hover{background:#f1e9dc}
+@media(max-width:650px){.workspace-context-inner{width:calc(100% - 36px);padding:14px 0;gap:14px;align-items:flex-start}.workspace-context-title{font-size:13px}.workspace-context-title small{font-size:11px}.workspace-context a{font-size:11px;padding:7px 9px}.organiser-workspace .section{padding:32px 0}.organiser-workspace .page-hero{padding:32px 0}}
