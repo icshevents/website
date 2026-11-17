@@ -126,3 +126,8 @@ button,input,select,textarea{font-family:var(--font-body)}
 .past-events-controls button{background:#fcf9f5}.past-events-controls button:hover:not(:disabled){background:var(--green)}
 .cta p,.footer-top p,.footer-top>div>a:not(.brand),.footer-bottom,.contact-illustration p{color:#eeddc3}
 .photo-caption span,.cta .eyebrow,.contact-illustration small,.footer-label{color:#eeddc3}
+
+/* Centre uploaded event artwork in listings, details and organiser overviews. */
+.public-event-poster{margin-inline:auto}
+.hub-event-view .hub-poster{display:block;max-width:100%;margin:24px auto}
+.hub-event-overview .hub-event-home>.hub-thumbnail{float:none;align-self:center;max-width:100%;margin:16px auto 20px}
