@@ -112,6 +112,14 @@ button,input,select,textarea{font-family:var(--font-body)}
 
 /* Public palette: deep forest green, sand and warm white. Portal colours remain scoped to /admin. */
 .page-hero{background:#eeddc3}.tag{background:#eeddc3;color:var(--green)}
+
+/* Give each upcoming event a distinct, repeating surface. */
+.our-events-section .our-event-list{gap:40px}
+.our-events-section .our-event-list>.panel{border-color:#aeb9ad}
+.our-events-section .our-event-list>.panel:nth-child(3n+1){background:#fcf6eb}
+.our-events-section .our-event-list>.panel:nth-child(3n+2){background:#edf3ec}
+.our-events-section .our-event-list>.panel:nth-child(3n){background:#f1efeb}
+@media(max-width:800px){.our-events-section .our-event-list{gap:30px}}
 .site-header nav a.active:after{background:var(--green)}.eyebrow:before{background:var(--green);opacity:.55}
 .announcement,.membership-highlights{background:#eeddc3}.step b{background:#eeddc3}
 .notice{background:#f4ebdc}.past-event-placeholder{background:#eeddc3;color:#123d2a}
