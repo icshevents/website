@@ -14,7 +14,7 @@ export const dynamic='force-dynamic';
 const gbp=(n:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
 export default async function Events(){
  const managed=await publicEvents();
- if(managed!==null){const next=managed.filter(e=>e.status!=='completed');return <>
+ if(managed!==null){const now=Date.now();const next=managed.filter(e=>e.status!=='completed').sort((a,b)=>Number(Date.parse(b.content.endsAt)>=now)-Number(Date.parse(a.content.endsAt)>=now)||Date.parse(a.content.startsAt)-Date.parse(b.content.startsAt));return <>
  <PageHero label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
  <section className="section white"><div className="wrap">{next.length===0&&<p>New event dates will be announced soon.</p>}{next.map(e=><div key={e.id}><EventView content={e.content} slug={e.slug} status={e.status} sourceType={e.sourceType} sourceKey={e.sourceKey}/><FormLinks forms={e.forms}/><Link className="text-link" href={'/events/'+e.slug}>View event details ↗</Link></div>)}</div></section>
  <section className="section services-directory"><div className="wrap"><h2>Community services</h2><article className="panel"><h3>Rishta service</h3><p>A confidential, community-supported service for people seeking a life partner.</p><Link className="button" href="/rishta-service">Explore Rishta service ↗</Link></article></div></section>
