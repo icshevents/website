@@ -1,9 +1,8 @@
-import FormLinks from '@/components/events-hub/FormLinks';
-import {publicEvents} from '@/lib/events-hub/server';
-import EventView from '@/components/events-hub/EventView';
-import '@/components/events-hub/hub.css';
+import {publicEvents,publicPastEvents} from '@/lib/events-hub/server';
+import PublicEventCard from '@/components/PublicEventCard';
+import PastEventsCarousel from '@/components/PastEventsCarousel';
 import Link from 'next/link';
-import {PageHero,Photo,Arrow,CTA} from '@/components/Shared';
+import {PageHero,Arrow,CTA} from '@/components/Shared';
 import {displayDate} from '@/lib/content';
 import {getEventDirectory,londonDate,londonTime} from '@/lib/event-directory';
 import events from '@/content/events.json';
@@ -13,13 +12,14 @@ export const metadata={title:'Events & Services',description:'Explore ICSH event
 export const dynamic='force-dynamic';
 const gbp=(n:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
 export default async function Events(){
- const managed=await publicEvents();
- if(managed!==null){const now=Date.now();const next=managed.filter(e=>e.status!=='completed').sort((a,b)=>Number(Date.parse(b.content.endsAt)>=now)-Number(Date.parse(a.content.endsAt)>=now)||Date.parse(a.content.startsAt)-Date.parse(b.content.startsAt));return <>
- <PageHero label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
- <section className="section white"><div className="wrap">{next.length===0&&<p>New event dates will be announced soon.</p>}{next.map(e=><div key={e.id}><EventView content={e.content} slug={e.slug} status={e.status} sourceType={e.sourceType} sourceKey={e.sourceKey}/><FormLinks forms={e.forms}/><Link className="text-link" href={'/events/'+e.slug}>View event details ↗</Link></div>)}</div></section>
- <section className="section services-directory"><div className="wrap"><h2>Community services</h2><article className="panel"><h3>Rishta service</h3><p>A confidential, community-supported service for people seeking a life partner.</p><Link className="button" href="/rishta-service">Explore Rishta service ↗</Link></article></div></section>
- <section className="section"><div className="wrap"><div className="eyebrow">Together, throughout the year</div><h2>The activities that bring us together.</h2><p>Our programme includes community gatherings, cultural celebrations, shared lunches, food festivals and charity fundraising, summer picnics, sports outings and quiz nights.</p></div></section>
- <CTA/></>;}
+ const [managed,completed]=await Promise.all([publicEvents(),publicPastEvents()]);
+ if(managed!==null){const next=managed.filter(e=>e.status!=='completed').sort((a,b)=>Date.parse(a.content.startsAt)-Date.parse(b.content.startsAt));return <>
+ <PageHero className="events-page-hero" label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
+ <section className="section white our-events-section"><div className="wrap">{next.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>We’ll publish dates and booking details here.</div>}<div className="our-event-list">{next.map(e=><PublicEventCard key={e.id} event={e}/>)}</div></div></section>
+ <section className="section services-directory"><div className="wrap"><div className="eyebrow">Here for our community</div><h2>Community services</h2><div className="service-directory-grid"><article className="panel"><span className="tag">Introductions & connection</span><h3>Rishta service</h3><p>A confidential, community-supported service for people seeking a life partner.</p><Link className="button" href="/rishta-service">Explore Rishta service <Arrow/></Link></article></div></div></section>
+ <section className="section"><div className="wrap"><div className="eyebrow">Together, throughout the year</div><h2>The activities that<br/>bring us together.</h2><p>Our programme includes community gatherings, cultural celebrations, shared lunches, food festivals and charity fundraising, summer picnics, sports outings and quiz nights.</p></div></section>
+ <PastEventsCarousel events={(completed||[]).map(e=>({id:e.id,title:e.content.title,date:londonDate(e.content.startsAt),venue:e.content.venue,description:e.content.description,image:e.content.image,story:e.sourceType==='archive'?events.find(a=>a.id===e.sourceKey)?.blogSlug:undefined}))}/>
+ <CTA/><section className="section white"><div className="wrap" style={{display:'flex',justifyContent:'flex-end'}}><Link className="button outline" href="/admin">Organiser sign in <Arrow/></Link></div></section></>;}
  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Europe/London'});
  const [directory,iftari]=await Promise.all([getEventDirectory(),iftariSettings().catch(()=>null)]);
  const upcomingForms=directory.events.filter(e=>new Date(e.endsAt).toLocaleDateString('en-CA',{timeZone:'Europe/London'})>=today);
@@ -44,6 +44,6 @@ export default async function Events(){
   </div></section>
   <section className="section services-directory"><div className="wrap"><div className="eyebrow">Here for our community</div><h2>Community services</h2><div className="service-directory-grid"><article className="panel"><span className="tag">Introductions & connection</span><h3>Rishta service</h3><p>A confidential, community-supported service for people seeking a life partner.</p><Link href="/rishta-service" className="button">Explore Rishta service <Arrow/></Link></article></div></div></section>
   <section className="section"><div className="wrap"><div className="eyebrow">Together, throughout the year</div><h2>The activities that<br/>bring us together.</h2><p>Our programme includes community gatherings, cultural celebrations, shared lunches, food festivals and charity fundraising, summer picnics, sports outings and quiz nights.</p></div></section>
-  <section className="section white"><div className="wrap"><div className="eyebrow">Past events</div><h2>Good times, remembered.</h2>{past.map(e=><article className="archive-grid" id={e.id} key={e.id}><div><span className="tag">Past event</span><h3>{e.title}</h3><p><strong>{displayDate(e.start)}{e.end!==e.start?' – '+displayDate(e.end):''}</strong>{e.time?' · '+e.time:''}<br/>{e.location}</p><p>{e.description}</p>{e.price&&<p>{e.price}</p>}<div className="actions">{e.blogSlug&&<Link className="text-link" href={'/blog/'+e.blogSlug}>Read the story <Arrow/></Link>}</div></div><Photo src={e.image} alt={e.title==='Norwegian Fjords Cruise 2026'?'ICSH members enjoying a boat trip through Norwegian scenery':'Dr Hina Shahid'}/></article>)}</div></section><CTA/><section className="section white"><div className="wrap" style={{display:'flex',justifyContent:'flex-end'}}><Link className="button outline" href="/admin">Organiser sign in <Arrow/></Link></div></section>
+  <PastEventsCarousel events={past.map(e=>({id:e.id,title:e.title,date:displayDate(e.start),venue:e.location,description:e.description,image:e.image,story:e.blogSlug}))}/><CTA/><section className="section white"><div className="wrap" style={{display:'flex',justifyContent:'flex-end'}}><Link className="button outline" href="/admin">Organiser sign in <Arrow/></Link></div></section>
  </>;
 }

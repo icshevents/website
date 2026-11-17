@@ -15,3 +15,11 @@ export async function publicEvents(slug?:string):Promise<PublicEvent[]|null>{
  try{const r=await createEventService().rpc('icsh_events_public',{p_slug:slug||null});if(r.error)throw Error('Event catalogue unavailable');return r.data as PublicEvent[];}catch{throw new HubError('Events are temporarily unavailable. Please try again shortly.',503);}
 }
 export async function allEntries(eventId:string,formId:string|null){const out:Entry[]=[];for(let page=0;;page++){const r=await hubRpc('icsh_hub_entries',{p_event:eventId,p_page:page,p_form:formId}) as {entries:Entry[];total:number};out.push(...r.entries);if(out.length>=r.total||r.entries.length<100)break;if(out.length>20000)throw new HubError('Please export one form at a time.',413);}return out;}
+
+/** Public, already-published content only. Drafts, forms and private planning never enter this projection. */
+export async function publicPastEvents():Promise<PublicEvent[]|null>{
+ if(process.env.ICSH_EVENTS_HUB_ENABLED!=='true')return null;
+ const r=await createEventService().from('icsh_events').select('id,slug,published,source_type,source_key').eq('published_status','completed').eq('archived',false).not('published','is',null);
+ if(r.error)throw new HubError('Past events are temporarily unavailable.',503);
+ return r.data.map(e=>({id:e.id,slug:e.slug,content:e.published as EventContent,status:'completed',sourceType:e.source_type,sourceKey:e.source_key})).sort((a,b)=>Date.parse(b.content.startsAt)-Date.parse(a.content.startsAt));
+}
