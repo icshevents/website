@@ -35,14 +35,17 @@ export const quoteInputSchema = z.object({
   donation: z.string().max(20),
 }).strict();
 const name = z.string().trim().min(1).max(80).refine(v => !/[<>\u0000-\u001f]/.test(v), 'Enter a valid name.');
+export const attendeeSchema = z.object({firstName:name,lastName:name,ticket:z.enum(ticketKeys)}).strict();
+export type Attendee = z.infer<typeof attendeeSchema>;
 export const bookingInputSchema = quoteInputSchema.extend({
   id: z.uuid(), capability: z.string().regex(/^[a-f0-9]{64}$/),
   firstName: name, lastName: name, email,
+  attendees:z.array(attendeeSchema).min(1).max(50),
   notes: z.string().trim().max(2000).default(''),
   mobile: z.string().trim().max(25).refine(v => /^\+447\d{9}$/.test(membershipMobileKey(v) || ''), 'Enter a UK mobile number.'),
   expectedVersion: z.number().int().positive(), expectedTotal: z.number().int().min(0).max(12000000),
   website: z.literal(''),
-}).strict();
+}).strict().superRefine((v,c)=>{for(const key of ticketKeys){if(v.attendees.filter(a=>a.ticket===key).length!==v.quantities[key])c.addIssue({code:'custom',path:['attendees'],message:'Enter a first and last name for every selected ticket, including children under 5.'});}});
 export type BookingInput = z.infer<typeof bookingInputSchema>;
 export type QuoteInput = z.infer<typeof quoteInputSchema>;
 export type LineItem = { key: TicketKey | 'donation'; label: string; quantity: number; unitAmount: number; amount: number };

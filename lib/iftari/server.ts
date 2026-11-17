@@ -29,7 +29,7 @@ export async function iftariBooking(id: string, capability?: string): Promise<Bo
   return b;
 }
 export function publicBooking(b: BookingRow) {
-  return { id: b.id, reference: b.reference, event: b.event_snapshot, quantities: b.quantities, quote: b.quote,
+  return { id: b.id, reference: b.reference, attendees:b.contact.attendees||[], event: b.event_snapshot, quantities: b.quantities, quote: b.quote,
     status: b.status, confirmed: b.status === 'paid' && !b.needs_review,
     paidAt: b.paid_at, refundedAmount: b.refunded_amount, mode: b.mode };
 }
@@ -137,7 +137,7 @@ export async function handleIftari(request: Request, path: string) {
       await verifyMemberTickets(input, searchBiginMembershipRecords);
       const saved = await createEventService().rpc('icsh_iftari_reserve', {
         p_id: input.id, p_request_hash: requestHash, p_capability_hash: digest(input.capability),
-        p_contact: { firstName: input.firstName, lastName: input.lastName, email: input.email, mobile: membershipMobileKey(input.mobile), notes: input.notes },
+        p_contact: { firstName: input.firstName, lastName: input.lastName, email: input.email, mobile: membershipMobileKey(input.mobile), notes: input.notes, attendees:input.attendees },
         p_quantities: input.quantities, p_member_emails: input.quantities.member ? [input.email] : [], p_donation: quote.donation,
         p_expected_version: input.expectedVersion, p_expected_total: input.expectedTotal, p_account: config.account, p_mode: config.mode,
       });

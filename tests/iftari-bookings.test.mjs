@@ -5,7 +5,7 @@ import { defaultSettings, quoteBooking, bookingInputSchema, quoteInputSchema, do
 import { IftariStripeClient, bookingSource, iftariPurpose } from '../lib/iftari/stripe.ts';
 import { confirmationContent } from '../lib/form-emails/core.ts';
 const config={key:'rk_test_fixture',webhookSecret:'whsec_fixture',account:'acct_fixture',mode:'test',origin:'https://website-fixture-icsh.vercel.app'};
-const input=()=>({id:randomUUID(),capability:'a'.repeat(64),firstName:'Test',lastName:'Booker',email:'booker@example.invalid',mobile:'07700900123',quantities:{member:2,nonmember:1,child:2,under5:0},donation:'10',expectedVersion:1,expectedTotal:11500,website:''});
+const input=()=>({id:randomUUID(),capability:'a'.repeat(64),firstName:'Test',lastName:'Booker',email:'booker@example.invalid',mobile:'07700900123',quantities:{member:2,nonmember:1,child:2,under5:0},attendees:['member','member','nonmember','child','child'].map((ticket,i)=>({ticket,firstName:'Test',lastName:'Guest '+i})),donation:'10',expectedVersion:1,expectedTotal:11500,website:''});
 const member=(changes={})=>({id:'10001',fullName:'Test Member',email:'member@example.invalid',membershipStatus:'Active',paymentStatus:'Not required',membershipDate:'2026-01-01',membershipExpiry:'2027-01-01',...changes});
 const lookup=(records,hasMore=false)=>async()=>({records,hasMore});
 const row=()=>{const i=input(),quote=quoteBooking(defaultSettings,i);return {id:i.id,event_slug:'ramadan-iftari-2027',reference:'ICSH-IFT27-FIXTURE',contact:i,quote,event_snapshot:defaultSettings,quantities:i.quantities,total:quote.total,mode:'test',account_id:config.account,status:'pending',capability_hash:'b'.repeat(64),checkout_expires:1800000000,created_at:'2026-11-12T10:00:00Z'};};

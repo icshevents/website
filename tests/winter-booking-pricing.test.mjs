@@ -14,9 +14,9 @@ test('adult-child mix is bound to proof and final saved price; all attendees cou
  t.mock.timers.enable({apis:['Date'],now:new Date(on+'T12:00:00Z')});
  const {quote:q,proof}=await quote([member]);
  assert.throws(()=>verifiedBookingPrice(event,'booker@example.invalid',3,false,proof,on,2),/RECHECK/);
- const input=bookingRegistrationSchema.parse({eventId:event.id,idempotencyKey:randomUUID(),firstName:'Synthetic',lastName:'Booker',email:'booker@example.invalid',mobile:'07700900123',quantity:3,childQuantity:1,terms:true,expectedQuote:{configurationVersion:4,unitAmount:1850,total:4625}});
+ const input=bookingRegistrationSchema.parse({eventId:event.id,idempotencyKey:randomUUID(),firstName:'Synthetic',lastName:'Booker',email:'booker@example.invalid',mobile:'07700900123',quantity:3,childQuantity:1,attendees:[{firstName:'Synthetic',lastName:'Booker'},{firstName:'Adult',lastName:'Guest'},{firstName:'Child',lastName:'Guest'}],terms:true,expectedQuote:{configurationVersion:4,unitAmount:1850,total:4625}});
  const record=registerBooking({events:[event],registrations:[]},input,'synthetic',proof);
- assert.equal(record.total,4625);assert.deepEqual(record.attendees.map(a=>a.unitAmount),[1850,1850,925]);assert.deepEqual(record.attendees.map(a=>a.ticket),['member','member','child']);
+ assert.equal(record.total,4625);assert.deepEqual(record.attendees.map(a=>a.name),['Synthetic Booker','Adult Guest','Child Guest']);assert.equal(record.attendees[2].firstName,'Child');assert.deepEqual(record.attendees.map(a=>a.unitAmount),[1850,1850,925]);assert.deepEqual(record.attendees.map(a=>a.ticket),['member','member','child']);
  const occupied={events:[event],registrations:[{eventId:event.id,mode:'live',status:'confirmed_paid',attendees:Array(58).fill({})}]};
  assert.throws(()=>registerBooking(occupied,input,'synthetic',proof),/not enough places/);
  assert.throws(()=>registerBooking({events:[event],registrations:[]},{...input,childQuantity:2},'synthetic',proof),/checked again/);

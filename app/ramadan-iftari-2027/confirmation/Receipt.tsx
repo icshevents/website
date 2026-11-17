@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { gbp, eventWhen, type Settings, type Quote } from '@/lib/iftari/core';
+import { gbp, eventWhen, type Settings, type Quote, type Attendee } from '@/lib/iftari/core';
 import styles from '../iftari.module.css';
-export type ReceiptBooking = { id: string; reference: string; event: Settings; quote: Quote; status: string; confirmed: boolean; paidAt: string | null; refundedAmount: number; mode: string };
+export type ReceiptBooking = { id: string; reference: string; attendees?:Attendee[]; event: Settings; quote: Quote; status: string; confirmed: boolean; paidAt: string | null; refundedAmount: number; mode: string };
 export default function Receipt({ id, initial }: { id: string; initial: ReceiptBooking | null }) {
   const [booking, setBooking] = useState(initial), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   async function refresh() {
@@ -40,6 +40,7 @@ export default function Receipt({ id, initial }: { id: string; initial: ReceiptB
       {!booking.quote.donation && <p>Optional ICSH Donation: £0.00</p>}
       <div className={styles.total}><span>{booking.paidAt ? 'Total paid' : 'Total payable'}</span><strong>{gbp(booking.quote.total)}</strong></div>
       {booking.refundedAmount > 0 && <p>Refunded: {gbp(booking.refundedAmount)}</p>}
+      {Boolean(booking.attendees?.length)&&<div><h2 style={{fontSize:26}}>Attendees</h2><ul>{booking.attendees!.map((a,i)=><li key={i}>{a.firstName} {a.lastName}</li>)}</ul></div>}
       <p>{booking.confirmed ? 'Thank you. Stripe has confirmed your payment and your places are reserved. A confirmation email is sent to the lead booker. Please keep your booking reference.' : booking.status === 'pending' ? 'Your payment may still be processing, or you may have returned without completing payment. Refresh to check again. Confirmation follows a verified Stripe payment notification.' : ['failed', 'expired'].includes(booking.status) ? 'This checkout did not complete successfully. Your places have been released. You can start a new booking.' : 'Please contact ICSH with your reference if you need help with your booking or payment.'}</p>
       <div className={styles.buttons}><button type="button" className="button outline" disabled={busy} onClick={refresh}>{busy ? 'Checking…' : 'Refresh booking status'}</button>{booking.status === 'pending' && <button type="button" className="button" disabled={busy} onClick={pay}>Resume Secure Payment ↗</button>}{['expired', 'failed'].includes(booking.status) && <Link className="button" href="/ramadan-iftari-2027">Start a new booking</Link>}</div>
     </> : <p>{busy ? 'Loading your saved booking…' : 'No booking details have been displayed.'}</p>}

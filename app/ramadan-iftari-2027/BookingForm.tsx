@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ticketKeys, ticketLabels, gbp, eventWhen, type Settings, type Quote, type TicketKey } from '@/lib/iftari/core';
+import { ticketKeys, ticketLabels, gbp, eventWhen, type Settings, type Quote, type TicketKey, type Attendee } from '@/lib/iftari/core';
 import styles from './iftari.module.css';
 import MenuPopup from './MenuPopup';
 import type {IftariMenu} from '@/lib/events-hub/iftari-menu';
@@ -35,6 +35,9 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
   const [settings, setSettings] = useState<Settings | null>(null), [csrf, setCsrf] = useState('');
   const [quantities, setQuantities] = useState({ member: 0, nonmember: 0, child: 0, under5: 0 });
   const [firstName, setFirstName] = useState(''), [lastName, setLastName] = useState(''), [email, setEmail] = useState(''), [mobile, setMobile] = useState('');
+  const [attendeeNames,setAttendeeNames]=useState<Record<string,{firstName:string;lastName:string}>>({});
+  const attendeeSlots=ticketKeys.flatMap(ticket=>Array.from({length:quantities[ticket]},(_,index)=>({ticket,index,key:ticket+'-'+index})));
+  const attendees:Attendee[]=attendeeSlots.map(s=>({ticket:s.ticket,firstName:attendeeNames[s.key]?.firstName||'',lastName:attendeeNames[s.key]?.lastName||''}));
   const [donationChoice, setDonationChoice] = useState('0'), [customDonation, setCustomDonation] = useState('');
   const [quote, setQuote] = useState<Quote | null>(null), [quoteError, setQuoteError] = useState(''), [quotePending, setQuotePending] = useState(false);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState<{ id: string; capability: string } | null>(null);
@@ -74,7 +77,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
       // Retain the same booking after a lost response. A retry never creates a second charge.
       sessionStorage.setItem('icsh-iftari-' + identity.id, identity.capability);
       setSaved(identity);
-      const response = await fetch('/api/iftari/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ ...identity, firstName, lastName, email, mobile, quantities, donation, notes, expectedVersion: quote.version, expectedTotal: quote.total, website }) });
+      const response = await fetch('/api/iftari/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ ...identity, firstName, lastName, email, mobile, quantities, attendees, donation, notes, expectedVersion: quote.version, expectedTotal: quote.total, website }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error);
       window.location.assign(data.url || data.returnUrl);
     } catch (e) {
@@ -103,8 +106,11 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
         <fieldset disabled={busy || Boolean(saved)}><legend><span>02</span> Book Tickets</legend><p>Anyone aged 12 or above needs an adult ticket. Children aged 5–11 pay the same price whether members or non-members. Member-priced tickets require an active membership for the lead booker.</p>
           {ticketKeys.map(key => <div className={styles.ticket} key={key}><label htmlFor={'quantity-' + key}><strong>{ticketLabels[key]}</strong><small>{settings.prices[key] === 0 ? key === 'under5' ? 'Free · Please enter number of children under 5' : 'Free' : settings.prices[key] === null ? 'Price to be confirmed' : `${gbp(settings.prices[key]!)} each`}</small></label><input id={'quantity-' + key} aria-label={`${ticketLabels[key]} quantity`} type="number" min={0} max={settings.maxGuests} step={1} value={quantities[key] || ''} disabled={settings.prices[key] === null} onChange={e => quantityChange(key, Number(e.target.value))} /></div>)}
         </fieldset>
+        <fieldset disabled={busy || Boolean(saved)}><legend><span>03</span> Everyone attending</legend><p>Enter a first and last name for each selected ticket, including children under 5. Include the main booker only if they are attending.</p>
+          {attendeeSlots.length===0?<p>Select tickets above to add attendee names.</p>:attendeeSlots.map((slot,i)=><div key={slot.key}><h3 style={{fontSize:22,marginTop:24}}>{ticketLabels[slot.ticket]} · Guest {slot.index+1}</h3>{i===0&&(slot.ticket==='member'||slot.ticket==='nonmember')&&<button type="button" className={styles.linkButton} onClick={()=>setAttendeeNames(v=>({...v,[slot.key]:{firstName,lastName}}))}>Use main booker’s name for this attendee</button>}<div className={styles.grid}>{(['firstName','lastName'] as const).map(part=><label className={styles.field} key={part}>{part==='firstName'?'First name':'Last name'}<input required maxLength={80} autoComplete="off" value={attendeeNames[slot.key]?.[part]||''} onChange={e=>setAttendeeNames(v=>({...v,[slot.key]:{firstName:v[slot.key]?.firstName||'',lastName:v[slot.key]?.lastName||'',[part]:e.target.value}}))}/></label>)}</div></div>)}
+        </fieldset>
         <fieldset disabled={busy || Boolean(saved)}><label className={styles.field}>Additional notes (optional)<textarea rows={4} maxLength={2000} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Please tell us about allergies, dietary requirements or anything else we should know." /></label></fieldset>
-        <fieldset disabled={busy || Boolean(saved)}><legend><span>03</span> An optional act of kindness</legend><p>Would you like to make an additional donation to support ICSH and its community activities?</p><div className={styles.donations}>{['0', '5', '10', '20', '50', 'other'].map(amount => <label key={amount} className={donationChoice === amount ? styles.selected : ''}><input type="radio" name="donation" value={amount} checked={donationChoice === amount} onChange={() => { setQuote(null); setQuotePending(true); setDonationChoice(amount); }} />{amount === '0' ? 'No donation' : amount === 'other' ? 'Other amount' : '£' + amount}</label>)}</div>
+        <fieldset disabled={busy || Boolean(saved)}><legend><span>04</span> An optional act of kindness</legend><p>Would you like to make an additional donation to support ICSH and its community activities?</p><div className={styles.donations}>{['0', '5', '10', '20', '50', 'other'].map(amount => <label key={amount} className={donationChoice === amount ? styles.selected : ''}><input type="radio" name="donation" value={amount} checked={donationChoice === amount} onChange={() => { setQuote(null); setQuotePending(true); setDonationChoice(amount); }} />{amount === '0' ? 'No donation' : amount === 'other' ? 'Other amount' : '£' + amount}</label>)}</div>
           {donationChoice === 'other' && <label className={styles.field}>Donation amount (£)<input type="text" inputMode="decimal" required maxLength={12} placeholder="0.00" value={customDonation} onChange={e => { setQuote(null); setQuotePending(true); setCustomDonation(e.target.value); }} /></label>}<p className={styles.note}>Entirely optional. Your donation defaults to £0.</p>
         </fieldset>
         <label className={styles.honeypot} aria-hidden="true">Leave this field empty<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label>
