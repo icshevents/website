@@ -6,7 +6,7 @@
 .methods label{display:flex;gap:8px;align-items:center;justify-content:center;padding:14px 10px;font-size:12px;cursor:pointer;min-height:52px;line-height:1.35;border-right:1px solid #bbc6bd}
 .methods label:last-child{border-right:0}
 .methods .selected{background:var(--green);color:white}
-.methods label:focus-within{outline:2px solid var(--gold);outline-offset:-3px}
+.methods label:focus-within{outline:2px solid var(--focus,var(--green));outline-offset:-3px}
 .methods input{accent-color:var(--green);width:15px;height:15px;margin:0;flex-shrink:0}
 .selected input{accent-color:#ad925a}
 .fields{margin-bottom:24px}
@@ -19,7 +19,7 @@
 .hint{font-size:12px!important;line-height:1.6;margin:9px 0 0!important;color:var(--muted)}
 .feedback:focus{outline:none}
 .feedback:not(:empty){margin-top:26px}
-.message{background:var(--ivory);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:5px;padding:20px;font-size:14px;line-height:1.65}
+.message{background:var(--ivory);border:1px solid var(--line);border-left:3px solid var(--focus,var(--green));border-radius:5px;padding:20px;font-size:14px;line-height:1.65}
 .message p{font-size:14px;margin:8px 0 16px}
 .message a,.privacy a{text-decoration:underline;text-underline-offset:3px}
 .alternatives{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 16px}
