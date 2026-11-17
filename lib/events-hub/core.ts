@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {iftariMenuSchema} from './iftari-menu.ts';
 export const publicationStatuses = ['draft','ready_for_review','published','cancelled','completed'] as const;
 const timestamp = z.iso.datetime({offset:true});
 const price = z.number().int().min(0).max(1000000).refine(v=>v===0||v>=30,'Paid tickets must cost at least £0.30.');
@@ -10,6 +11,7 @@ export const eventContentSchema = z.object({
  bookingType:z.enum(['information','free','paid','external']), externalUrl:z.string().max(1200).refine(v=>!v||safeBookingUrl(v),'Enter a secure HTTPS booking link.'),
  capacity:z.number().int().min(1).max(10000).nullable(), bookingOpens:timestamp.nullable(), bookingCloses:timestamp.nullable(), bookingEnabled:z.boolean(),
  prices:z.object({member:price,nonmember:price,child:price,childNonmember:price,under5:price}).strict(),
+ menu:iftariMenuSchema.optional(),
  instructions:z.string().trim().max(3000),
 }).strict().superRefine((v,ctx)=>{
  if(Date.parse(v.endsAt)<=Date.parse(v.startsAt))ctx.addIssue({code:'custom',message:'Finish time must be after start time.'});

@@ -264,6 +264,15 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
   state=await rpc('icsh_entry_manage',[token,'iftari',b.id,e.id,state.version,'delete']);state=await rpc('icsh_entry_manage',[token,'iftari',b.id,e.id,state.version,'restore']);
   assert.deepEqual((await db.query('select * from public.icsh_iftari_bookings where id=$1',[b.id])).rows[0],b);
  });
+ await t.test('Iftari menu edits publish with the event without changing booking settings or existing bookings',async()=>{
+  const before=(await db.query("select * from public.icsh_events where source_type='iftari'")).rows[0];
+  const bookings=(await db.query('select * from public.icsh_iftari_bookings where event_slug=$1 order by id',[before.source_key])).rows;
+  const settings=(await db.query('select configuration from public.icsh_iftari_settings where slug=$1',[before.source_key])).rows[0].configuration;
+  const menu={enabled:true,title:'Updated fictional menu',courses:[{title:'Main courses',items:['Fictional vegetarian dish']}]};
+  const saved=await rpc('icsh_hub_save_live',[token,before.id,before.version,before.slug,{...before.draft,menu},null,'published']);assert.deepEqual(saved.published.menu,menu);assert.deepEqual((await rpc('icsh_events_public',[saved.slug]))[0].content.menu,menu);
+  const afterSettings=(await db.query('select configuration from public.icsh_iftari_settings where slug=$1',[before.source_key])).rows[0].configuration;
+  assert.deepEqual(afterSettings.prices,settings.prices);assert.equal(afterSettings.capacity,settings.capacity);assert.deepEqual((await db.query('select * from public.icsh_iftari_bookings where event_slug=$1 order by id',[before.source_key])).rows,bookings);
+ });
  await t.test('audits include timestamp and password-assigned actor; logout revokes Events access without revoking membership',async()=>{
   const history=(await rpc('icsh_hub_event',[token,event.id])).history;assert.ok(history.length>0);assert.equal(history[0].actor,'Fictional organiser');assert.ok(history[0].occurred_at);
   await rpc('icsh_portal_end',[token,'events']);await assert.rejects(rpc('icsh_hub_dashboard',[token]),/Sign in/);assert.ok(await rpc('icsh_portal_check',[membership,'membership']));

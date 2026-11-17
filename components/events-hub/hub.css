@@ -48,3 +48,5 @@
 @media(max-width:650px){.hub-dashboard-stats{grid-template-columns:1fr;gap:8px}.hub-dashboard-stats article{min-height:60px;padding:12px 18px}.hub-dashboard-stats strong{font-size:25px}.hub-planning-heading{align-items:flex-start;flex-direction:column;gap:12px}.hub-planning-tools{padding:16px;flex-wrap:wrap}.hub-planning-tools label:first-child{flex-basis:100%;max-width:none}.hub-planning-tools label:nth-child(2){flex:1}}
 
 .hub-event-visibility{display:grid;gap:5px;min-width:160px}.hub-event-visibility>span{font-size:12px;font-weight:600;color:var(--muted)}.hub-event-visibility select{font:inherit;font-size:14px;min-height:42px;padding:8px 12px;border:1px solid #b9bfca;border-radius:7px;background:white;color:var(--ink)}
+
+.hub-menu-editor{border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:16px;margin:8px 0}.hub-menu-editor legend{font-weight:700;padding:0 8px}.hub-menu-editor>p{margin:0;color:var(--muted);font-size:14px}.hub-menu-editor .hub-menu-course{display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:8px;background:#faf9f5}.hub-menu-editor button{justify-self:start}.hub-menu-editor label{margin:0}

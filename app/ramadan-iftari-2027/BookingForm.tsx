@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ticketKeys, ticketLabels, gbp, eventWhen, type Settings, type Quote, type TicketKey } from '@/lib/iftari/core';
 import styles from './iftari.module.css';
 import MenuPopup from './MenuPopup';
+import type {IftariMenu} from '@/lib/events-hub/iftari-menu';
 import noticeStyles from './booking-notice.module.css';
 
 type Result = { status: string; message: string };
@@ -30,7 +31,7 @@ function MembershipEmail({ label, value, onChange, csrf, disabled = false }: { l
     {result && result.status !== 'active' && !disabled && <button className={styles.linkButton} type="button" onClick={check} disabled={checking}>Check membership again</button>}
   </label>;
 }
-export default function BookingForm() {
+export default function BookingForm({menu}:{menu?:IftariMenu}) {
   const [settings, setSettings] = useState<Settings | null>(null), [csrf, setCsrf] = useState('');
   const [quantities, setQuantities] = useState({ member: 0, nonmember: 0, child: 0, under5: 0 });
   const [firstName, setFirstName] = useState(''), [lastName, setLastName] = useState(''), [email, setEmail] = useState(''), [mobile, setMobile] = useState('');
@@ -91,7 +92,7 @@ export default function BookingForm() {
   return <div className={`wrap ${styles.layout}`}>
     <div>
       {!open && <div className={noticeStyles.banner} role="status"><h2>{settings.status === 'closed' ? 'Bookings are closed' : 'Bookings are not yet open'}</h2><p>{settings.status === 'closed' ? 'We are no longer accepting new bookings for this event.' : 'You can view the menu and ticket prices below. Bookings will open once the final arrangements are ready.'}</p></div>}
-      <div className={styles.eventDetails}><span className="tag">Ramadan · Together as a community</span><h2>A warm welcome to your table.</h2><p>Join ICSH members, families and friends for Iftari at {settings.venue}. Share an evening of food, friendship and community.</p><p><strong>{eventWhen(settings)}</strong></p><MenuPopup /></div>
+      <div className={styles.eventDetails}><span className="tag">Ramadan · Together as a community</span><h2>A warm welcome to your table.</h2><p>Join ICSH members, families and friends for Iftari at {settings.venue}. Share an evening of food, friendship and community.</p><p><strong>{eventWhen(settings)}</strong></p><MenuPopup menu={menu} eventTitle={settings.title}/></div>
       <form onSubmit={submit} className={styles.form}>
         <fieldset disabled={busy || Boolean(saved)}><legend><span>01</span> Lead booker details</legend><p>Book places for yourself, your family and friends. Non-members are welcome.</p><div className={styles.grid}>
           <label className={styles.field}>First name<input required autoComplete="given-name" maxLength={80} value={firstName} onChange={e => setFirstName(e.target.value)} /></label>
