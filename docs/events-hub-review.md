@@ -1,6 +1,6 @@
 # ICSH Events Hub — revised implementation
 
-Status: implemented and tested locally; production has not been changed. The latest supplied brief requests review before deployment.
+Status: approved by the user and deployed to https://icsh.org.uk on 17 November 2026. Source is saved on `feature/events-hub`.
 
 ## Two hubs
 
@@ -67,6 +67,14 @@ Automatic Vercel deployment remains disabled for `main` and `feature/events-hub`
 
 Before rolling back to old source, restore the previous organiser policy expressions because old code cannot create the new Admin portal sessions. Preserve all new event/task/form/audit/submission records. Disabling the catalogue flag alone is not a complete content rollback for events created after activation.
 
-## Remote save status
+## Production release — 17 November 2026
 
-Automatic approval review blocked uploading this revised source to GitHub and explicitly required renewed approval for that remote write after the earlier rejection. The implementation remains local; no review branch, live database migration, password change or production deployment was performed. The local review patch contains the full revised source, excluding private public assets.
+- Live deployment: `dpl_9LTy6Rn4yPjZs8ohrAHCyJgQZPcx`, application commit `b219d474cab8aa7333bdaaae6badda48409def33`.
+- All three database release files applied in order. `ICSH_EVENTS_HUB_ENABLED=true` is enabled for production.
+- Before/after counts: 6 forms, 13 submissions, 5 linked events. No existing records were copied or deleted; no named credentials were created.
+- The production build with the feature enabled passes. Iftari is explicitly rendered at request time, avoiding a caught framework prerender bailout. The first failed build never replaced the previous production site.
+- Browser checks verified both portal choices and password-only sign-in pages, upcoming-first public ordering, Winter Lunch pricing/booking link, closed Iftari prices/menu popup and original branding/assets. Older active events remain listed until explicitly finished/unpublished.
+- HTTP checks: public Events, Winter Lunch details, Iftari and logo return 200; unsigned Events dashboard and Admin access API return 401 with private/no-store headers.
+- Actual hosted SQL checks exercised dashboard, event detail, associated forms, booking overview and entries using an isolated transaction rolled back at the end. No test credential/session remains. Admin session enforcement and service-only RPC grants were verified.
+- Existing Admin password remains unchanged. Admin must sign in again and add named Events passwords under Events Hub access. Signed-in browser workflows and poster uploads were not exercised with real team credentials.
+- Source is saved on the feature branch. Automatic approval review rejected moving `main` because it regarded that ref update as outside the approved feature-branch upload; `main` remains unchanged. This does not affect the successful production deployment. No workaround was attempted.
