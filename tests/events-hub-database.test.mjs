@@ -142,6 +142,7 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
  });
  await t.test('task files stay scoped, private and named without exposing storage keys publicly',async()=>{
   const task=await rpc('icsh_hub_task',[token,event.id,null,0,'Attachment check',[],null,'not_started','','']);
+  const saved=await rpc('icsh_hub_task',[token,event.id,task.id,task.version,'Attachment check',[],null,'in_progress','Updated description','Confirmed update']);assert.equal(saved.version,task.version+1);assert.equal(saved.description,'Updated description');assert.equal(saved.status,'in_progress');assert.equal(saved.updates.length,1);
   const id='00000000-0000-4000-8000-000000000094';
   await assert.rejects(rpc('icsh_hub_task_file_add',[membership,event.id,task.id,id,task.id+'/'+id+'.pdf','Plan.pdf',123,'application/pdf']),/Sign in/);
   await assert.rejects(rpc('icsh_hub_task_file_add',[token,other.id,task.id,id,task.id+'/'+id+'.pdf','Plan.pdf',123,'application/pdf']),/Task access denied/);

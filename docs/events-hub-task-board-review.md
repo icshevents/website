@@ -28,3 +28,9 @@ Apply the additive SQL before the new application release. No environment-variab
 ## Publication status
 
 Automatic approval review rejected uploading this revised source/database implementation to GitHub because it requires explicit approval of this new version. The source remains local. No new live database setup, file upload, form copy, event deactivation or deployment has been performed. A reviewed source patch is available beside the checkout.
+
+## Approved live release — 17 November 2026
+
+User explicitly approved deployment and asked that future requested changes be implemented and deployed directly. Source commit `11234001ec7f950733cdb644794133e9dd2aab19` deployed successfully as `dpl_6rNzcW4XtvVHaez2hgSjQSuhqH4N`. The task-file/copy database setup was applied. Existing counts remain 6 forms, 13 submissions and 1 task; the attachment bucket is private.
+
+Live checks confirmed the two equal-width homepage boxes and correctly grouped action buttons, the six requested columns, Active switches and Past Events, and unsigned attachment requests returning 401. The existing sample task was saved unchanged to verify real persistence and the floating/inline success notifications. This exposed an ambiguous `updates` variable in the original task-update SQL; `database/events-hub-task-save-fix.sql` fixes it, and a regression test now exercises the update path. The live save then succeeded. Attachment uploads and form duplication were validated with isolated data rather than creating production test files/forms.
