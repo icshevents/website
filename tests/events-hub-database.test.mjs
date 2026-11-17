@@ -23,6 +23,7 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
  await db.exec(fs.readFileSync(new URL('../database/events-hub.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-task-files-and-duplicates.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-enforce-membership-sessions.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../database/events-hub-password-vault.sql',import.meta.url),'utf8'));
  const eventUser='00000000-0000-4000-8000-000000000001',memberUser='00000000-0000-4000-8000-000000000002';
  await db.query('insert into auth.users(id) values ($1),($2)',[eventUser,memberUser]);await db.query("insert into public.icsh_portal_access values($1,'events'),($2,'membership')",[eventUser,memberUser]);
  const token='a'.repeat(64),membership='b'.repeat(64),hash=v=>createHash('sha256').update(v).digest('hex');
@@ -175,6 +176,21 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
    await rpc('icsh_hub_form_state',[token,target.id,f.id,f.configuration.version,'published']);target=(await rpc('icsh_hub_event',[token,target.id])).event;
   }
   target=(await rpc('icsh_hub_event',[token,target.id])).event;target=await rpc('icsh_hub_publish',[token,target.id,target.version,'publish']);const forms=(await rpc('icsh_events_public',[target.slug]))[0].forms;assert.ok(forms.some(f=>f.url.startsWith('/event-participation/')));assert.ok(forms.some(f=>f.url.startsWith('/stall-hire/')));assert.equal((await rpc('icsh_hub_entries',[token,target.id,0,null])).total,0);
+ });
+ await t.test('viewable passwords require Admin Hub access and never expose plaintext or stale copies',async()=>{
+  const encrypted='aesgcm-v1.'+'a'.repeat(16)+'.'+'b'.repeat(22)+'.'+'c'.repeat(8),hash='scrypt-v1$'+'1'.repeat(64)+'$'+'2'.repeat(128),lookup='6e'.repeat(32);
+  const legacy=await rpc('icsh_admin_events_password',[membership,credential.id]);assert.equal(legacy,null);
+  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(db.query('select * from public.icsh_events_password_vault'),/permission denied/);await assert.rejects(rpc('icsh_admin_events_password',[membership,credential.id]),/permission denied/);await assert.rejects(rpc('icsh_admin_save_events_access_viewable',[membership,null,0,'Forbidden',hash,lookup,true,encrypted]),/permission denied/);await db.exec('reset role');}
+  for(const wrong of [token,'f'.repeat(64)]){await assert.rejects(rpc('icsh_admin_events_password',[wrong,credential.id]),/Sign in/);await assert.rejects(rpc('icsh_admin_save_events_access_viewable',[wrong,null,0,'Forbidden',hash,lookup,true,encrypted]),/Sign in/);}
+  let account=await rpc('icsh_admin_save_events_access_viewable',[membership,null,0,'Fictional sharing account',hash,lookup,true,encrypted]);
+  assert.deepEqual(await rpc('icsh_admin_events_password',[membership,account.id]),{encrypted,lookup});
+  assert.ok(!JSON.stringify(await rpc('icsh_admin_events_access',[membership])).includes('encrypted'));
+  const audit=(await db.query("select changes from public.icsh_audit_events where action='events.access.password.viewed' and record_id=$1",[account.id])).rows;assert.deepEqual(audit[0].changes,{});
+  await assert.rejects(rpc('icsh_admin_save_events_access_viewable',[membership,account.id,account.version-1,'Changed',hash,lookup,true,encrypted]),/changed elsewhere/);
+  account=await rpc('icsh_admin_save_events_access_viewable',[membership,account.id,account.version,'Renamed',null,null,true,null]);assert.deepEqual(await rpc('icsh_admin_events_password',[membership,account.id]),{encrypted,lookup});
+  await assert.rejects(rpc('icsh_admin_save_events_access_viewable',[membership,account.id,account.version,'Invalid',hash,lookup,true,null]),/Unable to store/);
+  account=await rpc('icsh_admin_save_events_access',[membership,account.id,account.version,'Older save path','scrypt-v1$'+'7'.repeat(64)+'$'+'8'.repeat(128),'5f'.repeat(32),true]);assert.equal(await rpc('icsh_admin_events_password',[membership,account.id]),null);
+  await db.query("update public.icsh_portal_sessions set expires_at=now()-interval '1 second' where token_hash=$1",[createHash('sha256').update(membership).digest('hex')]);await assert.rejects(rpc('icsh_admin_events_password',[membership,account.id]),/Sign in/);await db.query("update public.icsh_portal_sessions set expires_at=now()+interval '8 hours' where token_hash=$1",[createHash('sha256').update(membership).digest('hex')]);
  });
  await t.test('audits include timestamp and password-assigned actor; logout revokes Events access without revoking membership',async()=>{
   const history=(await rpc('icsh_hub_event',[token,event.id])).history;assert.ok(history.length>0);assert.equal(history[0].actor,'Fictional organiser');assert.ok(history[0].occurred_at);

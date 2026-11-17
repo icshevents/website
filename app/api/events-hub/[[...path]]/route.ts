@@ -1,3 +1,4 @@
+import {sealEventPassword,openEventPassword} from '@/lib/events-hub/password-vault';
 import {taskFileRequest} from '@/lib/events-hub/task-files-server';
 import {organiserSession} from '@/lib/supabase/server';
 import {hashPassword,passwordLookup} from '@/lib/events-hub/passwords';
@@ -29,18 +30,27 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
    const b=z.object({password:z.string().min(1).max(128)}).strict().parse(JSON.parse(await boundedBody(req,4000)));
    await eventsSignIn(b.password);return json({ok:true});
   }
-  if(path==='access'||path==='access/save'){
+  if(path==='access'||path==='access/save'||path==='access/reveal'){
    if((await organiserSession()).status!=='organiser')throw new HubError('Sign in to the Admin Hub.',401);
    const token=await portalToken('membership'),db=createEventService();
    if(req.method==='GET'&&path==='access'){
     const r=await db.rpc('icsh_admin_events_access',{p_token:token});if(r.error)throw new HubError('Events access is temporarily unavailable.',503);return json({entries:r.data});
+   }
+   if(req.method==='POST'&&path==='access/reveal'){
+    if(!req.headers.get('content-type')?.startsWith('application/json'))throw new HubError('Invalid request.',415);
+    await limitPortal(req.headers,'events-password-reveal',30);
+    const b=z.object({id:z.uuid()}).strict().parse(JSON.parse(await boundedBody(req,1000)));
+    const r=await db.rpc('icsh_admin_events_password',{p_token:token,p_id:b.id});
+    if(r.error)throw new HubError('Unable to view this password. Sign in to the Admin Hub again.',403);
+    if(!r.data)return json({requiresReset:true});
+    try{return json({password:openEventPassword(r.data.encrypted,r.data.lookup,secret)});}catch{throw new HubError('Set a replacement password once to make it viewable.',409);}
    }
    if(req.method==='POST'&&path==='access/save'){
     if(!req.headers.get('content-type')?.startsWith('application/json'))throw new HubError('Invalid request.',415);
     const b=z.object({id:z.uuid().nullable(),version:z.number().int().nonnegative(),firstName:z.string().trim().min(1).max(60),password:z.union([z.literal(''),z.string().length(6)]),enabled:z.boolean()}).strict().parse(JSON.parse(await boundedBody(req,4000)));
     if(!b.id&&!b.password)throw new HubError('Enter a password for this person.');
     const hash=b.password?await hashPassword(b.password):null,lookup=b.password?passwordLookup(b.password,secret):null;
-    const r=await db.rpc('icsh_admin_save_events_access',{p_token:token,p_id:b.id,p_version:b.version,p_name:b.firstName,p_hash:hash,p_lookup:lookup,p_enabled:b.enabled});
+    const r=await db.rpc('icsh_admin_save_events_access_viewable',{p_token:token,p_id:b.id,p_version:b.version,p_name:b.firstName,p_hash:hash,p_lookup:lookup,p_enabled:b.enabled,p_encrypted:b.password?sealEventPassword(b.password,lookup!,secret):null});
     if(r.error)throw new HubError(r.error.code==='23505'?'That password is already assigned to someone. Choose a different password.':r.error.code==='40001'?'This entry changed elsewhere. Refresh and try again.':'Access could not be saved.',409);
     return json({entry:r.data});
    }
