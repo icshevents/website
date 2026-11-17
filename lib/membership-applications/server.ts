@@ -8,7 +8,7 @@ import { organiserSession } from '../supabase/server';
 import {checkMembershipEligibilityWithOwnerTest} from '../membership-test-eligibility';
 import { searchBiginMembershipRecords, syncTestMembershipApplication } from '../zoho/server';
 import { handleMembershipAdmin, handleMembershipApplications, handleMembershipReceipt, membershipFailure, type MembershipApiDependencies } from './api';
-import { claimMembershipBiginSync, completeMembershipBiginSync, getMembershipApplication, listMembershipApplications, saveMembershipApplication } from './store';
+import { claimMembershipBiginSync, completeMembershipBiginSync, getMembershipApplication, listMembershipApplications, membershipExportPage, saveMembershipApplication } from './store';
 import type { MembershipApplication, MembershipBiginSyncOutcome } from './model';
 import {checkRetryMembershipEligibility,resumeUnpaidApplication,retryReceiptAllowed} from './retry-server';
 import {membershipTestPricingEnabled,savedOwnerTestRate} from '../membership-test-pricing';
@@ -85,7 +85,8 @@ export async function runMembershipAdmin(request: Request, id?: string) {
 
 /** Called only after the page has verified the organiser session. */
 export async function membershipApplicationsForOrganiser() {
-  return listMembershipApplications(100, createEventService());
+  const rows:MembershipApplication[]=[],cutoff=new Date().toISOString();let cursor:{createdAt:string;id:string}|null=null;
+  for(;;){const page=await membershipExportPage(cutoff,cursor,createEventService());rows.push(...page);if(page.length<100)return rows;const last=page[page.length-1];cursor={createdAt:last.createdAt,id:last.id};}
 }
 
 

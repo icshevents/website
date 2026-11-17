@@ -36,7 +36,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
    }
    if(req.method==='POST'&&path==='access/save'){
     if(!req.headers.get('content-type')?.startsWith('application/json'))throw new HubError('Invalid request.',415);
-    const b=z.object({id:z.uuid().nullable(),version:z.number().int().nonnegative(),firstName:z.string().trim().min(1).max(60),password:z.union([z.literal(''),z.string().min(12).max(128)]),enabled:z.boolean()}).strict().parse(JSON.parse(await boundedBody(req,4000)));
+    const b=z.object({id:z.uuid().nullable(),version:z.number().int().nonnegative(),firstName:z.string().trim().min(1).max(60),password:z.union([z.literal(''),z.string().length(6)]),enabled:z.boolean()}).strict().parse(JSON.parse(await boundedBody(req,4000)));
     if(!b.id&&!b.password)throw new HubError('Enter a password for this person.');
     const hash=b.password?await hashPassword(b.password):null,lookup=b.password?passwordLookup(b.password,secret):null;
     const r=await db.rpc('icsh_admin_save_events_access',{p_token:token,p_id:b.id,p_version:b.version,p_name:b.firstName,p_hash:hash,p_lookup:lookup,p_enabled:b.enabled});
@@ -55,6 +55,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
    if(path==='event')return json(await hubRpc('icsh_hub_event',{p_id:id}));
    if(path==='overview')return json(await hubRpc('icsh_hub_booking_overview',{p_event:id}));
    const form=z.uuid().nullable().parse(url.searchParams.get('form'));
+   if(path==='entry-list'){const entries=await allEntries(id,form);return json({entries,total:entries.length});}
    if(path==='entries')return json(await hubRpc('icsh_hub_entries',{p_event:id,p_form:form,p_page:z.coerce.number().int().min(0).max(10000).parse(url.searchParams.get('page')||0)}));
    if(path==='export'){const csv=entriesCsv(await allEntries(id,form));return new Response(csv,{headers:{...headers,'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="icsh-event-entries.csv"'}});}
    if(path==='image'){

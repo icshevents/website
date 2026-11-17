@@ -31,10 +31,10 @@ export default async function MembershipApplications() {
   try { applications = await membershipApplicationsForOrganiser(); } catch { unavailable = true; }
   let payments=new Map<string,PaymentRow>();
   let paymentsUnavailable=false;
-  try{payments=await membershipPaymentsForOrganiser(applications.map(a=>a.id));}catch{paymentsUnavailable=true;}
+  try{for(let i=0;i<applications.length;i+=100){for(const [id,value] of await membershipPaymentsForOrganiser(applications.slice(i,i+100).map(a=>a.id)))payments.set(id,value);}}catch{paymentsUnavailable=true;}
   let activations=new Map<string,MembershipActivation>();let activationUnavailable=false;
-  try{activations=await membershipActivationsForOrganiser(applications.map(a=>a.id));}catch{activationUnavailable=true;}
-  let memberIds=new Map<string,string>();try{memberIds=await memberIdsForOrganiser(applications.flatMap(a=>a.biginRecordId?[a.biginRecordId]:[]));}catch{/* Keep organiser records available during an ID service interruption. */}
+  try{for(let i=0;i<applications.length;i+=100){for(const [id,value] of await membershipActivationsForOrganiser(applications.slice(i,i+100).map(a=>a.id)))activations.set(id,value);}}catch{activationUnavailable=true;}
+  let memberIds=new Map<string,string>();try{for(let i=0;i<applications.length;i+=100){for(const [id,value] of await memberIdsForOrganiser(applications.slice(i,i+100).flatMap(a=>a.biginRecordId?[a.biginRecordId]:[])))memberIds.set(id,value);}}catch{/* Keep organiser records available during an ID service interruption. */}
   const writesEnabled = process.env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED === 'true';
   return <>
     <PageHero label="ICSH · Organisers" title="Membership applications" description="Review saved applications and their separate Bigin delivery status."/>
@@ -42,7 +42,7 @@ export default async function MembershipApplications() {
       <div className="organiser-toolbar"><Link className="text-link" href="/admin/membership">← Admin Hub</Link><div className={styles.toolbarLinks}><ExportMemberships/><Link className="button outline" href="/membership">Open membership form</Link></div></div>
       <details className={`notice ${styles.guidance}`}><summary>How applications, payment and activation work</summary><strong>New applications send to Bigin automatically.</strong><p>Saving an application does not activate membership or take payment. Verified paid memberships automatically activate the matching Bigin contact for 12 months from the UK payment date. Identity or current-term conflicts require review. Eligible free student memberships activate automatically after the saved details are verified. New applications automatically send name, email, mobile and an Inactive membership status to Bigin. Full answers and declarations remain in this private application record.</p>{!writesEnabled ? <p><strong>Bigin contact creation is awaiting authorisation.</strong> Applications are saved here and have not been sent to Bigin. <Link href="/admin/connections">Open Zoho connection settings</Link>.</p> : <p>A new application initially creates an opted-out Contact with Membership Status: Inactive. After verified payment, the matching Contact is updated to Active and Completed with start and expiry dates. Communication consent is unchanged.</p>}</details>
       {unavailable ? <div className="notice" role="alert">The membership application store is unavailable. Please retry shortly.</div> : applications.length === 0 ? <div className="panel"><h2>No saved membership applications yet</h2><p>Applications completed in the earlier on-screen form were not sent or saved. New submissions appear here after the website confirms they have been saved.</p></div> : <>
-        <p>Showing the most recent {applications.length} saved application{applications.length === 1 ? '' : 's'} (up to 100).</p>
+        <p>Showing {applications.length} saved application{applications.length === 1 ? '' : 's'}.</p>
         <MembershipEntries entries={applications.map(application => {
           const payment=payments.get(application.id),activation=activations.get(application.id);
           const active=activation?.status==='active';
@@ -59,7 +59,7 @@ export default async function MembershipApplications() {
           const membershipLabel=active?`${activation.start_date} to ${activation.expiry_date}`:activationUnavailable?'Activation status unavailable · check Bigin':activation?.status==='review_required'?'Activation needs organiser review':payment?.status==='paid'?'Payment verified · automatic activation pending':'Not activated · no start or expiry assigned';
           const received=new Date(application.createdAt);
           const categories:Record<string,string>={standard:'Standard',pensioner:'Senior Member Rate',student:'Student'};
-          return {id:application.id,reference:application.reference,
+          return {id:application.id,reference:application.reference,searchText:JSON.stringify([application.reference,application.answers,application.category,paymentLabel,membershipLabel,statuses[application.biginSyncStatus],application.biginRecordId?memberIds.get(application.biginRecordId):'']),
             member:<><strong className={styles.cellMain}>{application.answers.firstName} {application.answers.lastName}</strong><span className={styles.cellSecondary}>{application.reference}</span><span className={styles.cellSecondary}>{application.biginRecordId?memberIds.get(application.biginRecordId)||'Member ID pending':'Contact pending'}{application.mode==='test'?' · Historical test':''}</span></>,
             contact:<><span className={styles.cellMain}>{application.answers.email}</span><span className={styles.cellSecondary}>{application.answers.mobile}</span></>,
             application:<><span className={styles.cellMain}>{application.answers.kind==='renewal'?'Renewal':'New application'}</span><span className={styles.cellSecondary}>{paymentTest?'Historical payment test':categories[application.category]||application.category}</span><strong className={styles.cellSecondary}>{amount}</strong></>,
