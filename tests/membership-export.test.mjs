@@ -41,3 +41,8 @@ test('storage export excludes removed records, uses stable paging and rejects un
  assert.ok(calls.some(c=>c[0]==='is'&&c[1]==='deleted_at'&&c[2]===null));assert.ok(calls.some(c=>c[0]==='lte'&&c[2]===now().toISOString()));assert.ok(calls.some(c=>c[0]==='or'&&c[1].includes('and(created_at.eq.')));
  calls.length=0;await assert.rejects(()=>membershipExportPage('bad',null,db));await assert.rejects(()=>membershipExportPage(now().toISOString(),{createdAt:'2026-11-09T08:00:00Z',id:'bad,id.gt.x'},db));assert.equal(calls.length,0);
 });
+test('workspace-deleted entries are skipped without ending pagination and entry labels stay separate from payment evidence',async()=>{
+ const rows=Array.from({length:101},(_,i)=>({...entry(i),deleted:i<100,entryStatus:'refunded',payment:{status:'paid',paid_at:'2026-11-09T08:05:00Z'}}));let calls=0;
+ const response=await handleMembershipExport(request(),{session:async()=>({status:'organiser'}),now,load:async()=>calls++===0?rows.slice(0,100):rows.slice(100)});
+ const csv=await response.text();assert.equal(response.status,200);assert.equal(calls,2);assert.doesNotMatch(csv,/"MEM-0"/);assert.match(csv,/"MEM-100"/);assert.match(csv,/Entry status/);assert.match(csv,/"Payment confirmed"/);assert.match(csv,/"refunded"/);
+});

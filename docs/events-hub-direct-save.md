@@ -8,6 +8,8 @@ Posters are selected locally, previewed, then uploaded with event details in the
 
 The Back buttons record prior hub screens, event selection, task selection, filters and scroll positions. Unsaved event/task edits warn before being discarded. Returning between event information, booking settings and optional preview retains the current editing buffer.
 
-The global planning overview now has a searchable task table with event, assignees, British dates, status and direct Edit task actions. Summary cards are compact; the existing per-event task board remains in place.
+The global planning overview now has a searchable task table with event, assignees, British dates, status and direct Edit task actions. The three dashboard count cards are removed; the existing per-event task board remains in place.
 
 Validation includes multipart parsing, rejected file types/sizes, one-request image saves/removal, direct publication, version/portal/role checks, failed-save transaction rollback, preserved booking answers, all three visibility transitions and the existing regression suite. No production event content or booking records are changed for verification.
+
+Hub screen changes now create browser history entries. Both browser Back/Forward and the in-page Back controls restore the saved view, filters and selected task. Reloading retains the current saved navigation frame. Root navigation uses an explicit Choose hub link; Back no longer falls through to a previous sign-in page when no internal view exists.

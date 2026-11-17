@@ -25,6 +25,8 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
  await db.exec(fs.readFileSync(new URL('../database/events-hub-enforce-membership-sessions.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-password-vault.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-direct-save.sql',import.meta.url),'utf8'));
+ await db.exec(`create table public.icsh_membership_applications(id uuid primary key,deleted_at timestamptz);create table public.icsh_donations(id uuid primary key);create table public.icsh_rishta_profiles(id uuid primary key);grant all on public.icsh_membership_applications,public.icsh_donations,public.icsh_rishta_profiles to service_role;`);
+ await db.exec(fs.readFileSync(new URL('../database/organiser-entry-management.sql',import.meta.url),'utf8'));
  const eventUser='00000000-0000-4000-8000-000000000001',memberUser='00000000-0000-4000-8000-000000000002';
  await db.query('insert into auth.users(id) values ($1),($2)',[eventUser,memberUser]);await db.query("insert into public.icsh_portal_access values($1,'events'),($2,'membership')",[eventUser,memberUser]);
  const token='a'.repeat(64),membership='b'.repeat(64),hash=v=>createHash('sha256').update(v).digest('hex');
@@ -223,6 +225,44 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
   e=await rpc('icsh_hub_save_live',[token,e.id,e.version,e.slug,{...e.draft,title:'Archive on save'},null,'archive']);assert.equal(e.visible,false);assert.equal(e.published.title,'Archive on save');assert.equal(e.published_status,'completed');
   await assert.rejects(rpc('icsh_hub_set_visibility',[membership,e.id,e.version,'published']),/Sign in/);await assert.rejects(rpc('icsh_hub_set_visibility',[token,e.id,e.version,'ready_for_review']),/Choose Published/);
   for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(rpc('icsh_hub_set_visibility',[token,e.id,e.version,'published']),/permission denied/);await db.exec('reset role');}
+ });
+ await t.test('entry cancellation, refund labels and recoverable deletion preserve paid answers and reservations',async()=>{
+  const before=(await db.query('select answers from public.icsh_submissions where id=$1',[entryId])).rows[0].answers;
+  const beforeOverview=await rpc('icsh_hub_booking_overview',[token,event.id]);
+  let state=await rpc('icsh_entry_manage',[token,'event',entryId,event.id,0,'cancelled']);assert.equal(state.status,'cancelled');assert.equal(state.version,1);
+  await assert.rejects(rpc('icsh_entry_manage',[token,'event',entryId,event.id,0,'refunded']),/changed elsewhere/);
+  state=await rpc('icsh_entry_manage',[token,'event',entryId,event.id,state.version,'refunded']);assert.equal(state.status,'refunded');
+  state=await rpc('icsh_entry_manage',[token,'event',entryId,event.id,state.version,'delete']);assert.ok(state.deleted_at);assert.equal(state.status,'refunded');
+  await assert.rejects(rpc('icsh_entry_manage',[token,'event',entryId,event.id,state.version,'reset']),/Restore/);
+  state=await rpc('icsh_entry_manage',[token,'event',entryId,event.id,state.version,'restore']);assert.equal(state.deleted_at,null);assert.equal(state.status,'refunded');
+  state=await rpc('icsh_entry_manage',[token,'event',entryId,event.id,state.version,'reset']);assert.equal(state.status,null);
+  assert.deepEqual((await db.query('select answers from public.icsh_submissions where id=$1',[entryId])).rows[0].answers,before);
+  assert.deepEqual(await rpc('icsh_hub_booking_overview',[token,event.id]),beforeOverview);
+  assert.ok((await rpc('icsh_entry_states',[token,'event',event.id])).some(s=>s.entry_id===entryId));
+  await assert.rejects(rpc('icsh_entry_manage',[token,'event',entryId,other.id,0,'delete']),/unavailable/);
+  await assert.rejects(rpc('icsh_entry_manage',[membership,'event',entryId,event.id,state.version,'delete']),/Events Hub access/);
+ });
+ await t.test('all admin entry types have independent states and event users cannot access them',async()=>{
+  const id='00000000-0000-4000-8000-000000000988';
+  for(const [kind,table] of [['membership','icsh_membership_applications'],['donation','icsh_donations'],['rishta','icsh_rishta_profiles']]){
+   await db.query('insert into public.'+table+'(id) values($1)',[id]);
+   await assert.rejects(rpc('icsh_entry_manage',[token,kind,id,null,0,'delete']),/Admin Hub access/);
+   await assert.rejects(rpc('icsh_entry_states',[token,kind,null]),/Admin Hub access/);
+   let state=await rpc('icsh_entry_manage',[membership,kind,id,null,0,'cancelled']);assert.equal(state.kind,kind);
+   state=await rpc('icsh_entry_manage',[membership,kind,id,null,state.version,'refunded']);assert.equal(state.status,'refunded');
+   state=await rpc('icsh_entry_manage',[membership,kind,id,null,state.version,'delete']);assert.ok(state.deleted_at);
+   state=await rpc('icsh_entry_manage',[membership,kind,id,null,state.version,'restore']);assert.equal(state.deleted_at,null);
+   assert.equal((await db.query('select count(*)::int n from public.'+table+' where id=$1',[id])).rows[0].n,1);
+  }
+  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(db.query('select * from public.icsh_entry_management'),/permission denied/);await assert.rejects(rpc('icsh_entry_states',[token,'event',event.id]),/permission denied/);await assert.rejects(rpc('icsh_entry_manage',[membership,'donation',id,null,4,'delete']),/permission denied/);await db.exec('reset role');}
+  await assert.rejects(rpc('icsh_entry_manage',[membership,'donation',id,null,4,'paid']),/valid entry action/);
+  const rows=await db.query("select actor,occurred_at from public.icsh_audit_events where action='entry.delete'");assert.ok(rows.rows.length>=4);assert.ok(rows.rows.every(r=>r.actor&&r.occurred_at));
+ });
+ await t.test('Iftari entries support the same controls without altering their payment evidence',async()=>{
+  const e=(await db.query("select * from public.icsh_events where source_type='iftari'")).rows[0];const b=(await db.query('select * from public.icsh_iftari_bookings where event_slug=$1',[e.source_key])).rows[0];
+  let state=await rpc('icsh_entry_manage',[token,'iftari',b.id,e.id,0,'refunded']);assert.equal(state.status,'refunded');
+  state=await rpc('icsh_entry_manage',[token,'iftari',b.id,e.id,state.version,'delete']);state=await rpc('icsh_entry_manage',[token,'iftari',b.id,e.id,state.version,'restore']);
+  assert.deepEqual((await db.query('select * from public.icsh_iftari_bookings where id=$1',[b.id])).rows[0],b);
  });
  await t.test('audits include timestamp and password-assigned actor; logout revokes Events access without revoking membership',async()=>{
   const history=(await rpc('icsh_hub_event',[token,event.id])).history;assert.ok(history.length>0);assert.equal(history[0].actor,'Fictional organiser');assert.ok(history[0].occurred_at);

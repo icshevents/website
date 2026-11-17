@@ -1,3 +1,4 @@
+import type {EntryState} from '@/lib/entry-management/model';
 import {readEventSaveRequest} from '@/lib/events-hub/event-save-request';
 import {sealEventPassword,openEventPassword} from '@/lib/events-hub/password-vault';
 import {taskFileRequest} from '@/lib/events-hub/task-files-server';
@@ -70,7 +71,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
    const form=z.uuid().nullable().parse(url.searchParams.get('form'));
    if(path==='entry-list'){const entries=await allEntries(id,form);return json({entries,total:entries.length});}
    if(path==='entries')return json(await hubRpc('icsh_hub_entries',{p_event:id,p_form:form,p_page:z.coerce.number().int().min(0).max(10000).parse(url.searchParams.get('page')||0)}));
-   if(path==='export'){const csv=entriesCsv(await allEntries(id,form));return new Response(csv,{headers:{...headers,'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="icsh-event-entries.csv"'}});}
+   if(path==='export'){const states=(await Promise.all(['event','iftari'].map(kind=>hubRpc('icsh_entry_states',{p_kind:kind,p_event:id})))).flat() as EntryState[];const csv=entriesCsv((await allEntries(id,form)).map(e=>{const state=states.find(s=>s.entry_id===e.id&&s.kind===(e.kind==='iftari'?'iftari':'event'));return {...e,entryStatus:state?.status,deletedAt:state?.deleted_at};}));return new Response(csv,{headers:{...headers,'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="icsh-event-entries.csv"'}});}
    if(path==='image'){
     const detail=await hubRpc('icsh_hub_event',{p_id:id}) as EventDetail;const key=detail.event.draft_image;
     if(!key)throw new HubError('Image not found.',404);const r=await createEventService().storage.from('icsh-event-images').download(key);if(r.error||!r.data)throw new HubError('Image unavailable.',404);

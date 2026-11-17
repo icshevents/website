@@ -26,3 +26,7 @@ test('planning paragraphs use recorded work, named assignments, descriptions and
 });
 
 test('task dates use explicit British format and reject impossible calendar dates',async()=>{const {parseUKDay}=await import('../lib/events-hub/core.ts');assert.equal(parseUKDay('25/11/2026'),'2026-11-25');assert.equal(parseUKDay('29/02/2028'),'2028-02-29');assert.equal(parseUKDay(''),null);for(const value of ['11/25/2026','31/02/2026','29/02/2027','2026-11-25'])assert.throws(()=>parseUKDay(value),/DD\/MM\/YYYY/);});
+test('event CSV omits workspace-deleted entries and separates the entry label from original booking status',()=>{
+ const base={reference:'EVT-KEEP',formTitle:'Fictional event',submittedAt:'2026-11-17',status:'confirmed_paid',reviewStatus:'new',details:{},notes:'',entryStatus:'refunded'};
+ const csv=entriesCsv([base,{...base,reference:'EVT-REMOVED',deletedAt:'2026-11-17T00:00:00Z'}]);assert.match(csv,/EVT-KEEP/);assert.doesNotMatch(csv,/EVT-REMOVED/);assert.match(csv,/confirmed_paid/);assert.match(csv,/Entry status/);assert.match(csv,/refunded/);
+});
