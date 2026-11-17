@@ -21,6 +21,7 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
  grant usage on schema public,auth,storage to service_role,anon,authenticated;grant all on all tables in schema public to service_role;`);
  const configure=fs.readFileSync(new URL('../database/iftari-bookings.sql',import.meta.url),'utf8').split('create function public.icsh_iftari_configure')[1].split('revoke execute')[0];await db.exec('create function public.icsh_iftari_configure'+configure);
  await db.exec(fs.readFileSync(new URL('../database/events-hub.sql',import.meta.url),'utf8'));
+ await db.exec(fs.readFileSync(new URL('../database/events-hub-task-files-and-duplicates.sql',import.meta.url),'utf8'));
  await db.exec(fs.readFileSync(new URL('../database/events-hub-enforce-membership-sessions.sql',import.meta.url),'utf8'));
  const eventUser='00000000-0000-4000-8000-000000000001',memberUser='00000000-0000-4000-8000-000000000002';
  await db.query('insert into auth.users(id) values ($1),($2)',[eventUser,memberUser]);await db.query("insert into public.icsh_portal_access values($1,'events'),($2,'membership')",[eventUser,memberUser]);
@@ -119,7 +120,7 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
  });
  await t.test('finished events disappear from public list and individual pages without deleting entries',async()=>{
   let e=await rpc('icsh_hub_save',[token,null,0,'finished-event',{...c,title:'Finished event'},'draft']);e=await rpc('icsh_hub_publish',[token,e.id,e.version,'publish']);
-  assert.equal((await rpc('icsh_events_public',[e.slug])).length,1);e=await rpc('icsh_hub_publish',[token,e.id,e.version,'complete']);assert.equal(e.visible,false);assert.deepEqual(await rpc('icsh_events_public',[e.slug]),[]);assert.equal((await rpc('icsh_events_booking_access',['tickets',e.slug])).visible,false);assert.ok((await rpc('icsh_hub_dashboard',[token])).events.some(row=>row.id===e.id));
+  assert.equal((await rpc('icsh_events_public',[e.slug])).length,1);e=await rpc('icsh_hub_publish',[token,e.id,e.version,'complete']);assert.equal(e.visible,false);assert.deepEqual(await rpc('icsh_events_public',[e.slug]),[]);assert.equal((await rpc('icsh_events_booking_access',['tickets',e.slug])).visible,false);assert.ok((await rpc('icsh_hub_dashboard',[token])).events.some(row=>row.id===e.id));e=await rpc('icsh_hub_publish',[token,e.id,e.version,'restore']);assert.equal(e.visible,true);assert.equal(e.published_status,'published');assert.equal((await rpc('icsh_events_public',[e.slug])).length,1);
  });
  await t.test('custom forms reuse existing submissions, enforce event scope and preserve entries when finished',async()=>{
   let e=await rpc('icsh_hub_save',[token,null,0,'custom-form-event',{...c,title:'Custom form event',bookingType:'information',bookingEnabled:false},'draft']);e=await rpc('icsh_hub_publish',[token,e.id,e.version,'publish']);
@@ -138,6 +139,41 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
   const a=await rpc('icsh_admin_save_events_access',[membership,null,0,'Alex','scrypt-v1$'+'3'.repeat(64)+'$'+'4'.repeat(128),'3'.repeat(64),true]);
   const b=await rpc('icsh_admin_save_events_access',[membership,null,0,'Alex','scrypt-v1$'+'5'.repeat(64)+'$'+'6'.repeat(128),'5'.repeat(64),true]);
   const task=await rpc('icsh_hub_task',[token,event.id,null,0,'Joint task',[a.id,b.id],null,'in_progress','Detailed arrangements','Initial update']);assert.equal(task.assignee_ids.length,2);assert.notEqual(task.assignee_ids[0],task.assignee_ids[1]);assert.equal(task.description,'Detailed arrangements');assert.equal(task.updates[0].name,'Fictional organiser');assert.ok(task.updates[0].at);
+ });
+ await t.test('task files stay scoped, private and named without exposing storage keys publicly',async()=>{
+  const task=await rpc('icsh_hub_task',[token,event.id,null,0,'Attachment check',[],null,'not_started','','']);
+  const id='00000000-0000-4000-8000-000000000094';
+  await assert.rejects(rpc('icsh_hub_task_file_add',[membership,event.id,task.id,id,task.id+'/'+id+'.pdf','Plan.pdf',123,'application/pdf']),/Sign in/);
+  await assert.rejects(rpc('icsh_hub_task_file_add',[token,other.id,task.id,id,task.id+'/'+id+'.pdf','Plan.pdf',123,'application/pdf']),/Task access denied/);
+  await assert.rejects(rpc('icsh_hub_task_file_add',[token,event.id,task.id,id,'wrong-path','Plan.pdf',123,'application/pdf']),/Invalid file key/);
+  await rpc('icsh_hub_task_file_add',[token,event.id,task.id,id,task.id+'/'+id+'.pdf','Plan.pdf',123,'application/pdf']);
+  const files=await rpc('icsh_hub_task_files',[token,event.id,task.id]);assert.equal(files.length,1);assert.equal(files[0].uploaded_by,'Fictional organiser');assert.equal(files[0].name,'Plan.pdf');
+  await assert.rejects(rpc('icsh_hub_task_files',[token,other.id,task.id]),/Task access denied/);
+  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(db.query('select * from public.icsh_task_files'),/permission denied/);await assert.rejects(rpc('icsh_hub_task_files',[token,event.id,task.id]),/permission denied/);await db.exec('reset role');}
+  assert.doesNotMatch(JSON.stringify(await rpc('icsh_events_public',[null])),/Plan.pdf|storage_key/);
+ });
+ await t.test('yearly form copies are drafts with separate submissions and independent links',async()=>{
+  const target=await rpc('icsh_hub_save',[token,null,0,'next-year-lunch',{...c,title:'Next year lunch',startsAt:'2036-06-01T12:00:00Z',endsAt:'2036-06-01T15:00:00Z'},'draft']);
+  const original=(await db.query('select * from public.icsh_forms where id=$1',[event.source_key])).rows[0];
+  const copy=await rpc('icsh_hub_form_duplicate',[token,event.id,original.id,original.configuration.version,target.id,target.version,'Next year booking form']);
+  assert.notEqual(copy.id,original.id);const targetForm=(await db.query('select * from public.icsh_forms where id=$1',[copy.id])).rows[0];assert.equal(targetForm.status,'draft');assert.equal(targetForm.configuration.startsAt,'2036-06-01T12:00:00Z');assert.equal((await rpc('icsh_hub_entries',[token,target.id,0,null])).total,0);
+  await assert.rejects(rpc('icsh_hub_form_duplicate',[token,event.id,original.id,original.configuration.version,event.id,event.version,'Unsafe active copy']),/changed elsewhere|new unpublished/);
+  await assert.rejects(rpc('icsh_hub_form_duplicate',[membership,event.id,original.id,original.configuration.version,target.id,target.version,'Forbidden']),/Sign in/);
+  let customEvent=await rpc('icsh_hub_save',[token,null,0,'annual-survey',{...c,title:'Annual survey',bookingType:'information',bookingEnabled:false},'draft']);
+  const f=await rpc('icsh_hub_form_save',[token,{id:null,eventId:customEvent.id,version:0,title:'Survey',description:'Survey',slug:'annual-survey-form',status:'draft',fields:[{id:'name',label:'Name',type:'name',required:true,options:[]}]}]);customEvent=(await rpc('icsh_hub_event',[token,customEvent.id])).event;
+  const second=await rpc('icsh_hub_form_duplicate',[token,customEvent.id,f.id,f.version,customEvent.id,customEvent.version,'Survey next year']);assert.notEqual(second.id,f.id);const forms=await rpc('icsh_hub_forms',[token,customEvent.id]);assert.equal(forms.length,2);assert.notEqual(forms[0].slug,forms[1].slug);assert.equal(forms[1].status,'draft');
+ });
+ await t.test('participation and stall templates clone to independent draft forms and publish the correct new-year route',async()=>{
+  const source=await rpc('icsh_hub_save',[token,null,0,'annual-festival-source',{...c,title:'Annual festival',bookingType:'information',bookingEnabled:false},'draft']);
+  let target=await rpc('icsh_hub_save',[token,null,0,'annual-festival-next-year',{...c,title:'Annual festival next year',bookingType:'information',bookingEnabled:false},'draft']);
+  for(const kind of ['participation','stall']){
+   const id=kind==='participation'?'00000000-0000-4000-8000-000000000095':'00000000-0000-4000-8000-000000000096';
+   await db.query("insert into public.icsh_forms(id,slug,title,kind,status,configuration,mode) values($1,$2,$3,$4,'published',$5,'live')",[id,'source-'+kind,kind,kind,{version:1,status:'published',title:kind,formTitle:kind,startsAt:c.startsAt,endsAt:c.endsAt,mode:'live'}]);await db.query('update public.icsh_events set form_ids=array_append(form_ids,$1) where id=$2',[id,source.id]);
+   const cloned=await rpc('icsh_hub_form_duplicate',[token,source.id,id,1,target.id,target.version,'Next year '+kind]);target=(await rpc('icsh_hub_event',[token,target.id])).event;
+   const f=(await db.query('select * from public.icsh_forms where id=$1',[cloned.id])).rows[0];assert.equal(f.kind,kind);assert.equal(f.status,'draft');assert.notEqual(f.id,id);assert.equal(f.configuration.eventName,'Annual festival next year');
+   await rpc('icsh_hub_form_state',[token,target.id,f.id,f.configuration.version,'published']);target=(await rpc('icsh_hub_event',[token,target.id])).event;
+  }
+  target=(await rpc('icsh_hub_event',[token,target.id])).event;target=await rpc('icsh_hub_publish',[token,target.id,target.version,'publish']);const forms=(await rpc('icsh_events_public',[target.slug]))[0].forms;assert.ok(forms.some(f=>f.url.startsWith('/event-participation/')));assert.ok(forms.some(f=>f.url.startsWith('/stall-hire/')));assert.equal((await rpc('icsh_hub_entries',[token,target.id,0,null])).total,0);
  });
  await t.test('audits include timestamp and password-assigned actor; logout revokes Events access without revoking membership',async()=>{
   const history=(await rpc('icsh_hub_event',[token,event.id])).history;assert.ok(history.length>0);assert.equal(history[0].actor,'Fictional organiser');assert.ok(history[0].occurred_at);

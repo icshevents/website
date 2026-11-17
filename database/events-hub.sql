@@ -81,7 +81,7 @@ begin insert into public.icsh_audit_events(event_id,actor,actor_credential_id,ac
 -- Live public projection deliberately excludes drafts, planning, tasks and form entries.
 create function public.icsh_events_public(p_slug text default null) returns jsonb
 language sql security invoker set search_path='' as $$
- select coalesce(jsonb_agg(jsonb_build_object('id',id,'slug',slug,'content',published,'status',published_status,'sourceType',source_type,'sourceKey',source_key,'forms',(select coalesce(jsonb_agg(jsonb_build_object('title',f.title,'url',case f.kind when 'participation' then '/harrow-food-festival-2026/get-involved' when 'stall' then '/stall-hire/'||f.slug else '/event-forms/'||f.slug end)),'[]') from public.icsh_forms f where f.id=any(form_ids) and f.kind in ('custom','participation','stall') and f.status='published')) order by (published->>'startsAt')::timestamptz),'[]'::jsonb)
+ select coalesce(jsonb_agg(jsonb_build_object('id',id,'slug',slug,'content',published,'status',published_status,'sourceType',source_type,'sourceKey',source_key,'forms',(select coalesce(jsonb_agg(jsonb_build_object('title',f.title,'url',case f.kind when 'participation' then case when f.id='500893f1-5724-547a-bd5c-8eae0e648890' then '/harrow-food-festival-2026/get-involved' else '/event-participation/'||f.slug end when 'stall' then '/stall-hire/'||f.slug else '/event-forms/'||f.slug end)),'[]') from public.icsh_forms f where f.id=any(form_ids) and f.kind in ('custom','participation','stall') and f.status='published')) order by (published->>'startsAt')::timestamptz),'[]'::jsonb)
  from public.icsh_events where visible and published is not null and published_status<>'completed' and not archived and (p_slug is null or slug=p_slug)
 $$;
 create function public.icsh_hub_dashboard(p_token text) returns jsonb
@@ -343,7 +343,7 @@ begin perform public.icsh_hub_require(p_token);select * into e from public.icsh_
  if p_status is null or p_status not in ('published','closed') then raise exception 'Invalid status';end if;
  c:=f.configuration||jsonb_build_object('status',p_status,'hubManualClosed',p_status='closed','version',p_version+1);
  update public.icsh_forms set status=p_status,configuration=c where id=p_form;
- if f.kind='tickets' then enabled:=p_status='published';update public.icsh_events set draft=jsonb_set(draft,'{bookingEnabled}',to_jsonb(enabled)),published=case when published is null then null else jsonb_set(published,'{bookingEnabled}',to_jsonb(enabled)) end,version=version+1 where id=p_event;end if;
+ if f.kind='tickets' or (f.kind in ('participation','stall') and e.source_type='festival') then enabled:=case when f.kind='tickets' then p_status='published' else p_status='published' or exists(select 1 from public.icsh_forms where id=any(e.form_ids) and id<>p_form and kind in ('participation','stall') and status='published') end;update public.icsh_events set draft=jsonb_set(draft,'{bookingEnabled}',to_jsonb(enabled)),published=case when published is null then null else jsonb_set(published,'{bookingEnabled}',to_jsonb(enabled)) end,version=version+1 where id=p_event;end if;
  perform public.icsh_hub_audit(p_token,p_event,'event.form.status',jsonb_build_object('form',p_form,'status',p_status));return true;end $$;
 create function public.icsh_custom_form_public(p_slug text) returns jsonb language plpgsql security invoker set search_path='' as $$
 declare f public.icsh_forms;e public.icsh_events;open boolean;

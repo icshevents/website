@@ -1,4 +1,5 @@
 'use client';
+import {notifyWorkspace} from '@/components/organiser/WorkspaceNotifications';
 import {Fragment,useState,type ReactNode} from 'react';
 import {useRouter} from 'next/navigation';
 import {deleteMembershipEntries} from './actions';
@@ -16,9 +17,9 @@ export default function MembershipEntries({entries}:{entries:Entry[]}){
   if(busy||!ids.length)return;
   const label=ids.length===1?entries.find(x=>x.id===ids[0])?.reference:ids.length+' selected entries';
   if(!window.confirm('Delete '+label+' from the organiser list? Linked payment records are retained. This does not refund payments or delete Bigin contacts.'))return;
-  setBusy(true);setMessage('');
-  try{const result=await deleteMembershipEntries(ids);if(!result.ok)throw new Error(result.error);setSelected([]);setMessage((result.count??0)+' entries deleted.');router.refresh();}
-  catch(e){setMessage(e instanceof Error?e.message:'Deletion failed. Please retry.');}
+  setBusy(true);setMessage('');notifyWorkspace('Updating the organiser entries…','progress');
+  try{const result=await deleteMembershipEntries(ids);if(!result.ok)throw new Error(result.error);setSelected([]);setMessage((result.count??0)+' entries deleted.');notifyWorkspace((result.count??0)+' entries deleted.');router.refresh();}
+  catch(e){notifyWorkspace(e instanceof Error?e.message:'Deletion failed.','error');setMessage(e instanceof Error?e.message:'Deletion failed. Please retry.');}
   finally{setBusy(false);}
  }
  return <div>

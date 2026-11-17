@@ -1,0 +1,11 @@
+'use client';
+import {notifyWorkspace} from '@/components/organiser/WorkspaceNotifications';
+import {useEffect,useState} from 'react';
+type FileRow={id:string;name:string;size:number;uploaded_by:string;created_at:string};
+export default function TaskFiles({eventId,taskId,api,disabled=false}:{eventId:string;taskId:string;api?:(path:string,body?:unknown)=>Promise<any>;disabled?:boolean}){
+ const [files,setFiles]=useState<FileRow[]>([]),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ async function load(){if(disabled)return;if(api){const b=await api(`task/files?event=${eventId}&task=${taskId}`);setFiles(b.files);return;}const r=await fetch(`/api/events-hub/task/files?event=${eventId}&task=${taskId}`,{cache:'no-store'});const b=await r.json();if(!r.ok)throw Error(b.error||'Files could not be loaded.');setFiles(b.files);}
+ useEffect(()=>{load().catch(e=>setMessage(e.message));},[taskId,eventId,disabled]);
+ async function upload(file:File){if(file.size>10*1024*1024){setMessage('Choose a file no larger than 10 MB.');notifyWorkspace('Choose a file no larger than 10 MB.','error');return;}setBusy(true);setMessage('Uploading…');notifyWorkspace('Uploading file…','progress');try{const s=await fetch('/api/events-hub/session',{cache:'no-store'}).then(r=>r.json());const r=await fetch(`/api/events-hub/task/upload?event=${eventId}&task=${taskId}`,{method:'POST',headers:{'X-CSRF-Token':s.csrf,'X-File-Name':encodeURIComponent(file.name)},body:file});const b=await r.json();if(!r.ok)throw Error(b.error||'Upload failed.');await load();setMessage('File attached.');notifyWorkspace('File attached to the task.');}catch(e){notifyWorkspace((e as Error).message,'error');setMessage((e as Error).message);}finally{setBusy(false);}}
+ return <div className="hub-task-files">{files.map(f=><a key={f.id} href={`/api/events-hub/task/download?event=${eventId}&task=${taskId}&file=${f.id}`} title={`${f.uploaded_by} · ${new Date(f.created_at).toLocaleDateString('en-GB')} · ${Math.ceil(f.size/1024)} KB`}>↧ {f.name}</a>)}<label className="hub-file-button">{busy?'Uploading…':'+ Attach file'}<input type="file" disabled={busy||disabled} accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.pptx,.txt" onChange={e=>{const f=e.target.files?.[0];if(f)void upload(f);e.target.value='';}}/></label>{message&&<span role="status">{message}</span>}</div>;
+}

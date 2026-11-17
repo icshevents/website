@@ -1,3 +1,4 @@
+import {taskFileRequest} from '@/lib/events-hub/task-files-server';
 import {organiserSession} from '@/lib/supabase/server';
 import {hashPassword,passwordLookup} from '@/lib/events-hub/passwords';
 import { cookies } from 'next/headers';
@@ -47,6 +48,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
   }
   if(!await portalSession('events'))throw new HubError('Your Events Hub session has expired. Please sign in again.',401);
   if(req.method==='POST'&&path==='logout'){await endPortalSession('events');return json({ok:true});}
+  if(path.startsWith('task/'))return await taskFileRequest(req,path);
   const url=new URL(req.url);
   if(req.method==='GET'){
    if(path==='forms')return json(await hubRpc('icsh_hub_forms',{p_event:z.uuid().parse(new URL(req.url).searchParams.get('id'))}));
@@ -80,6 +82,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
   }
   if(!req.headers.get('content-type')?.startsWith('application/json'))throw new HubError('Invalid request.',415);
   const body=JSON.parse(await boundedBody(req,32000));
+  if(path==='form/duplicate'){const b=z.object({sourceEventId:z.uuid(),sourceFormId:z.uuid(),sourceVersion:z.number().int().nonnegative(),targetEventId:z.uuid(),targetVersion:z.number().int().positive(),title:z.string().trim().min(1).max(140)}).strict().parse(body);return json(await hubRpc('icsh_hub_form_duplicate',{p_source_event:b.sourceEventId,p_source_form:b.sourceFormId,p_source_version:b.sourceVersion,p_target_event:b.targetEventId,p_target_version:b.targetVersion,p_title:b.title}));}
   if(path==='form/save')return json(await hubRpc('icsh_hub_form_save',{p_form:customFormSchema.parse(body)}));
   if(path==='form/state'){const b=z.object({eventId:z.uuid(),formId:z.uuid(),version:z.number().int().nonnegative(),status:z.enum(['published','closed'])}).strict().parse(body);return json(await hubRpc('icsh_hub_form_state',{p_event:b.eventId,p_form:b.formId,p_version:b.version,p_status:b.status}));}
   if(path==='save'){const b=saveSchema.parse(body);return json(await hubRpc('icsh_hub_save',{p_id:b.id,p_version:b.version,p_slug:b.slug,p_content:b.content,p_status:b.status}));}

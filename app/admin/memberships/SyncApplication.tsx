@@ -1,4 +1,5 @@
 'use client';
+import {notifyWorkspace} from '@/components/organiser/WorkspaceNotifications';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,15 +10,16 @@ export default function SyncApplication({ id, disabled, verifyOnly = false, inte
   const [message, setMessage] = useState('');
   async function sync() {
     if (pending || disabled) return;
-    setPending(true); setMessage('');
+    setPending(true); setMessage('');notifyWorkspace('Checking the saved membership application…','progress');
     try {
       const response = await fetch(`/api/membership/admin/${id}/sync`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' });
       const body = await response.json();
       if (!response.ok || !body.ok) throw new Error(body.error?.message || 'The sync result could not be confirmed. Reload this page before trying again.');
       const status = body.application?.biginSyncStatus;
       setMessage(status === 'synced' ? 'Contact verified in Bigin.' : status === 'review_required' ? 'Manual review is needed. No existing member was changed.' : status === 'outcome_unknown' ? 'The result needs review. Do not create another contact.' : 'Application remains saved. Check the updated delivery status.');
-      router.refresh();
+      notifyWorkspace(status==='synced'?'Contact verified in Bigin.':'Check the updated application status; further review may be required.');router.refresh();
     } catch (error) {
+      notifyWorkspace(error instanceof Error?error.message:'The result could not be confirmed.','error');
       setMessage(error instanceof Error ? error.message : 'The result could not be confirmed. Reload before trying again.');
       router.refresh();
     } finally { setPending(false); }
