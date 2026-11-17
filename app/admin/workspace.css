@@ -4,8 +4,8 @@ body:has(.organiser-workspace) .site-header{border-bottom:1px solid #d9d6d0}
 body:has(.organiser-workspace) .site-header nav a.nav-membership-cta{background:#1f2a44;border-color:#1f2a44}
 body:has(.organiser-workspace) .site-header nav a.nav-membership-cta:hover{background:#31415f}
 body:has(.organiser-workspace) footer{background:#1f2a44;color:#fff}
-.organiser-workspace{min-height:65vh;background:#f6f1e9;--font-display:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
-.organiser-workspace h1,.organiser-workspace h2,.organiser-workspace h3{font-family:var(--font-display);font-weight:650;letter-spacing:-.035em;line-height:1.2;color:#1f2a44}
+.organiser-workspace{min-height:65vh;background:#f6f1e9;--font-display:'DM Serif Display',Georgia,serif}
+.organiser-workspace h1,.organiser-workspace h2,.organiser-workspace h3{font-family:var(--font-display);font-weight:400;letter-spacing:-.015em;line-height:1.15;color:#1f2a44}
 .organiser-workspace h1,.organiser-workspace .hub-heading h1{font-size:clamp(32px,4vw,48px)}
 .organiser-workspace h2,.organiser-workspace .hub-portal h2{font-size:clamp(26px,3vw,34px)}
 .organiser-workspace h3,.organiser-workspace .panel h3{font-size:22px;letter-spacing:-.02em}
