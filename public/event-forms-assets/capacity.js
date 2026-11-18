@@ -1,0 +1,5 @@
+export const capacityMessage="We've reached the maximum bookings for this event. Please contact events@icsh.org.uk.";
+export function capacityNotice(message=capacityMessage){
+ document.querySelectorAll('form').forEach(form=>{form.dataset.capacityReached='true';form.querySelectorAll('input,textarea,select,button[type=submit]').forEach(el=>el.disabled=true);});
+ let dialog=document.getElementById('event-capacity-notice');if(!dialog){dialog=document.createElement('dialog');dialog.id='event-capacity-notice';dialog.className='booking-limit-dialog';dialog.setAttribute('aria-labelledby','event-capacity-heading');const h=document.createElement('h2');h.id='event-capacity-heading';h.textContent='Maximum bookings reached';const p=document.createElement('p');p.textContent=message;const link=document.createElement('a');link.href='mailto:events@icsh.org.uk';link.textContent='Contact the Events Team';const close=document.createElement('button');close.type='button';close.className='btn';close.textContent='Close';close.onclick=()=>dialog.close();dialog.append(h,p,link,close);document.body.append(dialog);}if(!dialog.open)dialog.showModal();
+}

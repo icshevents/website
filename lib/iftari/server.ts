@@ -1,3 +1,4 @@
+import {capacityMessage} from '../events-hub/capacity';
 import {bookingAccess} from '../events-hub/booking-access';
 import 'server-only';
 import { createHmac } from 'node:crypto';
@@ -43,7 +44,7 @@ async function rate(request: Request, action: string, max: number) {
 const databaseErrors: Record<string, string> = {
   P2701: 'This booking request changed. Open your saved booking, or start a new booking.',
   P2702: 'This event is not open for bookings.', P2703: 'The event settings or prices changed. Review the latest summary and try again.',
-  P2704: 'Under-5 pricing is awaiting confirmation.', P2705: 'There are not enough places available for this group or capacity setting.',
+  P2704: 'Under-5 pricing is awaiting confirmation.', P2705: capacityMessage, P2801: capacityMessage,
   P2706: 'A member discount is already booked or reserved for one of these emails. Resume the existing booking, wait for its checkout to expire, or contact ICSH.',
 };
 function databaseError(error: { code?: string } | null): never {
@@ -74,7 +75,7 @@ export async function handleIftari(request: Request, path: string) {
     if(path==='settings'||['quote','membership','bookings'].includes(path)){
       const access=await bookingAccess('iftari',IFTARI_SLUG);
       if(!access.visible)throw new IftariError('This event is not published.',404);
-      if(request.method==='POST'&&!access.canBook)throw new IftariError(access.cancelled?'This event has been cancelled.':'Bookings are closed.',409);
+      if(request.method==='POST'&&!access.canBook&&!(access.limitReached&&path==='bookings'))throw new IftariError(access.cancelled?'This event has been cancelled.':access.limitReached?capacityMessage:'Bookings are closed.',409);
     }
     const secret = process.env.SUPABASE_SECRET_KEY || '';
     if (!secret) throw new IftariError('The booking service is being prepared.', 503);
@@ -88,7 +89,7 @@ export async function handleIftari(request: Request, path: string) {
     }
     if (request.method === 'GET') {
       await rate(request, 'read', 150);
-      if (path === 'settings' || path === 'admin/settings') return json({ settings: await iftariSettings(), csrf: session.csrf }, 200, sessionHeader);
+      if (path === 'settings' || path === 'admin/settings'){const settings=await iftariSettings(),access=path==='settings'?await bookingAccess('iftari',IFTARI_SLUG):null;return json({settings:path==='settings'?{...settings,capacity:null,...(access?.limitReached?{status:'closed'}:{})}:settings,limitReached:Boolean(access?.limitReached),csrf:session.csrf},200,sessionHeader);}
       const match = path.match(/^bookings\/([a-f0-9-]{36})$/);
       if (match) {
         const b = await iftariBooking(match[1], request.headers.get('x-booking-token') || '');

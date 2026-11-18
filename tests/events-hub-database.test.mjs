@@ -281,6 +281,47 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
   const account=await rpc('icsh_admin_save_events_access_viewable',[membership,null,0,'Long password fixture',hash,lookup,true,encrypted]);
   const saved=await rpc('icsh_admin_events_password',[membership,account.id]);assert.equal(openEventPassword(saved.encrypted,saved.lookup,secret),password);
  });
+ await db.exec(fs.readFileSync(new URL('../database/events-hub-capacity.sql',import.meta.url),'utf8'));
+ await t.test('event limits close linked ticket and custom forms and reject over-capacity sign-ups',async()=>{
+  const e=await rpc('icsh_hub_save_live',[token,null,0,'capacity-all-forms',{...c,title:'Capacity fixture',capacity:3},null,'published']);
+  const form={id:null,eventId:e.id,version:0,title:'Capacity custom form',slug:'capacity-custom-form',description:'Fictional',status:'published',fields:[{id:'name',label:'Name',type:'name',required:true,options:[]}]};
+  const custom=await rpc('icsh_hub_form_save',[token,form]);
+  const first='00000000-0000-4000-8000-000000000891';
+  await db.query("insert into public.icsh_submissions(id,form_id,mode,answers) values($1,$2,'live',$3)",[first,e.source_key,{record:{status:'pending',attendees:[{name:'Adult'},{name:'Child'}]}}]);
+  let state=await rpc('icsh_event_capacity',[e.id,'live']);assert.equal(state.used,2);assert.equal(state.limitReached,false);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',e.slug])).canBook,true);
+  const customId='00000000-0000-4000-8000-000000000892',hash='d'.repeat(64);
+  const saved=await rpc('icsh_custom_form_submit',[form.slug,customId,1,{name:'Fictional person'},hash]);assert.ok(saved.reference);
+  state=await rpc('icsh_hub_capacity',[token,e.id]);assert.equal(state.used,3);assert.equal(state.remaining,0);assert.equal(state.limitReached,true);
+  const access=await rpc('icsh_events_booking_access',['tickets',e.slug]);assert.equal(access.canBook,false);assert.equal(access.limitReached,true);assert.equal(access.visible,true);
+  const publicForm=await rpc('icsh_custom_form_public',[form.slug]);assert.equal(publicForm.open,false);assert.equal(publicForm.limitReached,true);assert.equal(publicForm.maximum,undefined);
+  assert.deepEqual(await rpc('icsh_custom_form_submit',[form.slug,customId,1,{name:'Fictional person'},hash]),saved);
+  await assert.rejects(rpc('icsh_custom_form_submit',[form.slug,'00000000-0000-4000-8000-000000000893',1,{name:'Over capacity'},hash]),/Maximum event bookings/);
+  await assert.rejects(db.query("insert into public.icsh_submissions(form_id,mode,answers) values($1,'live',$2)",[e.source_key,{record:{status:'pending',attendees:[{name:'Extra'}]}}]),/Maximum event bookings/);
+  await assert.rejects(rpc('icsh_hub_save_live',[token,e.id,(await rpc('icsh_hub_event',[token,e.id])).event.version,e.slug,{...e.draft,capacity:2},null,'published']),/Maximum bookings cannot be below/);
+  // A verified expiry releases its held places; internal review labels alone do not.
+  await db.query("update public.icsh_submissions set answers=jsonb_set(answers,'{record,status}',$2::jsonb) where id=$1",[first,JSON.stringify('cancelled')]);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',e.slug])).canBook,true);
+  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(rpc('icsh_event_capacity',[e.id,'live']),/permission denied/);await assert.rejects(rpc('icsh_hub_capacity',[token,e.id]),/permission denied/);await db.exec('reset role');}
+  await assert.rejects(rpc('icsh_hub_capacity',[membership,e.id]),/Sign in/);
+ });
+ await t.test('parallel sign-up requests across different linked forms cannot consume the same final place',async()=>{
+  const e=await rpc('icsh_hub_save_live',[token,null,0,'capacity-parallel',{...c,title:'Parallel fixture',capacity:1},null,'published']);
+  await rpc('icsh_hub_form_save',[token,{id:null,eventId:e.id,version:0,title:'Another signup',slug:'parallel-signup',description:'Fictional',status:'published',fields:[{id:'name',label:'Name',type:'name',required:true,options:[]}]}]);
+  const results=await Promise.allSettled([
+   db.query("insert into public.icsh_submissions(form_id,mode,answers) values($1,'live',$2)",[e.source_key,{record:{status:'pending',attendees:[{name:'First'}]}}]),
+   rpc('icsh_custom_form_submit',['parallel-signup','00000000-0000-4000-8000-000000000895',1,{name:'Second'},'e'.repeat(64)])
+  ]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal((await rpc('icsh_event_capacity',[e.id,'live'])).used,1);
+ });
+ await t.test('Iftari uses the same limit, blocks excess guests and reopens after a verified release',async()=>{
+  let e=(await db.query("select * from public.icsh_events where source_type='iftari'")).rows[0];
+  const before=await rpc('icsh_event_capacity',[e.id,'live']);assert.equal(before.used,1);
+  e=await rpc('icsh_hub_save_live',[token,e.id,e.version,e.slug,{...e.draft,capacity:1},null,'published']);
+  assert.equal((await rpc('icsh_events_booking_access',['iftari',e.source_key])).limitReached,true);
+  await assert.rejects(db.query("insert into public.icsh_iftari_bookings(event_slug,guests,status,mode) values($1,1,'pending','live')",[e.source_key]),/Maximum event bookings/);
+  await db.query("update public.icsh_iftari_bookings set status='refunded' where event_slug=$1",[e.source_key]);
+  assert.equal((await rpc('icsh_events_booking_access',['iftari',e.source_key])).canBook,true);
+ });
  await t.test('audits include timestamp and password-assigned actor; logout revokes Events access without revoking membership',async()=>{
   const history=(await rpc('icsh_hub_event',[token,event.id])).history;assert.ok(history.length>0);assert.equal(history[0].actor,'Fictional organiser');assert.ok(history[0].occurred_at);
   await rpc('icsh_portal_end',[token,'events']);await assert.rejects(rpc('icsh_hub_dashboard',[token]),/Sign in/);assert.ok(await rpc('icsh_portal_check',[membership,'membership']));

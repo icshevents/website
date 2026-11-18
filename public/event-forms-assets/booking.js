@@ -1,8 +1,9 @@
+import {capacityNotice,capacityMessage} from './capacity.js';
 import {openFormCheckout} from './payments.js';
 export function createBookingUI({api,esc,money,main,go,submitAction}){
  const $=s=>main.querySelector(s);
  const statusLabel=q=>({active:'Active ICSH Member',inactive:'Membership inactive or expired',non_member:'Non-Member',ambiguous:'Membership needs review',unavailable:'Membership check unavailable',unverified:'Membership not verified · Non-member rate'})[q.memberStatus];
- async function formPage(e){
+ async function formPage(e){if(e.limitReached)setTimeout(()=>capacityNotice(),0);
   document.title=e.title+' · ICSH';const hasChildren=e.rates.child!==undefined&&e.rates.childNonmember!==undefined; let generation=0,timer,current=null,inflight='',fallback=false;
   const requestKey=crypto.randomUUID(),capability=[...crypto.getRandomValues(new Uint8Array(32))].map(n=>n.toString(16).padStart(2,'0')).join('');
   const open=e.status==='published'&&new Date(e.startsAt)>new Date()&&e.remaining>0;
@@ -56,7 +57,7 @@ export function createBookingUI({api,esc,money,main,go,submitAction}){
     const result=await api('booking/registrations',{method:'POST',body:input,capability});sessionStorage.setItem('icsh-registration-'+result.registration.id,result.token);if(result.registration.total>0&&result.registration.mode==='live'){try{await openFormCheckout('event',result.registration.id,result.token);return;}catch{/* The saved confirmation provides a payment retry. */}}go('/checkout/'+result.registration.id);
    }catch(error){if(error.quote){if(error.quote.configurationVersion!==e.version){current=null;renderQuote(null,'Event settings have changed. Reload this page to review the latest details, terms and prices.');return;}current={key:key(),quote:error.quote};renderQuote(error.quote,error.message);$('#booking-submit-message').textContent=error.message;return;}throw error;}
    finally{form.inert=false;}
-  });if(form.isConnected)button.disabled=!current?.quote.canRegister;};
+  });if(form.isConnected)button.disabled=form.dataset.capacityReached==='true'||!current?.quote.canRegister;};
  }
  return{formPage};
 }

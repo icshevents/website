@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ticketKeys, ticketLabels, gbp, eventWhen, type Settings, type Quote, type TicketKey, type Attendee } from '@/lib/iftari/core';
 import styles from './iftari.module.css';
+import CapacityNotice from '@/components/events-hub/CapacityNotice';
+import {capacityMessage} from '@/lib/events-hub/capacity';
 import MenuPopup from './MenuPopup';
 import type {IftariMenu} from '@/lib/events-hub/iftari-menu';
 import noticeStyles from './booking-notice.module.css';
@@ -32,6 +34,7 @@ function MembershipEmail({ label, value, onChange, csrf, disabled = false }: { l
   </label>;
 }
 export default function BookingForm({menu}:{menu?:IftariMenu}) {
+  const [full,setFull]=useState(false);
   const [settings, setSettings] = useState<Settings | null>(null), [csrf, setCsrf] = useState('');
   const [quantities, setQuantities] = useState({ member: 0, nonmember: 0, child: 0, under5: 0 });
   const [firstName, setFirstName] = useState(''), [lastName, setLastName] = useState(''), [email, setEmail] = useState(''), [mobile, setMobile] = useState('');
@@ -46,7 +49,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
   const donation = donationChoice === 'other' ? customDonation : donationChoice;
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/iftari/settings', { signal: controller.signal }).then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error); setSettings(data.settings); setCsrf(data.csrf); }).catch(e => { if (e.name !== 'AbortError') setError(e.message || 'The booking form is temporarily unavailable.'); });
+    fetch('/api/iftari/settings', { signal: controller.signal }).then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error); setSettings(data.settings);setFull(Boolean(data.limitReached)); setCsrf(data.csrf); }).catch(e => { if (e.name !== 'AbortError') setError(e.message || 'The booking form is temporarily unavailable.'); });
     return () => controller.abort();
   }, []);
   useEffect(() => {
@@ -60,7 +63,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
         const response = await fetch('/api/iftari/quote', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ quantities, donation }) });
         const data = await response.json(); if (turn !== quoteSequence.current) return;
         if (!response.ok) throw new Error(data.error); setQuote(data.quote);
-      } catch (e) { if (turn === quoteSequence.current && !(e instanceof Error && e.name === 'AbortError')) setQuoteError(e instanceof Error ? e.message : 'Unable to calculate the total.'); }
+      } catch (e) { if (turn === quoteSequence.current && !(e instanceof Error && e.name === 'AbortError')) {if(e instanceof Error&&e.message===capacityMessage)setFull(true);setQuoteError(e instanceof Error ? e.message : 'Unable to calculate the total.');} }
       finally { if (turn === quoteSequence.current) setQuotePending(false); }
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
@@ -81,7 +84,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
       const data = await response.json(); if (!response.ok) throw new Error(data.error);
       window.location.assign(data.url || data.returnUrl);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to open secure payment. Please retry this booking.');
+      setFull(e instanceof Error&&e.message===capacityMessage);setError(e instanceof Error ? e.message : 'Unable to open secure payment. Please retry this booking.');
       // A rejected request with no persisted booking is safe to correct and resubmit.
       try {
         const check = await fetch('/api/iftari/bookings/' + identity.id, { headers: { 'x-booking-token': identity.capability } });
@@ -90,9 +93,9 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
     }
     finally { setBusy(false); }
   }
-  if (!settings) return <div className="wrap"><p role="status">{error || 'Loading the Iftari booking form…'}</p></div>;
-  const open = settings.status === 'published';
-  return <div className={`wrap ${styles.layout}`}>
+  if (!settings) return <div className="wrap"><CapacityNotice open={full}/><p role="status">{error || 'Loading the Iftari booking form…'}</p></div>;
+  const open = settings.status === 'published'&&!full;
+  return <div className={`wrap ${styles.layout}`}><CapacityNotice open={full}/>
     <div>
       {!open && <div className={noticeStyles.banner} role="status"><h2>{settings.status === 'closed' ? 'Bookings are closed' : 'Bookings are not yet open'}</h2><p>{settings.status === 'closed' ? 'We are no longer accepting new bookings for this event.' : 'You can view the menu and ticket prices below. Bookings will open once the final arrangements are ready.'}</p></div>}
       <div className={styles.eventDetails}><span className="tag">Ramadan · Together as a community</span><h2>A warm welcome to your table.</h2><p>Join ICSH members, families and friends for Iftari at {settings.venue}. Share an evening of food, friendship and community.</p><p><strong>{eventWhen(settings)}</strong></p><MenuPopup menu={menu} eventTitle={settings.title}/></div>

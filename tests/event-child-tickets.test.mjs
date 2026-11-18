@@ -13,8 +13,8 @@ test('adult and under-12 child bookings use saved server prices without a member
 test('child tickets cannot be used on an event without a configured child price',()=>{const {child,...rates}=event.rates;assert.throws(()=>quoteRegistration({...event,rates},input(['child'])),/not available/);});
 test('children and adults share the 60-place capacity',()=>{
  const state={events:[event],registrations:[{eventId:event.id,mode:'live',status:'paid',attendees:Array.from({length:59},()=>({ticket:'nonmember'}))}]};
- assert.throws(()=>register(state,input(['nonmember','child']),'capability'),/not enough places/);
- const last=register(state,input(['child']),'capability');assert.equal(last.total,925);assert.throws(()=>register(state,input(['nonmember']),'other-capability'),/not enough places/);
+ assert.throws(()=>register(state,input(['nonmember','child']),'capability'),/not enough places|maximum bookings/);
+ const last=register(state,input(['child']),'capability');assert.equal(last.total,925);assert.throws(()=>register(state,input(['nonmember']),'other-capability'),/not enough places|maximum bookings/);
 });
 test('child tickets bypass membership discounts while adult member checks remain enforced',async()=>{
  const memberEvent={...event,membershipCheckRequired:true,rates:{...event.rates,member:1500}};

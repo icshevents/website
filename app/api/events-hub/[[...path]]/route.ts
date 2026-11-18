@@ -75,7 +75,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
     return json({ ...dashboard, bookingCounts });
    }
    const id=z.uuid().parse(url.searchParams.get('id'));
-   if(path==='event')return json(await hubRpc('icsh_hub_event',{p_id:id}));
+   if(path==='event'){const d=await hubRpc('icsh_hub_event',{p_id:id});return json({...d,capacityState:await hubRpc('icsh_hub_capacity',{p_event:id})});}
    if(path==='overview')return json(await hubRpc('icsh_hub_booking_overview',{p_event:id}));
    const form=z.uuid().nullable().parse(url.searchParams.get('form'));
    if(path==='entry-list'){const entries=await allEntries(id,form);return json({entries,total:entries.length});}
