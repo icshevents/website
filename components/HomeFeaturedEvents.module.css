@@ -87,14 +87,6 @@
  background:radial-gradient(circle at 25% 20%,rgba(222,202,145,.18),transparent 43%),linear-gradient(145deg,#33674d 0%,#1e4938 64%,#153d2e 100%);
  border-left:1px solid rgba(244,228,190,.16);
 }
-.artwork::before{
- content:'';
- position:absolute;
- inset:22px 17px;
- border:1px solid rgba(243,226,180,.24);
- border-radius:180px 180px 16px 16px;
- pointer-events:none;
-}
 .artwork img{
  position:absolute;
  inset:0;
