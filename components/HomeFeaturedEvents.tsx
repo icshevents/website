@@ -17,7 +17,7 @@ export default function HomeFeaturedEvents({events}:{events:FeaturedEvent[]}){
  },[]);
  useEffect(()=>{
   if(count<2||paused||reduceMotion)return;
-  const timer=window.setInterval(()=>{if(!document.hidden)setCurrent(i=>(i+1)%count);},10000);
+  const timer=window.setInterval(()=>{if(!document.hidden)setCurrent(i=>(i+1)%count);},5000);
   return()=>window.clearInterval(timer);
  },[count,paused,reduceMotion,interaction]);
  if(!count)return null;
