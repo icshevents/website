@@ -96,7 +96,8 @@
  pointer-events:none;
 }
 .artwork img{
- position:relative;
+ position:absolute;
+ inset:0;
  z-index:1;
  display:block;
  width:100%;
