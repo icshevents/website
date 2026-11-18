@@ -10,7 +10,7 @@ import EventForms from './EventForms';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {bookingState,emptyContent,londonInput,londonISO,type HubEvent,type EventContent,type Task,type Entry} from '@/lib/events-hub/core';
-import type {BookingCounts} from '@/lib/events-hub/booking-counts';
+import {formatFundsCollected,type BookingCounts} from '@/lib/events-hub/booking-counts';
 import type {EventDetail} from '@/lib/events-hub/server';
 import EventView from './EventView';
 type ViewFrame={section:string;tab:string;eventId:string|null;creating:boolean;taskId:string|null;formId:string;planningQuery:string;planningFilter:string;taskQuery:string;taskFilter:string;scrollY:number};
@@ -28,7 +28,7 @@ const demoTasks:Task[]=[{id:'00000000-0000-4000-8000-000000000021',event_id:demo
 export default function Hub({demo=false}:{demo?:boolean}){
  const [session,setSession]=useState<{display_name:string}|null>(demo?{display_name:'Design preview'}:null),[loading,setLoading]=useState(!demo),[csrf,setCsrf]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const [events,setEvents]=useState<HubEvent[]>(demo?[demoEvent,{...demoEvent,id:'00000000-0000-4000-8000-000000000002',slug:'community-gathering',draft:{...demoContent,title:'Community gathering',image:'',startsAt:'2027-03-14T13:00:00Z',endsAt:'2027-03-14T16:00:00Z'},published:null,status:'draft',visible:false}]:[]),[tasks,setTasks]=useState<Task[]>(demo?demoTasks:[]),[team,setTeam]=useState<TeamMember[]>(demo?demoTeam:[]);
- const [bookingCounts, setBookingCounts] = useState<Record<string, BookingCounts>>(demo ? {[demoEvent.id]: {adults: 50, children: 5}} : {});
+ const [bookingCounts, setBookingCounts] = useState<Record<string, BookingCounts>>(demo ? {[demoEvent.id]: {adults: 50, children: 5, fundsCollectedPence: 97125}} : {});
  const [planningQuery,setPlanningQuery]=useState(''),[planningFilter,setPlanningFilter]=useState('all'),[taskQuery,setTaskQuery]=useState(''),[taskFilter,setTaskFilter]=useState('all');
  const [openTaskId,setOpenTaskId]=useState<string|null>(null);
  const [section,setSection]=useState('Published Events'),[detail,setDetail]=useState<EventDetail|null>(null),[creating,setCreating]=useState(false),[tab,setTab]=useState('Event details'),[content,setContent]=useState<EventContent>(emptyContent()),[slug,setSlug]=useState(''),[dirty,setDirty]=useState(false),[planningDirty,setPlanningDirty]=useState(false);
@@ -122,10 +122,12 @@ export default function Hub({demo=false}:{demo?:boolean}){
     <div className="hub-date"><strong>{new Date(e.draft.startsAt).toLocaleDateString('en-GB',{day:'2-digit',timeZone:'Europe/London'})}</strong><span>{new Date(e.draft.startsAt).toLocaleDateString('en-GB',{month:'short',year:'numeric',timeZone:'Europe/London'})}</span></div>
     <div className="hub-event-summary">
      <div className="hub-event-text"><span className="tag">{visibility(e)}</span><h3>{e.draft.title}</h3><p>{day(e.draft.startsAt)} · {e.draft.venue}</p></div>
-     {counts ? <dl className="hub-booked-guests" aria-label="Confirmed guests">
-      <div><dt>Adults booked</dt><dd>{counts.adults}</dd></div>
-      <div><dt>Children booked</dt><dd>{counts.children}</dd></div>
-     </dl> : tracksBookings && e.source_key && <p className="hub-booking-count-unavailable">Booking totals unavailable</p>}
+     <dl className="hub-booked-guests" aria-label="Event bookings and funds">
+      {counts && <><div><dt>Adults booked</dt><dd>{counts.adults}</dd></div>
+      <div><dt>Children booked</dt><dd>{counts.children}</dd></div></>}
+      <div><dt>Funds collected</dt><dd title={counts?'Verified online payments after refunds, before fees':'No verified online total available'}>{counts ? formatFundsCollected(counts.fundsCollectedPence) : '—'}</dd></div>
+     </dl>
+     {!counts && tracksBookings && e.source_key && <p className="hub-booking-count-unavailable">Booking totals unavailable</p>}
      {poster && <img className="hub-card-image" src={poster} alt={e.draft.title+' poster'}/>}
     </div>
     <div className="hub-event-controls">{eventVisibilityControl(e)}<button className="button outline" onClick={()=>void openEvent(e)}>Edit event ↗</button></div>
