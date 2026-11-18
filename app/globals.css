@@ -131,3 +131,29 @@ button,input,select,textarea{font-family:var(--font-body)}
 .public-event-poster{margin-inline:auto}
 .hub-event-view .hub-poster{display:block;max-width:100%;margin:24px auto}
 .hub-event-overview .hub-event-home>.hub-thumbnail{float:none;align-self:center;max-width:100%;margin:16px auto 20px}
+
+
+/* Public event features: full details and actions on the left; an uncropped leaflet on the right. */
+.our-events-section .our-event-list>.our-event-panel{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:28px;align-items:stretch;padding:28px}
+.our-events-section .our-event-panel .our-event-summary{display:flex;flex-direction:column;min-width:0;min-height:455px}
+.our-events-section .our-event-panel .our-event-copy{min-width:0}
+.our-events-section .our-event-panel .our-event-summary h3{margin:20px 0 16px}
+.our-events-section .our-event-panel .public-event-description{font-size:14px;line-height:1.8;white-space:pre-line;margin-bottom:24px}
+.our-events-section .our-event-panel .our-event-forms{border:0;border-top:1px solid var(--line);padding:19px 0 0;margin:auto 0 0;min-width:0}
+.our-events-section .our-event-panel .our-event-prices{font-size:13px;line-height:1.7;margin:0 0 17px}
+.our-events-section .our-event-panel .public-booking-status{margin:0 0 15px;font-size:13px}
+.our-event-actions{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.our-events-section .our-event-panel .our-event-actions .button{width:auto;max-width:100%;min-height:46px;padding:11px 16px;gap:15px;justify-content:center;text-align:center;font-size:13px;white-space:normal}
+.our-events-section .our-event-panel .our-event-actions .public-event-details{margin:0}
+.our-events-section .our-event-panel .our-event-actions>button{margin:0;min-height:46px;padding:9px 15px;font-size:13px;font-weight:600;text-decoration:none}
+.our-event-artwork{position:relative;min-width:0;min-height:455px;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.our-event-artwork>a{position:absolute;inset:0;display:block}
+.our-event-artwork>.public-event-poster,.our-event-artwork>a>.public-event-poster{position:absolute;inset:0;width:100%;height:100%;max-width:100%;max-height:none;margin:0;object-fit:contain;object-position:center;border-radius:0}
+.our-event-artwork--empty{display:grid;place-items:center;background:linear-gradient(145deg,#f9f5e9,#e5eee4)}
+.our-event-artwork-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;padding:35px;text-align:center;color:var(--muted);font-size:14px}
+.our-event-artwork-brand{font-family:var(--font-display);font-size:56px;color:var(--green);line-height:1}
+@media(max-width:860px){.our-events-section .our-event-list>.our-event-panel{grid-template-columns:minmax(0,1fr);gap:22px;padding:24px}.our-events-section .our-event-panel .our-event-summary{min-height:0}.our-event-artwork{height:clamp(350px,70vw,560px);min-height:0}}
+@media(max-width:480px){.our-events-section .our-event-list>.our-event-panel{padding:20px}.our-event-artwork{height:410px}.our-events-section .our-event-panel .our-event-actions .button{width:100%}.our-events-section .our-event-panel .our-event-actions>button{width:100%}}
+
+/* Rounded, paired surfaces inspired by the supplied reference layout. */
+@media(min-width:861px){.our-events-section .our-event-list>.our-event-panel{gap:0;padding:0;border-radius:28px;overflow:hidden}.our-events-section .our-event-panel .our-event-summary{padding:36px 38px}.our-event-artwork{border:0;border-left:1px solid var(--line);border-radius:0}}
