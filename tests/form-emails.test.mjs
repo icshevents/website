@@ -71,3 +71,21 @@ test('Zoho dotted request identifiers are recorded as accepted without accepting
  assert.deepEqual(await sendConfirmation(value,env,async()=>Response.json({message:'OK',data:[{code:'EM_104'}],request_id:providerId})),{status:'accepted',providerId});
  assert.equal((await sendConfirmation(value,env,async()=>Response.json({message:'OK',data:[{code:'EM_104'}],request_id:'bad\nidentifier'}))).status,'review_required');
 });
+
+test('stall application notifications go only to the ICSH events inbox and ask for review', async () => {
+  const notification = {...value, kind:'stall_notification', recipient:'events@icsh.org.uk',
+    reference:'STALL-AE134256BEDE', event_title:'Harrow Food Festival <2026>'};
+  let payload;
+  const send = async (_url, options) => {
+    payload = JSON.parse(options.body);
+    return Response.json({message:'OK',data:[{code:'EM_104'}],request_id:'stall-notification-test'});
+  };
+  assert.equal((await sendConfirmation(notification, env, send)).status, 'accepted');
+  assert.deepEqual(payload.to, [{email_address:{address:'events@icsh.org.uk'}}]);
+  assert.match(payload.subject, /New Harrow Food Festival stall application/);
+  assert.match(payload.textbody, /ready for review/);
+  assert.match(payload.textbody, /https:\/\/icsh.org.uk\/admin/);
+  assert.match(payload.textbody, /STALL-AE134256BEDE/);
+  assert.match(payload.htmlbody, /Harrow Food Festival &lt;2026&gt;/);
+  assert.throws(() => confirmationContent({...notification,recipient:value.recipient}), /EMAIL_INPUT_INVALID/);
+});

@@ -39,7 +39,7 @@ export async function processFormEmails(maximum=1) {
   }
   return {enabled:true,processed};
 }
-export function scheduleFormEmails(request:Request,response:Response){
-  if(request.method==='POST'&&response.ok&&process.env.ZOHO_TRANSACTIONAL_EMAIL_ENABLED==='true')after(async()=>{try{await processFormEmails();}catch{console.error('ICSH_FORM_EMAIL_PROCESSING_PENDING');}});
+export function scheduleFormEmails(request:Request,response:Response,maximum=1){
+  if(request.method==='POST'&&response.ok&&process.env.ZOHO_TRANSACTIONAL_EMAIL_ENABLED==='true')after(async()=>{try{await processFormEmails(maximum);}catch{console.error('ICSH_FORM_EMAIL_PROCESSING_PENDING');}});
   return response;
 }
