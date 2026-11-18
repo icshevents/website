@@ -22,6 +22,7 @@ export default function HomeFeaturedEvents({events,available}:{events:HomeUpcomi
               </Link>
               <p className={styles.date}><time dateTime={event.date}>{event.dateLabel}</time></p>
               <p className={styles.venue}>{event.venue}</p>
+              {event.bookingNotYetOpen && <p className={styles.bookingStatus}>Booking not yet open</p>}
               {!event.image && <p className={styles.summary}>{event.summary}</p>}
               {event.links.filter(link => link.href !== mainLink.href).map(link =>
                 <Link key={link.href} className={styles.action} href={link.href} aria-label={link.label+' — '+event.title}>

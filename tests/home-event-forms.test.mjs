@@ -61,4 +61,12 @@ test('published events appear as individual chronological cards, even before the
  assert.deepEqual(cards[0].links.map(l=>l.label),['Apply for a stall','Cook, donate or volunteer','View event details']);
  assert.deepEqual(cards[1].links.map(l=>l.href),['/event-tickets/winter-lunch-booking','/events/winter-lunch']);
  assert.deepEqual(cards[2].links.map(l=>l.href),['/events/iftari']);
+ assert.deepEqual(cards.map(c=>c.bookingNotYetOpen),[false,false,true]);
+
+ const opening=selectHomeUpcomingEvents([{...lunch,content:{...lunch.content,bookingOpens:'2026-11-01T12:00:00Z'}}],now);
+ assert.equal(opening[0].bookingNotYetOpen,true);
+ const soldOut=selectHomeUpcomingEvents([{...lunch,bookingLimitReached:true,content:{...lunch.content,bookingEnabled:false}}],now);
+ assert.equal(soldOut[0].bookingNotYetOpen,false);
+ const closed=selectHomeUpcomingEvents([{...lunch,content:{...lunch.content,bookingEnabled:false,bookingCloses:'2026-10-25T12:00:00Z'}}],now);
+ assert.equal(closed[0].bookingNotYetOpen,false);
 });
