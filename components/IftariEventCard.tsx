@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {eventWhen,gbp,type Settings} from '@/lib/iftari/core';
 export default function IftariEventCard({settings}:{settings:Settings}){
- return <article className="panel our-event-panel" id="ramadan-iftari-2027">
+ return <article className="panel our-event-panel our-event-panel--no-poster" id="ramadan-iftari-2027">
   <div className="our-event-summary">
    <div className="our-event-copy">
     <span className="tag">Ramadan · Community gathering</span>
@@ -17,6 +17,5 @@ export default function IftariEventCard({settings}:{settings:Settings}){
     </div>
    </div>
   </div>
-  <div className="our-event-artwork our-event-artwork--empty"><div className="our-event-artwork-placeholder"><span className="our-event-artwork-brand">ICSH</span><span>Event poster coming soon</span></div></div>
  </article>;
 }

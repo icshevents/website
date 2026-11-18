@@ -157,3 +157,7 @@ button,input,select,textarea{font-family:var(--font-body)}
 
 /* Rounded, paired surfaces inspired by the supplied reference layout. */
 @media(min-width:861px){.our-events-section .our-event-list>.our-event-panel{gap:0;padding:0;border-radius:28px;overflow:hidden}.our-events-section .our-event-panel .our-event-summary{padding:36px 38px}.our-event-artwork{border:0;border-left:1px solid var(--line);border-radius:0}}
+
+/* Use the full event feature width when no poster has been uploaded. */
+.our-events-section .our-event-list>.our-event-panel--no-poster{grid-template-columns:minmax(0,1fr)}
+.our-events-section .our-event-panel--no-poster .our-event-summary{min-height:0}

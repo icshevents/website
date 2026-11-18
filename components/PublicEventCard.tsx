@@ -15,7 +15,7 @@ export default function PublicEventCard({event:e}:{event:PublicEvent}){
  const bookingButton=Boolean(bookingUrl)&&!cancelled&&(state==='Open'||e.sourceType==='iftari');
  const posterClickable=e.slug==='icsh-winter-lunch-2026'&&Boolean(bookingUrl)&&!cancelled;
  const poster=<img className="public-event-poster" src={c.image} alt={c.title+' poster or leaflet'}/>;
- return <article className="panel our-event-panel" id={e.slug}>
+ return <article className={"panel our-event-panel"+(c.image?"":" our-event-panel--no-poster")} id={e.slug}>
   <div className="our-event-summary">
    <div className="our-event-copy">
     <span className="tag">{cancelled?'Cancelled':e.sourceType==='iftari'?'Ramadan · Community gathering':'ICSH community event'}</span>
@@ -36,8 +36,8 @@ export default function PublicEventCard({event:e}:{event:PublicEvent}){
     </div>
    </div>
   </div>
-  <div className={'our-event-artwork'+(c.image?'':' our-event-artwork--empty')}>
-   {c.image?(posterClickable?<a href={bookingUrl} aria-label={'Book your places for '+c.title}>{poster}</a>:poster):<div className="our-event-artwork-placeholder"><span className="our-event-artwork-brand">ICSH</span><span>Event poster coming soon</span></div>}
-  </div>
+  {c.image&&<div className="our-event-artwork">
+   {posterClickable?<a href={bookingUrl} aria-label={'Book your places for '+c.title}>{poster}</a>:poster}
+  </div>}
  </article>;
 }
