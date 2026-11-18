@@ -6,7 +6,7 @@ const price = z.number().int().min(0).max(1000000).refine(v=>v===0||v>=30,'Paid 
 export const eventContentSchema = z.object({
  title:z.string().trim().min(1).max(140), description:z.string().trim().min(1).max(6000),
  startsAt:timestamp, endsAt:timestamp, venue:z.string().trim().min(1).max(240), address:z.string().trim().max(500),
- image:z.string().max(1000).refine(v=>v===''||/^\/(?:assets\/[\w/.-]+|api\/events-image\/[a-f0-9-]{36})$/.test(v),'Upload an image or use an existing ICSH image.'),
+ image:z.string().max(1000).refine(v=>v===''||/^\/(?:assets\/[\w/.-]+|event-posters\/[\w-]+\.(?:jpe?g|png|webp)|api\/events-image\/[a-f0-9-]{36})$/.test(v),'Upload an image or use an existing ICSH image.'),
  childTickets:z.boolean(),
  bookingType:z.enum(['information','free','paid','external']), externalUrl:z.string().max(1200).refine(v=>!v||safeBookingUrl(v),'Enter a secure HTTPS booking link.'),
  capacity:z.number().int().min(1).max(10000).nullable(), bookingOpens:timestamp.nullable(), bookingCloses:timestamp.nullable(), bookingEnabled:z.boolean(),
