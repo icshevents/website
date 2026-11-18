@@ -6,7 +6,7 @@ import type {PublicEvent} from './events-hub/server';
 type PublishedForm={kind:string;configuration:unknown;created_at?:string};
 export type HomeEventForm={eventId:string;href:string;title:string;label:string;summary:string;date:string;dateLabel:string;venue:string;kind:'participation'|'stall'|'tickets'};
 export type HomeUpcomingEvent={
- id:string;title:string;summary:string;date:string;dateLabel:string;venue:string;
+ id:string;title:string;summary:string;date:string;dateLabel:string;venue:string;image?:string;
  links:{href:string;label:string}[];
 };
 const dateLabel=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'Europe/London'});
@@ -60,7 +60,7 @@ export function selectHomeUpcomingEvents(events:PublicEvent[],now=Date.now()):Ho
   }
   links.set('/events/'+slug,'View event details');
   return {id:event.id,title:content.title,summary:summary(content.description),date:content.startsAt,
-   dateLabel:dateLabel.format(new Date(content.startsAt)),venue:content.venue,
+   dateLabel:dateLabel.format(new Date(content.startsAt)),venue:content.venue,image:content.image,
    links:[...links].map(([href,label])=>({href,label}))};
  });
 }
