@@ -32,3 +32,9 @@ h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:-.015em;
 .booking-tier-meta{display:block;font-size:12px;font-weight:400;line-height:1.4;color:var(--muted);margin-top:2px}
 .ticket-summary-label{font-size:13px;font-weight:600;margin:16px 0 8px}
 .booking-limit-dialog{width:min(480px,calc(100% - 32px));margin:auto;border:1px solid #d8d5cd;border-top:4px solid #123d2a;border-radius:12px;padding:28px;background:#fcf9f5;color:#123d2a;box-shadow:0 20px 70px #0003}.booking-limit-dialog::backdrop{background:#123d2aaa}.booking-limit-dialog h2{font-size:28px}.booking-limit-dialog a{display:block;text-decoration:underline;margin:18px 0}
+
+.stall-hire-choice { border: 0; margin: 0; min-width: 0; padding: 0; }
+.stall-hire-choice legend { font-family: var(--font-display); font-size: clamp(24px, 4vw, 32px); margin-bottom: 12px; padding: 0; }
+.stall-hire-choice .check { cursor: pointer; margin-bottom: 0; }
+.stall-hire-choice .check + .check { margin-top: 10px; }
+.stall-hire-choice input { accent-color: var(--green); }

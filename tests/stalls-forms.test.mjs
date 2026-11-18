@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { defaultStallConfig, hydrateStalls, registerStall, reviewStall, saveStallConfig, duplicateStallForm, simulateStallPayment, stallPaymentAvailable, safeStall, stallCsv, stallEmail, liveStallCheckout } from '../lib/event-forms/stalls.js';
-const state=()=>hydrateStalls({events:[],registrations:[],audit:[],rateLimits:{}});
+import { defaultStallConfig, hydrateStalls, registerStall, reviewStall, saveStallConfig, duplicateStallForm, simulateStallPayment, stallPaymentAvailable, safeStall, stallCsv, stallEmail, liveStallCheckout, publicStallConfig } from '../lib/event-forms/stalls.js';
+const state=()=>hydrateStalls({
+  events:[], registrations:[], audit:[], rateLimits:{},
+  stallForms:[{...defaultStallConfig(),salesDonationEnabled:false}],
+});
 const body=c=>({slug:c.slug,configVersion:c.version,idempotencyKey:randomUUID(),personal:{firstName:'Test',lastName:'Stallholder',phone:'07700900123',email:'stall@example.com',whatsapp:true},business:{name:'Fictional Kitchen',registrationNumber:'',items:'Test packaged snacks',category:'Packaged food',other:'',requirements:'Planning test only'},packageId:'standard',agreements:{hire:true,profit:true,management:true,safety:true,accuracy:true},testData:true,website:''});
 const review=(r,action,notes='Test note')=>({id:r.id,version:r.version,action,notes});
 test('stall fees and provisional terms are server-owned snapshots; validations and private idempotency are enforced',()=>{const s=state(),c=s.stallForms[0],b=body(c),r=registerStall(s,b,'private');assert.equal(r.fee,6500);assert.equal(r.profitSnapshot.percentage,25);assert.equal(r.profitSnapshot.approved,false);assert.equal(r.personal.phone,'+447700900123');assert.equal(r.status,'pending_review');assert.equal(stallPaymentAvailable(r),false);assert.equal(registerStall(s,b,'private').id,r.id);assert.throws(()=>registerStall(s,b,'stranger'),/already submitted/);for(const k of Object.keys(b.agreements))assert.throws(()=>registerStall(s,{...body(c),agreements:{...b.agreements,[k]:false}},'another'));assert.throws(()=>registerStall(s,{...body(c),fee:1},'x'));assert.throws(()=>registerStall(s,{...body(c),business:{...b.business,category:'Other'}},'x'),/Specify/);assert.throws(()=>registerStall(s,{...body(c),personal:{...b.personal,phone:'bad'}},'x'),/phone/);const updated=saveStallConfig(s,{...c,packages:[{...c.packages[0],fee:8500}],profitSharing:{...c.profitSharing,percentage:20}});assert.equal(r.fee,6500);assert.equal(r.profitSnapshot.percentage,25);assert.match(r.agreementSnapshot.hire,/65.00/);assert.throws(()=>registerStall(s,body(c),'x'),/form has changed/);assert.equal(registerStall(s,body(updated),'new').fee,8500);});
@@ -14,4 +17,46 @@ test('private receipts redact notes and keys; CSV neutralises formulas; every un
 test('live stall applications remain unpaid after review and cannot use demo checkout',()=>{
  const s=state(),b=body(s.stallForms[0]);b.testData=false;const r=registerStall(s,b,'live');assert.equal(r.mode,'live');assert.equal(r.testData,false);assert.match(r.reference,/^STALL-[A-F0-9]/);assert.equal(r.payment.provider,'not_connected');assert.equal(r.payment.status,'unpaid');
  reviewStall(s,review(r,'approve'));assert.equal(r.status,'approved_awaiting_payment');assert.equal(stallPaymentAvailable(r),false);assert.throws(()=>simulateStallPayment(r,'success'),/not available/);assert.equal(r.payment.status,'unpaid');
+});
+
+test('the 2026 form offers free hire for all sales and confirms on approval without payment', () => {
+  const s = state();
+  const c = defaultStallConfig();
+  c.startsAt = '2099-12-13T12:00:00.000Z';
+  c.endsAt = '2099-12-13T17:00:00.000Z';
+  s.stallForms = [c];
+  const publicConfig = publicStallConfig(c);
+  assert.equal(publicConfig.profitSharing.approved, true);
+  assert.match(publicConfig.profitSharing.wording, /will not audit/);
+  const {package: donationPackage} = publicConfig.donation;
+  const b = {
+    ...body(c),
+    packageId: donationPackage.id,
+    agreements: {donation:true, management:true, safety:true, accuracy:true},
+  };
+  delete b.business.registrationNumber;
+  assert.throws(() => registerStall(s, {...b, agreements: {...b.agreements, donation:false}}, 'a'), /Accept every/);
+  const r = registerStall(s, b, 'a');
+  assert.equal(r.status, 'pending_review');
+  assert.equal(r.fee, 0);
+  assert.equal(r.payment.status, 'not_required');
+  assert.equal(r.business.registrationNumber, '');
+  assert.equal(r.agreementSnapshot.profit, undefined);
+  assert.match(r.agreementSnapshot.donation, /100%/);
+  assert.equal(stallPaymentAvailable(r), false);
+  reviewStall(s, review(r, 'approve'));
+  assert.equal(r.status, 'confirmed');
+  assert.match(stallEmail(r, 'approved').body, /confirmed.*donate all sales revenue/s);
+  assert.match(stallCsv([r]), /Donate 100% of sales/);
+
+  const paid = registerStall(s, body(c), 'paid');
+  assert.equal(paid.fee, 6500);
+  assert.equal(paid.profitSnapshot.percentage, 25);
+  reviewStall(s, review(paid, 'approve'));
+  assert.equal(paid.status, 'approved_awaiting_payment');
+
+  const otherForm = {...c,slug:'another-stall-form'};
+  s.stallForms = [otherForm];
+  assert.equal(publicStallConfig(otherForm).donation, null);
+  assert.throws(() => registerStall(s, {...b, slug:otherForm.slug,idempotencyKey:randomUUID()}, 'other'), /Choose an available stall package/);
 });
