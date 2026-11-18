@@ -10,8 +10,8 @@ const money=(n:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency
 
 export default function PublicEventCard({event:e}:{event:PublicEvent}){
  const c=e.content,cancelled=e.status==='cancelled',state=cancelled?'Closed':bookingState(c);
- const bookingUrl=c.bookingType==='external'?c.externalUrl:e.sourceType==='iftari'?'/ramadan-iftari-2027':e.sourceType==='tickets'?'/event-tickets/'+e.slug:'';
- const forms=cancelled?[]:e.forms||[];
+ const bookingUrl=c.bookingType==='external'?c.externalUrl:e.sourceType==='iftari'?'/ramadan-iftari-2027':e.sourceType==='tickets'?'/event-tickets/'+(e.bookingSlug||e.slug):'';
+ const forms=cancelled?[]:(e.forms||[]).filter(f=>f.url!==bookingUrl||!c.bookingEnabled);
  const bookingButton=Boolean(bookingUrl)&&!cancelled&&(state==='Open'||e.sourceType==='iftari');
  const posterClickable=e.slug==='icsh-winter-lunch-2026'&&Boolean(bookingUrl)&&!cancelled;
  const poster=<img className="public-event-poster" src={c.image} alt={c.title+' poster or leaflet'}/>;

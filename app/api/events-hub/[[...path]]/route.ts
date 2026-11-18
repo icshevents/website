@@ -114,6 +114,12 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
   }
   if(!req.headers.get('content-type')?.startsWith('application/json'))throw new HubError('Invalid request.',415);
   const body=JSON.parse(await boundedBody(req,32000));
+  if(path==='form/settings'){
+   const stamp=z.iso.datetime({offset:true});
+   const settings=z.object({title:z.string().trim().min(1).max(140),venue:z.string().trim().min(1).max(240),capacity:z.number().int().min(1).max(10000).nullable(),startsAt:stamp,endsAt:stamp,bookingOpens:stamp.nullable(),bookingCloses:stamp.nullable(),rates:z.partialRecord(z.enum(['member','nonmember','child','childNonmember','under5','pensioner','student']),z.number().int().min(0).max(1000000)).nullable().optional()}).strict();
+   const b=z.object({eventId:z.uuid(),formId:z.uuid(),version:z.number().int().nonnegative(),settings}).strict().parse(body);
+   return json(await hubRpc('icsh_hub_form_settings',{p_event:b.eventId,p_form:b.formId,p_version:b.version,p_settings:b.settings}));
+  }
   if(path==='form/duplicate'){const b=z.object({sourceEventId:z.uuid(),sourceFormId:z.uuid(),sourceVersion:z.number().int().nonnegative(),targetEventId:z.uuid(),targetVersion:z.number().int().positive(),title:z.string().trim().min(1).max(140)}).strict().parse(body);return json(await hubRpc('icsh_hub_form_duplicate',{p_source_event:b.sourceEventId,p_source_form:b.sourceFormId,p_source_version:b.sourceVersion,p_target_event:b.targetEventId,p_target_version:b.targetVersion,p_title:b.title}));}
   if(path==='form/save')return json(await hubRpc('icsh_hub_form_save',{p_form:customFormSchema.parse(body)}));
   if(path==='form/state'){const b=z.object({eventId:z.uuid(),formId:z.uuid(),version:z.number().int().nonnegative(),status:z.enum(['published','closed'])}).strict().parse(body);return json(await hubRpc('icsh_hub_form_state',{p_event:b.eventId,p_form:b.formId,p_version:b.version,p_status:b.status}));}

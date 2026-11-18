@@ -1,0 +1,21 @@
+'use client';
+import {useState} from 'react';
+import {londonInput,londonISO} from '@/lib/events-hub/core';
+import {notifyWorkspace} from '@/components/organiser/WorkspaceNotifications';
+export type FormSettingsValue={title:string;capacity:number|null;startsAt:string;endsAt:string;venue:string;bookingOpens:string|null;bookingCloses:string|null;rates?:Record<string,number>|null};
+export type LinkedForm={id:string;title:string;slug:string;kind:string;status:string;version:number;configuration:import('@/lib/events-hub/core').CustomForm|null;settings:FormSettingsValue;capacityState:{maximum:number|null;used:number;remaining:number|null;limitReached:boolean}};
+export default function FormSettings({form,eventId,api,onSaved,onCancel}:{form:LinkedForm;eventId:string;api:(path:string,body?:unknown)=>Promise<any>;onSaved:()=>Promise<void>;onCancel:()=>void}){
+ const [value,setValue]=useState(form.settings),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ const date=(key:'startsAt'|'endsAt'|'bookingOpens'|'bookingCloses')=>value[key]?londonInput(value[key]!):'';
+ const [dates,setDates]=useState({startsAt:date('startsAt'),endsAt:date('endsAt'),bookingOpens:date('bookingOpens'),bookingCloses:date('bookingCloses')});
+ const dateField=(label:string,key:keyof typeof dates,required=false)=><label>{label}<input type="datetime-local" required={required} value={dates[key]} onChange={e=>setDates({...dates,[key]:e.target.value})}/></label>;
+ return <form className="panel hub-fields hub-form-settings" onSubmit={async e=>{e.preventDefault();setBusy(true);setMessage('');notifyWorkspace('Saving form settings…','progress');try{const settings={...value,...Object.fromEntries(Object.entries(dates).map(([k,v])=>[k,v?londonISO(v):null]))};await api('form/settings',{eventId,formId:form.id,version:form.version,settings});await onSaved();notifyWorkspace('Form settings saved.');onCancel();}catch(error){const text=(error as Error).message;setMessage(text);notifyWorkspace(text,'error');}finally{setBusy(false);}}}>
+ <h3>Form details · {form.title}</h3><p>These details and this booking limit apply only to this form. Other years and forms have separate entries and CSV exports.</p>
+ <label>Form title / year<input required maxLength={140} value={value.title} onChange={e=>setValue({...value,title:e.target.value})}/></label>
+ <div className="hub-two"><label>Maximum ticket bookings (private)<input type="number" min={1} max={10000} step={1} required={form.kind==='tickets'} placeholder="No limit set" value={value.capacity??''} onChange={e=>setValue({...value,capacity:e.target.value?Number(e.target.value):null})}/><small>Each adult and child counts as one place. Other sign-up forms count one place per entry. Pending payments reserve places. Only this form closes when its limit is reached.</small></label><label>Venue for this form<input required maxLength={240} value={value.venue} onChange={e=>setValue({...value,venue:e.target.value})}/></label></div>
+ <div className="hub-two">{dateField('Event start (UK)','startsAt',true)}{dateField('Event finish (UK)','endsAt',true)}</div>
+ <div className="hub-two">{dateField('Bookings open (UK, optional)','bookingOpens')}{dateField('Bookings close (UK, optional)','bookingCloses')}</div>
+ {value.rates&&['tickets','iftari'].includes(form.kind)&&<><h4>Ticket prices for this form</h4><div className="hub-two">{Object.entries(value.rates).filter(([k])=>!['pensioner','student'].includes(k)).map(([key,n])=><label key={key}>{({member:'Member adult',nonmember:'Non-member adult',child:'Member child',childNonmember:'Non-member child',under5:'Children under 5'} as Record<string,string>)[key]||key} (£)<input type="number" required min={0} step="0.01" value={n/100} onChange={e=>{const amount=Math.round(Number(e.target.value)*100);setValue({...value,rates:{...value.rates,[key]:amount,...(key==='member'&&form.kind==='tickets'?{pensioner:amount,student:amount}:{})}});}}/></label>)}</div><small>Existing booked prices and payments are retained.</small></>}
+ <p role="status">{message}</p><div className="actions"><button className="button" disabled={busy}>{busy?'Saving…':'Save form settings'}</button><button type="button" className="button outline" disabled={busy} onClick={onCancel}>Cancel</button></div>
+ </form>;
+}

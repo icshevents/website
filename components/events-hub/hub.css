@@ -79,3 +79,5 @@
   .hub-event-row{padding:16px}
   .hub-card-image{width:68px;height:56px}
 }
+
+.hub-form-settings .hub-two{align-items:start}.hub-form-settings label{align-content:start}.hub-managed-form{display:flex;flex-direction:column;align-items:stretch;gap:12px}.hub-managed-form p{margin:6px 0;line-height:1.5}.hub-managed-form .actions{justify-content:flex-start;gap:8px;flex-wrap:wrap}.organiser-workspace .hub-managed-form .button{min-height:38px;padding:8px 12px;font-size:13px}.hub-form-settings h3,.hub-form-settings h4,.hub-form-settings p{margin:0}@media(max-width:600px){.organiser-workspace .hub-managed-form .button{min-height:44px}}

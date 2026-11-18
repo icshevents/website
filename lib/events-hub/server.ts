@@ -6,13 +6,31 @@ export class HubError extends Error {constructor(message:string,public status=40
 export async function hubRpc(name:string,args:Record<string,unknown>={}){
  const token=await portalToken('events');if(!token)throw new HubError('Sign in to the Events Hub.',401);
  const r=await createEventService().rpc(name,{p_token:token,...args});
- if(r.error){const code=r.error.code;throw new HubError(code==='42501'?'Your Events Hub session has expired. Please sign in again.':['40001','23505'].includes(code)?'This record or link changed elsewhere. Reload before saving.':['P0001','22023'].includes(code)?r.error.message:'The Events Hub is temporarily unavailable or awaiting setup.',code==='42501'?401:['40001','23505','P0001'].includes(code)?409:503);}return r.data;
+ if(r.error){const code=r.error.code;throw new HubError(code==='42501'?'Your Events Hub session has expired. Please sign in again.':['40001','23505'].includes(code)?'This record or link changed elsewhere. Reload before saving.':['P0001','22023','P2705'].includes(code)?r.error.message:'The Events Hub is temporarily unavailable or awaiting setup.',code==='42501'?401:['40001','23505','P0001','P2705'].includes(code)?409:503);}return r.data;
 }
 export type EventDetail={capacityState?:{maximum:number|null;used:number;remaining:number|null;limitReached:boolean};event:HubEvent;planning:{notes:string;requirements:string;version:number};tasks:Task[];forms:{id:string;title:string;kind:string}[];history:{action:string;actor:string;occurred_at:string;changes:unknown}[]};
-export type PublicEvent={id:string;slug:string;content:EventContent;status:string;sourceType:string;sourceKey:string|null;forms?:{title:string;url:string}[]};
+export type PublicEvent={id:string;slug:string;content:EventContent;status:string;sourceType:string;sourceKey:string|null;bookingSlug?:string|null;bookingKey?:string|null;forms?:{title:string;url:string}[]};
 export async function publicEvents(slug?:string):Promise<PublicEvent[]|null>{
  if(process.env.ICSH_EVENTS_HUB_ENABLED!=='true')return null;
- try{const r=await createEventService().rpc('icsh_events_public',{p_slug:slug||null});if(r.error)throw Error('Event catalogue unavailable');return await Promise.all((r.data as PublicEvent[]).map(async e=>{const state=await createEventService().rpc('icsh_event_capacity',{p_event:e.id});if(state.error)throw Error('Event availability unavailable');return {...e,content:{...e.content,capacity:null,bookingEnabled:e.content.bookingEnabled&&!state.data?.limitReached}};}));}catch{throw new HubError('Events are temporarily unavailable. Please try again shortly.',503);}
+ try{
+  const db=createEventService(),r=await db.rpc('icsh_events_public',{p_slug:slug||null});
+  if(r.error)throw Error('Event catalogue unavailable');
+  const events=await Promise.all((r.data as PublicEvent[]).map(async e=>{
+   const state=await db.rpc(e.bookingKey?'icsh_form_capacity':'icsh_event_capacity',e.bookingKey?{p_form:e.bookingKey}:{p_event:e.id});
+   if(state.error)throw Error('Event availability unavailable');
+   let content={...e.content,capacity:null,bookingEnabled:e.content.bookingEnabled&&!state.data?.limitReached&&(e.sourceType!=='tickets'||Boolean(e.bookingKey))};
+   const form=e.bookingKey?await db.from('icsh_forms').select('configuration').eq('id',e.bookingKey).single():e.sourceType==='iftari'?await db.from('icsh_iftari_settings').select('configuration').eq('slug',e.sourceKey!).single():null;
+   if(form?.error)throw Error('Booking form unavailable');
+   const cfg=form?.data?.configuration;
+   if(cfg){
+    const rates=cfg.rates||cfg.prices;
+    content={...content,startsAt:cfg.startsAt||content.startsAt,endsAt:cfg.endsAt||content.endsAt,venue:cfg.venue||content.venue,address:'',bookingOpens:cfg.bookingOpens||null,bookingCloses:cfg.bookingCloses||null,bookingEnabled:content.bookingEnabled&&cfg.status==='published',
+     ...(rates?{childTickets:rates.child!==undefined,prices:{member:rates.member,nonmember:rates.nonmember,child:rates.child??0,childNonmember:rates.childNonmember??rates.child??0,under5:rates.under5??0}}:{})};
+   }
+   return {...e,content};
+  }));
+  return events.sort((a,b)=>Date.parse(a.content.startsAt)-Date.parse(b.content.startsAt));
+ }catch{throw new HubError('Events are temporarily unavailable. Please try again shortly.',503);}
 }
 export async function allEntries(eventId:string,formId:string|null){const out:Entry[]=[];for(let page=0;;page++){const r=await hubRpc('icsh_hub_entries',{p_event:eventId,p_page:page,p_form:formId}) as {entries:Entry[];total:number};out.push(...r.entries);if(out.length>=r.total||r.entries.length<100)break;if(out.length>20000)throw new HubError('Please export one form at a time.',413);}return out;}
 

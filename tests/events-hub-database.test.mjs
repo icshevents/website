@@ -322,6 +322,84 @@ test('Events Hub isolated PostgreSQL migration and permission regression', {skip
   await db.query("update public.icsh_iftari_bookings set status='refunded' where event_slug=$1",[e.source_key]);
   assert.equal((await rpc('icsh_events_booking_access',['iftari',e.source_key])).canBook,true);
  });
+ await db.exec(fs.readFileSync(new URL('../database/events-hub-form-capacity.sql',import.meta.url),'utf8'));
+ await t.test('annual ticket forms in one workspace retain separate capacities, venues, dates, entries and public links',async()=>{
+  let e=await rpc('icsh_hub_save_live',[token,null,0,'annual-capacity-workspace',{...c,title:'Annual winter lunch',capacity:60},null,'published']);
+  const settings={title:'Winter lunch 2035',capacity:60,startsAt:c.startsAt,endsAt:c.endsAt,venue:'Venue for sixty',bookingOpens:null,bookingCloses:null};
+  let first=(await rpc('icsh_hub_forms',[token,e.id]))[0];
+  await rpc('icsh_hub_form_settings',[token,e.id,first.id,first.version,settings]);
+  first=(await rpc('icsh_hub_forms',[token,e.id]))[0];
+  const attendees=Array.from({length:60},(_,i)=>({name:'Fictional guest '+i}));
+  await db.query("insert into public.icsh_submissions(form_id,mode,answers) values($1,'live',$2)",[first.id,{record:{status:'pending',attendees}}]);
+  const copy=await rpc('icsh_hub_form_duplicate',[token,e.id,first.id,first.version,e.id,e.version,'Winter lunch 2036']);
+  assert.notEqual(copy.id,first.id);assert.equal(copy.eventId,e.id);
+  let next=(await rpc('icsh_hub_forms',[token,e.id])).find(f=>f.id===copy.id);assert.equal(next.status,'draft');assert.equal(next.capacityState.used,0);
+  await rpc('icsh_hub_form_settings',[token,e.id,next.id,next.version,{...settings,title:'Winter lunch 2036',capacity:40,venue:'Smaller venue for forty',startsAt:'2036-12-27T13:00:00Z',endsAt:'2036-12-27T16:00:00Z'}]);
+  next=(await rpc('icsh_hub_forms',[token,e.id])).find(f=>f.id===copy.id);
+  await rpc('icsh_hub_form_state',[token,e.id,next.id,next.version,'published']);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',first.slug])).limitReached,true);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',next.slug])).canBook,true);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',next.id])).canBook,true);
+  await db.query("insert into public.icsh_submissions(form_id,mode,answers) values($1,'live',$2)",[next.id,{record:{status:'pending',attendees:attendees.slice(0,40)}}]);
+  assert.equal((await rpc('icsh_form_capacity',[next.id])).used,40);assert.equal((await rpc('icsh_form_capacity',[first.id])).used,60);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',next.slug])).limitReached,true);
+  await assert.rejects(db.query("insert into public.icsh_submissions(form_id,mode,answers) values($1,'live',$2)",[next.id,{record:{status:'pending',attendees:[{name:'Extra'}]}}]),/Maximum event bookings/);
+  assert.equal((await rpc('icsh_hub_entries',[token,e.id,0,first.id])).total,1);assert.equal((await rpc('icsh_hub_entries',[token,e.id,0,next.id])).total,1);
+  const before=(await db.query('select id,configuration from public.icsh_forms where id in ($1,$2) order by id',[first.id,next.id])).rows;
+  e=(await rpc('icsh_hub_event',[token,e.id])).event;
+  await rpc('icsh_hub_save_live',[token,e.id,e.version,e.slug,{...e.draft,capacity:1,venue:'New website venue',title:'Updated annual workspace'},null,'published']);
+  assert.deepEqual((await db.query('select id,configuration from public.icsh_forms where id in ($1,$2) order by id',[first.id,next.id])).rows,before);
+  const publicEvent=(await rpc('icsh_events_public',[e.slug]))[0];assert.ok(publicEvent.forms.some(f=>f.url==='/event-tickets/'+next.slug));
+  next=(await rpc('icsh_hub_forms',[token,e.id])).find(f=>f.id===copy.id);
+  await assert.rejects(rpc('icsh_hub_form_settings',[token,e.id,next.id,next.version,{...next.settings,capacity:39}]),/below this form/);
+  await assert.rejects(rpc('icsh_hub_form_settings',[token,e.id,next.id,next.version-1,{...next.settings,capacity:50}]),/changed elsewhere/);
+  await rpc('icsh_hub_form_settings',[token,e.id,next.id,next.version,{...next.settings,capacity:41}]);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',next.slug])).canBook,true);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',first.slug])).canBook,false);
+ });
+ await t.test('a full custom form does not close other linked forms; question edits keep private settings',async()=>{
+  let e=(await db.query("select * from public.icsh_events where slug='annual-capacity-workspace'")).rows[0];
+  const input={id:null,eventId:e.id,version:0,title:'Annual special signup',slug:'annual-special-signup',description:'Fictional',status:'published',fields:[{id:'name',label:'Name',type:'name',required:true,options:[]}]};
+  const custom=await rpc('icsh_hub_form_save',[token,input]);let f=(await rpc('icsh_hub_forms',[token,e.id])).find(f=>f.id===custom.id);
+  await rpc('icsh_hub_form_settings',[token,e.id,f.id,f.version,{...f.settings,capacity:1,venue:'Separate custom venue'}]);
+  f=(await rpc('icsh_hub_forms',[token,e.id])).find(f=>f.id===custom.id);
+  const updated=await rpc('icsh_hub_form_save',[token,{...input,id:f.id,version:f.version,description:'Updated questions'}]);
+  assert.equal(updated.capacity,1);assert.equal(updated.venue,'Separate custom venue');
+  const requestId='00000000-0000-4000-8000-000000000981',hash='e'.repeat(64);
+  const result=await rpc('icsh_custom_form_submit',[f.slug,requestId,updated.version,{name:'Only place'},hash]);
+  const view=await rpc('icsh_custom_form_public',[f.slug]);assert.equal(view.limitReached,true);assert.equal(view.open,false);assert.equal(view.capacity,undefined);
+  assert.deepEqual(await rpc('icsh_custom_form_submit',[f.slug,requestId,updated.version,{name:'Only place'},hash]),result);
+  await assert.rejects(rpc('icsh_custom_form_submit',[f.slug,'00000000-0000-4000-8000-000000000982',updated.version,{name:'Extra'},hash]),/Maximum event bookings/);
+  const ticket=(await rpc('icsh_hub_forms',[token,e.id])).find(x=>x.title==='Winter lunch 2036');assert.equal((await rpc('icsh_events_booking_access',['tickets',ticket.slug])).canBook,true);
+  for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(rpc('icsh_form_capacity',[f.id]),/permission denied/);await assert.rejects(rpc('icsh_hub_form_settings',[token,e.id,f.id,updated.version,f.settings]),/permission denied/);await db.exec('reset role');}
+  await assert.rejects(rpc('icsh_hub_form_settings',[membership,e.id,f.id,updated.version,f.settings]),/Sign in/);
+  const unrelated=(await rpc('icsh_hub_forms',[token,event.id]))[0];await assert.rejects(rpc('icsh_hub_form_settings',[token,e.id,unrelated.id,unrelated.version,unrelated.settings]),/access denied/);
+ });
+ await t.test('form settings and availability use the form year even when the workspace date is past',async()=>{
+  const e=(await db.query("select * from public.icsh_events where slug='annual-capacity-workspace'")).rows[0];
+  await db.query("update public.icsh_events set published=jsonb_set(published,'{startsAt}','\"2000-01-01T12:00:00Z\"') where id=$1",[e.id]);
+  const next=(await rpc('icsh_hub_forms',[token,e.id])).find(x=>x.title==='Winter lunch 2036');
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',next.slug])).canBook,true);
+  await rpc('icsh_hub_form_state',[token,e.id,next.id,next.version,'closed']);
+  assert.equal((await rpc('icsh_events_booking_access',['tickets',next.slug])).canBook,false);
+ });
+ await t.test('same-form final-place requests are serialised and legacy ticket submissions return the full-limit error',async()=>{
+  const e=await rpc('icsh_hub_save_live',[token,null,0,'form-final-place',{...c,title:'Final place fixture',capacity:1},null,'published']);
+  const f=(await rpc('icsh_hub_forms',[token,e.id]))[0];
+  const results=await Promise.allSettled([1,2].map(n=>db.query("insert into public.icsh_submissions(form_id,mode,answers) values($1,'live',$2)",[f.id,{record:{status:'pending',attendees:[{name:'Fictional '+n}]}}])));
+  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal((await rpc('icsh_form_capacity',[f.id])).used,1);
+  const change={table:'submissions',expected_version:null,form_version:f.version,data:{id:'00000000-0000-4000-8000-000000000989',form_id:f.id,mode:'live',status:'new',submitted_at:new Date().toISOString(),request_key:'fictional-full-form',answers:{record:{mode:'live',status:'pending',attendees:[{name:'Extra'}]}}}};
+  await assert.rejects(rpc('icsh_event_write',[[change],[]]),error=>error.code==='P2801');
+ });
+ await t.test('native Iftari settings have their own limit and cannot be overwritten by workspace publication',async()=>{
+  let e=(await db.query("select * from public.icsh_events where source_type='iftari'")).rows[0];
+  const form=(await rpc('icsh_hub_forms',[token,e.id])).find(f=>f.kind==='iftari');assert.ok(form);
+  await rpc('icsh_hub_form_settings',[token,e.id,form.id,form.version,{...form.settings,capacity:2,venue:'Private Iftari form venue'}]);
+  const before=(await db.query('select configuration from public.icsh_iftari_settings where slug=$1',[e.source_key])).rows[0].configuration;
+  await rpc('icsh_hub_save_live',[token,e.id,e.version,e.slug,{...e.draft,capacity:99},null,'published']);
+  assert.deepEqual((await db.query('select configuration from public.icsh_iftari_settings where slug=$1',[e.source_key])).rows[0].configuration,before);
+  assert.equal((await rpc('icsh_form_capacity',[form.id])).maximum,2);
+ });
  await t.test('audits include timestamp and password-assigned actor; logout revokes Events access without revoking membership',async()=>{
   const history=(await rpc('icsh_hub_event',[token,event.id])).history;assert.ok(history.length>0);assert.equal(history[0].actor,'Fictional organiser');assert.ok(history[0].occurred_at);
   await rpc('icsh_portal_end',[token,'events']);await assert.rejects(rpc('icsh_hub_dashboard',[token]),/Sign in/);assert.ok(await rpc('icsh_portal_check',[membership,'membership']));
