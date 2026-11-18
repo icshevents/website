@@ -60,7 +60,7 @@
 @media(max-width:600px){.organiser-workspace .hub-shell .button{min-height:44px}.hub-event-forms-actions{align-items:stretch;flex-direction:column}.hub-event-forms-actions .button{align-self:flex-start;max-width:100%;white-space:normal;text-align:left}}
 
 
-.hub-booked-guests{display:flex;flex:none;gap:clamp(12px,2vw,24px);margin:0;text-align:center;font-variant-numeric:tabular-nums}
+.hub-booked-guests{display:flex;flex-wrap:wrap;flex:none;gap:clamp(8px,1.5vw,22px);margin:0;text-align:center;font-variant-numeric:tabular-nums}
 .hub-booked-guests>div{display:flex;flex-direction:column}
 .hub-booked-guests dt,.hub-booking-count-unavailable{font-size:12px;color:var(--muted)}
 .hub-booked-guests dd{order:-1;margin:0;color:var(--ink);font-size:28px;line-height:1.15;font-weight:700}
@@ -70,6 +70,7 @@
   .hub-event-row .hub-event-controls .button{margin-left:0}
 }
 @media(max-width:600px){
+  .hub-booked-guests{flex:1 1 auto;justify-content:flex-start}
   .hub-event-summary{flex-wrap:wrap}
   .hub-event-text{flex-basis:100%}
   .hub-card-image{margin-left:auto}
