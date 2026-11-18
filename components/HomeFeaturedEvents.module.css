@@ -1,30 +1,145 @@
-.section{background:#f5f1e9;padding:42px 0 38px;border-block:1px solid var(--line)}
+/* Featured events: a compact, richly coloured editorial spotlight. */
+.section{
+ background:#f1eee5;
+ padding:42px 0 38px;
+ border-block:1px solid var(--line);
+}
 .heading{display:flex;justify-content:space-between;align-items:end;gap:22px;margin-bottom:25px}
 .heading h2{margin:0;font-size:clamp(30px,3vw,43px)}
 .heading>a{flex-shrink:0;margin-bottom:6px}
-.viewport{overflow:hidden;border-radius:20px}
-.card{display:grid;grid-template-columns:minmax(0,1.07fr) minmax(0,.93fr);align-items:stretch;min-height:292px;border:1px solid #cad3c8;border-radius:20px;background:#fffcf7;color:var(--green);overflow:hidden;position:relative;animation:enter .42s ease both}
-.card:hover{border-color:#9aaf9e;box-shadow:0 12px 26px #123d2a10}
-.card:focus-visible{outline:3px solid var(--green);outline-offset:-4px}
+.viewport{overflow:hidden;border-radius:21px}
+.card{
+ display:grid;
+ grid-template-columns:minmax(0,1fr) clamp(290px,29%,390px);
+ align-items:stretch;
+ min-height:400px;
+ position:relative;
+ overflow:hidden;
+ border:1px solid #2e5b46;
+ border-radius:21px;
+ background:linear-gradient(125deg,#1b4836 0%,#123d2a 75%);
+ color:#fbf7ee;
+ box-shadow:0 12px 25px rgba(24,57,42,.12);
+ animation:enter .42s ease both;
+ transition:box-shadow .2s ease,border-color .2s ease;
+}
+.card:hover{border-color:#8caa8e;box-shadow:0 16px 30px rgba(24,57,42,.2)}
+.card:focus-visible{outline:3px solid #eed6a0;outline-offset:-4px}
 .noPoster{grid-template-columns:minmax(0,1fr)}
-.details{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding:30px clamp(25px,3.5vw,45px)}
-.label{font-size:10px;letter-spacing:1.6px;text-transform:uppercase;font-weight:700;color:#647a64}
-.details h3{font-size:clamp(29px,3.2vw,42px);margin:12px 0 14px;line-height:1.15}
-.date,.venue{font-size:14px;line-height:1.55;margin:0 0 5px;color:var(--green)}
-.date{font-weight:700}.venue{font-weight:500}
-.description{font-size:14px;line-height:1.65;margin:14px 0 22px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
-.readMore{margin-top:auto;display:inline-flex;align-items:center;gap:14px;padding-bottom:4px;border-bottom:1px solid #8daa97;font-size:13px;font-weight:700}
-.card:hover .readMore{border-color:currentColor}
-.artwork{position:relative;min-width:0;min-height:292px;border-left:1px solid #e2dfd5;background:#fff}
-.artwork img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
+.details{
+ display:flex;
+ flex-direction:column;
+ align-items:flex-start;
+ min-width:0;
+ padding:36px clamp(26px,3.6vw,54px);
+}
+.label{
+ font-size:10px;
+ letter-spacing:1.6px;
+ text-transform:uppercase;
+ font-weight:700;
+ color:#e8d39e;
+}
+.details h3{
+ font-size:clamp(30px,3.2vw,44px);
+ margin:17px 0 19px;
+ line-height:1.12;
+ color:#fffaf1;
+}
+.date,.venue{font-size:14px;line-height:1.6;margin:0 0 6px;color:#edf2e8}
+.date{font-weight:700;color:#f6e2b5}
+.venue{font-weight:500}
+.description{
+ font-size:14px;
+ line-height:1.72;
+ margin:16px 0 25px;
+ max-width:650px;
+ color:#dce8dd;
+ display:-webkit-box;
+ -webkit-line-clamp:3;
+ -webkit-box-orient:vertical;
+ overflow:hidden;
+ white-space:normal;
+}
+.readMore{
+ margin-top:auto;
+ display:inline-flex;
+ align-items:center;
+ gap:14px;
+ padding:10px 17px;
+ background:#f1dfbc;
+ border:1px solid #f1dfbc;
+ border-radius:5px;
+ color:#143d2d;
+ font-size:13px;
+ font-weight:700;
+ transition:background .2s ease,transform .2s ease;
+}
+.card:hover .readMore{background:#ffedc8;transform:translateY(-1px)}
+.artwork{
+ position:relative;
+ min-width:0;
+ min-height:400px;
+ overflow:hidden;
+ isolation:isolate;
+ display:grid;
+ place-items:center;
+ background:radial-gradient(circle at 25% 20%,rgba(222,202,145,.18),transparent 43%),linear-gradient(145deg,#33674d 0%,#1e4938 64%,#153d2e 100%);
+ border-left:1px solid rgba(244,228,190,.16);
+}
+.artwork::before{
+ content:'';
+ position:absolute;
+ inset:22px 17px;
+ border:1px solid rgba(243,226,180,.24);
+ border-radius:180px 180px 16px 16px;
+ pointer-events:none;
+}
+.artwork img{
+ position:relative;
+ z-index:1;
+ display:block;
+ width:100%;
+ height:100%;
+ max-height:100%;
+ padding:13px 16px;
+ object-fit:contain;
+ object-position:center;
+ filter:drop-shadow(0 8px 12px rgba(9,29,21,.25));
+}
 .controls{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:17px}
 .dots,.arrows{display:flex;align-items:center;gap:9px}
 .dot{width:11px;height:11px;border:1px solid #6e8e77;background:transparent;border-radius:50%;padding:0}
 .selected{background:var(--green);border-color:var(--green)}
-.arrows button{display:grid;place-items:center;width:40px;height:40px;border:1px solid #a9b8a7;border-radius:50%;background:#fffcf7;color:var(--green);font-size:22px}
+.arrows button{
+ display:grid;
+ place-items:center;
+ width:40px;
+ height:40px;
+ border:1px solid #a9b8a7;
+ border-radius:50%;
+ background:#fffcf7;
+ color:var(--green);
+ font-size:22px;
+}
 .arrows button:hover{background:var(--green);color:#fff}
 .dots button:focus-visible,.arrows button:focus-visible{outline:3px solid var(--green);outline-offset:3px}
-@media(max-width:780px){.section{padding:31px 0}.card{grid-template-columns:minmax(0,1fr)}.details{padding:25px}.artwork{height:275px;min-height:0;border-left:0;border-top:1px solid #e2dfd5}.heading{align-items:start;gap:15px}.heading h2{font-size:32px}}
-@media(max-width:520px){.heading{flex-direction:column;gap:12px}.heading>a{margin-bottom:0}.details h3{font-size:31px}.artwork{height:300px}.card{border-radius:14px}.viewport{border-radius:14px}}
-@media(prefers-reduced-motion:reduce){.card{animation:none}}
+@media(max-width:780px){
+ .section{padding:31px 0}
+ .card{grid-template-columns:minmax(0,1fr)}
+ .details{padding:29px}
+ .artwork{height:370px;min-height:0;border-left:0;border-top:1px solid rgba(244,228,190,.16)}
+ .heading{align-items:start;gap:15px}
+ .heading h2{font-size:32px}
+}
+@media(max-width:520px){
+ .heading{flex-direction:column;gap:12px}
+ .heading>a{margin-bottom:0}
+ .details{padding:26px}
+ .details h3{font-size:31px}
+ .artwork{height:360px}
+ .card{border-radius:15px;min-height:0}
+ .viewport{border-radius:15px}
+}
+@media(prefers-reduced-motion:reduce){.card{animation:none}.readMore{transition:none}}
 @keyframes enter{from{opacity:.68;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
