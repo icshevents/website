@@ -93,6 +93,17 @@
   font-weight: 700;
 }
 
+.bookingStatus {
+  display: table;
+  margin: 9px 18px 4px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: #f1e5cc;
+  color: #493716;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .action {
   display: flex;
   justify-content: space-between;

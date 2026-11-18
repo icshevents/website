@@ -6,7 +6,7 @@ import type {PublicEvent} from './events-hub/server';
 type PublishedForm={kind:string;configuration:unknown;created_at?:string};
 export type HomeEventForm={eventId:string;href:string;title:string;label:string;summary:string;date:string;dateLabel:string;venue:string;kind:'participation'|'stall'|'tickets'};
 export type HomeUpcomingEvent={
- id:string;title:string;summary:string;date:string;dateLabel:string;venue:string;image?:string;
+ id:string;title:string;summary:string;date:string;dateLabel:string;venue:string;image?:string;bookingNotYetOpen?:boolean;
  links:{href:string;label:string}[];
 };
 const dateLabel=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'Europe/London'});
@@ -47,7 +47,11 @@ export function selectHomeUpcomingEvents(events:PublicEvent[],now=Date.now()):Ho
  return upcomingPublicEvents(events,now).map(event=>{
   const {content,slug,sourceType,bookingSlug}=event;
   const links=new Map<string,string>();
-  const open=bookingState(content,0,now)==='Open';
+  const state=bookingState(content,0,now);
+  const open=state==='Open';
+  const bookingNotYetOpen=!event.bookingLimitReached&&content.bookingType!=='information'
+   && now<Date.parse(content.startsAt)&&(!content.bookingCloses||now<Date.parse(content.bookingCloses))
+   && (content.bookingOpens ? now<Date.parse(content.bookingOpens) : !content.bookingEnabled);
   const href=content.bookingType==='external'&&safeBookingUrl(content.externalUrl)?content.externalUrl
     :sourceType==='iftari'?'/ramadan-iftari-2027'
     :sourceType==='tickets'&&bookingSlug?'/event-tickets/'+bookingSlug:'';
@@ -60,7 +64,7 @@ export function selectHomeUpcomingEvents(events:PublicEvent[],now=Date.now()):Ho
   }
   links.set('/events/'+slug,'View event details');
   return {id:event.id,title:content.title,summary:summary(content.description),date:content.startsAt,
-   dateLabel:dateLabel.format(new Date(content.startsAt)),venue:content.venue,image:content.image,
+   dateLabel:dateLabel.format(new Date(content.startsAt)),venue:content.venue,image:content.image,bookingNotYetOpen,
    links:[...links].map(([href,label])=>({href,label}))};
  });
 }
