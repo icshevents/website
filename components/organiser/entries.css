@@ -1,5 +1,5 @@
 .entry-table{margin:28px 0}.entry-table-tools{display:flex;gap:20px;align-items:end;justify-content:space-between}.entry-table-tools label{display:grid;gap:8px;flex:1;max-width:620px;font-weight:600;font-size:15px}.entry-table-tools input{width:100%;font:inherit;padding:12px;border:1px solid #bdc9bf;border-radius:6px;background:white;color:var(--ink)}.entry-table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px}.entry-table table{width:100%;border-collapse:collapse;font-size:14px}.entry-table caption{text-align:left;padding:16px;font-weight:700;background:#f3f5ef}.entry-table th,.entry-table td{text-align:left;vertical-align:top;padding:16px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;min-width:130px}.entry-table th{background:#f3f5ef}.entry-table tbody>tr:nth-child(4n+1){background:#fbfcf9}.entry-table .button{font-size:14px;white-space:nowrap}.entry-table-paging{display:flex;gap:18px;justify-content:space-between;align-items:center;margin-top:20px}.entry-table p[role=status]{font-size:14px;color:var(--muted);margin:16px 0 18px;line-height:1.6}@media(max-width:600px){.entry-table-tools{align-items:stretch;flex-direction:column;gap:12px}.entry-table-tools .button{align-self:flex-start}.entry-table-paging{flex-wrap:wrap}.entry-table-paging span{font-size:13px}}
-.entry-table .entry-view-filter{flex:0 1 180px}.entry-table select{font:inherit;padding:11px 12px;border:1px solid #bdc9bf;border-radius:6px;background:white;color:var(--ink);min-width:155px}.entry-table small{display:block;margin-top:6px}.entry-table .entry-delete{color:#943e36;border-color:#c7a29c}.entry-management-note{font-size:13px;max-width:1000px;color:var(--muted);line-height:1.6}
+.entry-table .entry-view-filter{flex:0 1 180px}.entry-table select{font:inherit;padding:11px 12px;border:1px solid #bdc9bf;border-radius:6px;background:white;color:var(--ink);min-width:155px}.entry-table small{display:block;margin-top:6px}.entry-management-note{font-size:13px;max-width:1000px;color:var(--muted);line-height:1.6}
 
 /* Compact, aligned controls in both organiser hubs. */
 .organiser-workspace .entry-table table{font-size:13px;line-height:1.5}
@@ -14,5 +14,17 @@
 .organiser-workspace .entry-table-tools input{min-height:38px;padding:8px 10px;font-size:14px}
 .organiser-workspace .entry-table-tools label{font-size:13px}
 .organiser-workspace .entry-table-paging{gap:12px;margin-top:16px;font-size:13px}
-.organiser-workspace .entry-table .entry-action-cell .entry-delete{color:#943e36;border-color:#c7a29c}
+.entry-table .entry-action-cell .button.entry-delete{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ width:38px;
+ min-width:38px;
+ min-height:38px;
+ padding:0;
+ color:#b42318;
+ border-color:#e4b5b0;
+}
+.entry-table .entry-action-cell .button.entry-delete:not(:disabled):hover{background:#fdf0ef;border-color:#b42318;color:#b42318}
+@media(max-width:600px){.entry-table .entry-action-cell .button.entry-delete{width:44px;min-width:44px;min-height:44px}}
 @media(max-width:600px){.organiser-workspace .entry-table .button,.organiser-workspace .entry-table select{min-height:44px;height:auto}.organiser-workspace .entry-table .entry-view-filter{flex-basis:auto}.organiser-workspace .entry-table-paging span{order:3;flex-basis:100%;text-align:center}}

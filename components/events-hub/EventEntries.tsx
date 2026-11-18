@@ -18,7 +18,7 @@ export default function EventEntries({entries,busy,demo,onReview,eventId,filenam
     management={{kind:'event',eventId,demo}}
     title="Event form entries"
     filename={filename}
-    columns={['Reference','Form','Name','Contact','Submitted (UK)','Booking status','Review status']}
+    columns={['Form','Name','Contact','Submitted (UK)','Booking status','Review status']}
     entries={entries.map(entry => {
       const flat = entryValues(entry.details);
       const find = (part:string) => Object.entries(flat).filter(([key]) => key.toLowerCase().includes(part))
@@ -31,7 +31,7 @@ export default function EventEntries({entries,busy,demo,onReview,eventId,filenam
         id: entry.id,
         kind: entry.kind === 'iftari' ? 'iftari' as const : 'event' as const,
         cells: [
-          entry.reference || entry.id, entry.formTitle, (booking ? booking.booker : find('name')) || '—',
+          entry.formTitle, (booking ? booking.booker : find('name')) || '—',
           find('email') || find('mobile') || '—', entryDate(entry.submittedAt),
           booking ? <div>
             {bookingStatus}
