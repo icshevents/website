@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {selectHomeEventForms} from '../lib/home-event-forms.ts';
+import {groupHomeEventForms,selectHomeEventForms,selectHomeUpcomingEvents} from '../lib/home-event-forms.ts';
 const now=Date.parse('2026-10-26T00:00:00Z');
 const base={status:'published',startsAt:'2026-12-13T12:00:00Z',endsAt:'2026-12-13T17:00:00Z',venue:'Harrow',eventName:'Community festival'};
 const ticket=(id,created_at,changes={})=>({kind:'event',created_at,configuration:{...base,id,title:`Event ${id}`,slug:`event-${id}`,description:'A community gathering.',rates:{standard:2000},...changes}});
@@ -13,12 +13,15 @@ test('only open public forms survive deadlines, status and prototype rules',()=>
  const records=[ticket('public','2026-10-25T00:00:00Z'),ticket('draft','2026-10-25T00:00:00Z',{status:'draft'}),ticket('private','2026-10-25T00:00:00Z',{prototype:true}),ticket('past','2026-10-25T00:00:00Z',{startsAt:'2026-10-25T12:00:00Z'}),stall({deadline:'2026-10-26T00:00:00Z'})];
  assert.equal(selectHomeEventForms(records,now).length,1);
 });
-test('festival and stall cards remain distinct and contain only safe public details',()=>{
+test('the fallback groups both festival forms onto one card with safe public details',()=>{
  const records=[stall(),{kind:'participation',created_at:'2026-10-24T00:00:00Z',configuration:{...base,privateNotes:'PRIVATE_SENTINEL'}}];
  const forms=selectHomeEventForms(records,now);
  assert.deepEqual(forms.map(f=>f.kind),['stall','participation']);
  assert.equal(forms[1].href,'/harrow-food-festival-2026/get-involved');
  assert.equal(forms[0].dateLabel,'13 December 2026');
+ const cards=groupHomeEventForms(forms);
+ assert.equal(cards.length,1);
+ assert.deepEqual(cards[0].links.map(link=>link.href),['/stall-hire/festival-stalls','/harrow-food-festival-2026/get-involved']);
  assert.doesNotMatch(JSON.stringify(forms),/PRIVATE_SENTINEL|privateNotes|configuration|created_at/);
 });
 test('bad configurations and unsafe URLs cannot hide valid forms or escape the public route list',()=>{
@@ -32,4 +35,30 @@ test('all open forms remain available for navigation beyond the first four',()=>
 test('duplicates collapse to a single destination and missing creation dates sort last',()=>{
  const forms=selectHomeEventForms([ticket('same','2026-10-01T00:00:00Z'),ticket('same','2026-10-25T00:00:00Z',{title:'Newest version'}),ticket('undated',undefined)],now);
  assert.equal(forms.length,2);assert.equal(forms[0].title,'Newest version');assert.equal(forms[1].title,'Event undated');
+});
+
+test('published events appear as individual chronological cards, even before their bookings open',()=>{
+ const event=(slug,title,startsAt,overrides={})=>({
+  id:slug,slug,sourceType:'none',status:'published',
+  content:{title,startsAt,endsAt:startsAt,venue:'Harrow',description:'Community event',bookingType:'information'},
+  ...overrides,
+ });
+ const festival=event('festival','Food Festival','2026-12-13T12:00:00Z',{
+  forms:[{url:'/stall-hire/festival',title:'Stall application'},{url:'/harrow-food-festival-2026/get-involved',title:'Help out'}],
+ });
+ const lunch=event('winter-lunch','Winter Lunch','2026-12-27T13:00:00Z',{
+  sourceType:'tickets',bookingSlug:'winter-lunch-booking',
+  forms:[{url:'/event-tickets/winter-lunch-booking',title:'Winter Lunch booking'}],
+ });
+ Object.assign(lunch.content,{bookingType:'paid',bookingEnabled:true,capacity:null});
+ const iftari=event('iftari','Ramadan Iftari','2027-02-20T16:45:00Z',{sourceType:'iftari'});
+ Object.assign(iftari.content,{bookingType:'paid',bookingEnabled:false});
+ const cards=selectHomeUpcomingEvents([iftari,lunch,festival,
+  event('past','Past event','2026-10-01T13:00:00Z'),
+  event('hidden','Cancelled event','2026-12-30T13:00:00Z',{status:'cancelled'}),
+ ],now);
+ assert.deepEqual(cards.map(c=>c.title),['Food Festival','Winter Lunch','Ramadan Iftari']);
+ assert.deepEqual(cards[0].links.map(l=>l.label),['Apply for a stall','Cook, donate or volunteer','View event details']);
+ assert.deepEqual(cards[1].links.map(l=>l.href),['/event-tickets/winter-lunch-booking','/events/winter-lunch']);
+ assert.deepEqual(cards[2].links.map(l=>l.href),['/events/iftari']);
 });

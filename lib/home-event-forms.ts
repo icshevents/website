@@ -1,8 +1,15 @@
 import {createEventService} from './event-forms/service.js';
 import {activeParticipationEvents} from './participation-links.ts';
+import {bookingState,safeBookingUrl} from './events-hub/core.ts';
+import type {PublicEvent} from './events-hub/server';
 
 type PublishedForm={kind:string;configuration:unknown;created_at?:string};
-export type HomeEventForm={href:string;title:string;label:string;summary:string;date:string;dateLabel:string;venue:string;kind:'participation'|'stall'|'tickets'};
+export type HomeEventForm={eventId:string;href:string;title:string;label:string;summary:string;date:string;dateLabel:string;venue:string;kind:'participation'|'stall'|'tickets'};
+export type HomeUpcomingEvent={
+ id:string;title:string;summary:string;date:string;dateLabel:string;venue:string;
+ links:{href:string;label:string}[];
+};
+const dateLabel=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'Europe/London'});
 const created=(form:PublishedForm)=>Date.parse(form.created_at??'')||0;
 const summary=(text:string)=>text.length<=180?text:text.slice(0,177).replace(/\s+\S*$/,'')+'…';
 
@@ -15,7 +22,7 @@ export function selectHomeEventForms(records:PublishedForm[],now=Date.now()):Hom
    for(const event of activeParticipationEvents([record],now))for(const form of event.forms){
     const href=new URL(form.url).pathname;
     if(links.has(href))continue;
-    links.set(href,{href,title:event.title,label:form.label,kind:form.kind,date:event.startsAt,dateLabel:new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'Europe/London'}).format(new Date(event.startsAt)),venue:event.venue,
+    links.set(href,{eventId:event.id,href,title:event.title,label:form.label,kind:form.kind,date:event.startsAt,dateLabel:dateLabel.format(new Date(event.startsAt)),venue:event.venue,
      summary:form.kind==='participation'?'Prepare food, volunteer your time or contribute to our community food festival.':form.kind==='stall'?'Bring your food or business to the festival. Apply for a stall, subject to organiser approval.':summary(event.description)});
    }
   }catch{ /* A malformed form must not hide the other valid public forms. */ }
@@ -29,4 +36,41 @@ export async function getHomeEventForms():Promise<{available:boolean;forms:HomeE
   if(result.error)throw result.error;
   return {available:true,forms:selectHomeEventForms(result.data)};
  }catch{return {available:false,forms:[]};}
+}
+
+export function upcomingPublicEvents(events:PublicEvent[],now=Date.now()):PublicEvent[]{
+ return events.filter(({status,content})=>status==='published'&&Date.parse(content.endsAt)>now&&Number.isFinite(Date.parse(content.startsAt)))
+  .sort((a,b)=>Date.parse(a.content.startsAt)-Date.parse(b.content.startsAt));
+}
+
+export function selectHomeUpcomingEvents(events:PublicEvent[],now=Date.now()):HomeUpcomingEvent[]{
+ return upcomingPublicEvents(events,now).map(event=>{
+  const {content,slug,sourceType,bookingSlug}=event;
+  const links=new Map<string,string>();
+  const open=bookingState(content,0,now)==='Open';
+  const href=content.bookingType==='external'&&safeBookingUrl(content.externalUrl)?content.externalUrl
+    :sourceType==='iftari'?'/ramadan-iftari-2027'
+    :sourceType==='tickets'&&bookingSlug?'/event-tickets/'+bookingSlug:'';
+  if(open&&href)links.set(href,'Book your places');
+  for(const form of event.forms??[]){
+   if(form.url.startsWith('/event-tickets/')&&(!open||form.url===href))continue;
+   const label=form.url.startsWith('/stall-hire/')?'Apply for a stall'
+    :form.url==='/harrow-food-festival-2026/get-involved'?'Cook, donate or volunteer':form.title;
+   links.set(form.url,label);
+  }
+  links.set('/events/'+slug,'View event details');
+  return {id:event.id,title:content.title,summary:summary(content.description),date:content.startsAt,
+   dateLabel:dateLabel.format(new Date(content.startsAt)),venue:content.venue,
+   links:[...links].map(([href,label])=>({href,label}))};
+ });
+}
+
+export function groupHomeEventForms(forms:HomeEventForm[]):HomeUpcomingEvent[]{
+ const events=new Map<string,HomeUpcomingEvent>();
+ for(const {eventId,href,label,title,date,dateLabel,venue,summary} of forms){
+  const existing=events.get(eventId);
+  if(existing)existing.links.push({href,label});
+  else events.set(eventId,{id:eventId,title,date,dateLabel,venue,summary,links:[{href,label}]});
+ }
+ return [...events.values()];
 }
