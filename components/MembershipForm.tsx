@@ -1,5 +1,5 @@
-import {formatUKLongDate} from '@/lib/uk-date-time';
 'use client';
+import {formatUKLongDate} from '@/lib/uk-date-time';
 import Link from 'next/link';
 import {acknowledgeMembershipSubmission} from '@/lib/membership-communications';
 import MemberSearch from './MemberSearch';

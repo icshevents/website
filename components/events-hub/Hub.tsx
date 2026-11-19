@@ -1,5 +1,5 @@
-import {formatUKDate} from '@/lib/uk-date-time';
 'use client';
+import {formatUKDate} from '@/lib/uk-date-time';
 import {resolveEventMenu} from '@/lib/events-hub/iftari-menu';
 import IftariMenuEditor from './IftariMenuEditor';
 import PlanningOverview from './PlanningOverview';
