@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {formatUKLongDate,formatUKTime} from '../uk-date-time';
+import {formatUKLongDate,formatUKTime} from '../uk-date-time.ts';
 const amount=z.number().int().min(0).max(12000000);
 export const paidTicketEmailSchema=z.object({id:z.uuid(),recipient:z.email().max(254),reference:z.string().regex(/^[A-Za-z0-9-]{1,100}$/),name:z.string().min(1).max(120),title:z.string().min(1).max(140),venue:z.string().min(1).max(240),startsAt:z.iso.datetime({offset:true}),endsAt:z.iso.datetime({offset:true}),total:amount.min(30),attendees:z.array(z.object({ticket:z.string().max(40),unitAmount:amount})).min(1).max(12)}).superRefine((v,c)=>{
  if(v.attendees.reduce((sum,a)=>sum+a.unitAmount,0)!==v.total)c.addIssue({code:'custom',message:'Payment total does not match tickets.'});

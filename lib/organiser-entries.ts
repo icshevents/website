@@ -1,4 +1,4 @@
-import {formatUKDate,formatUKDateTime} from './uk-date-time';
+import {formatUKDate,formatUKDateTime} from './uk-date-time.ts';
 export function entryValues(value:unknown,prefix=''):Record<string,unknown>{
  if(value===null||value===undefined)return {};
  if(Array.isArray(value)){if(value.length&&value.every(v=>v&&typeof v==='object'&&typeof v.firstName==='string'&&typeof v.lastName==='string'))return {[prefix]:value.map((v,i)=>`${i+1}. ${v.firstName} ${v.lastName}${v.ticket?' ('+v.ticket+')':''}`).join(' | ')};return {[prefix]:value.map(v=>typeof v==='object'?JSON.stringify(v):String(v)).join(' | ')};}

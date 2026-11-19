@@ -1,6 +1,6 @@
 import {createEventService} from './event-forms/service.js';
 import {eventDirectory} from './event-forms/directory.js';
-import {formatUKLongDate,formatUKTime} from './uk-date-time';
+import {formatUKLongDate,formatUKTime} from './uk-date-time.ts';
 export const eventWorkspace='https://icsh.org.uk';
 export type EventForm={label:string;url:string;kind:'participation'|'stall'|'tickets';feeFromPence?:number};
 export type DirectoryEvent={id:string;title:string;startsAt:string;endsAt:string;venue:string;description:string;forms:EventForm[]};

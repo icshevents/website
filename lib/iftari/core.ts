@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { londonDate, parseDate } from '../membership.ts';
 import { membershipMobileKey } from '../membership-eligibility.ts';
-import {formatUKLongDate} from '../uk-date-time';
+import {formatUKLongDate} from '../uk-date-time.ts';
 import type { BookingLookup } from '../event-forms/booking-membership.ts';
 
 export const IFTARI_SLUG = 'ramadan-iftari-2027';
