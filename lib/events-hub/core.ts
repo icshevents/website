@@ -1,3 +1,4 @@
+import {formatUKDateTime} from '../uk-date-time';
 import { z } from 'zod';
 import {iftariMenuSchema} from './iftari-menu.ts';
 export const publicationStatuses = ['draft','ready_for_review','published','cancelled','completed'] as const;
@@ -39,7 +40,7 @@ export function bookingState(c:EventContent,occupied=0,now=Date.now()){
  return 'Open';
 }
 export function csvCell(value:unknown){const s=typeof value==='object'?JSON.stringify(value):String(value??'');return '"'+(/^[\s]*[=+@-]/.test(s)?"'"+s:s).replaceAll('"','""')+'"';}
-export function entriesCsv(entries:Entry[]){return '\uFEFF'+[['Reference','Form','Submitted','Booking status','Review status','Details','Internal notes','Entry status'],...entries.filter(e=>!e.deletedAt).map(e=>[e.reference,e.formTitle,e.submittedAt,e.status,e.reviewStatus,e.details,e.notes,e.entryStatus||'Original'])].map(row=>row.map(csvCell).join(',')).join('\r\n');}
+export function entriesCsv(entries:Entry[]){return '\uFEFF'+[['Reference','Form','Submitted (UK)','Booking status','Review status','Details','Internal notes','Entry status'],...entries.filter(e=>!e.deletedAt).map(e=>[e.reference,e.formTitle,formatUKDateTime(e.submittedAt),e.status,e.reviewStatus,e.details,e.notes,e.entryStatus||'Original'])].map(row=>row.map(csvCell).join(',')).join('\r\n');}
 export function londonInput(iso:string){const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(iso));const get=(k:string)=>p.find(x=>x.type===k)?.value;return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;}
 // Reject missing spring times and ambiguous autumn times instead of silently moving an event.
 export function londonISO(value:string){if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value))throw Error('Enter a valid UK date and time.');const utc=Date.parse(value+'Z');const candidates=[utc,utc-3600000].filter(n=>Number.isFinite(n)&&londonInput(new Date(n).toISOString())===value);if(candidates.length!==1)throw Error('This UK time changes with daylight saving. Choose a time outside the clock change.');return new Date(candidates[0]).toISOString();}

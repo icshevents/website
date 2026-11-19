@@ -1,9 +1,9 @@
-import {formatUKDateTime} from './uk-date-time';
+import {formatUKDate,formatUKDateTime} from './uk-date-time';
 export function entryValues(value:unknown,prefix=''):Record<string,unknown>{
  if(value===null||value===undefined)return {};
  if(Array.isArray(value)){if(value.length&&value.every(v=>v&&typeof v==='object'&&typeof v.firstName==='string'&&typeof v.lastName==='string'))return {[prefix]:value.map((v,i)=>`${i+1}. ${v.firstName} ${v.lastName}${v.ticket?' ('+v.ticket+')':''}`).join(' | ')};return {[prefix]:value.map(v=>typeof v==='object'?JSON.stringify(v):String(v)).join(' | ')};}
  if(typeof value==='object')return Object.assign({},...Object.entries(value as Record<string,unknown>).map(([k,v])=>entryValues(v,prefix?prefix+' · '+k:k)));
- return {[prefix]:typeof value==='boolean'?(value?'Yes':'No'):value};
+ return {[prefix]:typeof value==='boolean'?(value?'Yes':'No'):typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))?formatUKDate(value):typeof value==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)&&Number.isFinite(Date.parse(value))?formatUKDateTime(value):value};
 }
 export const entryDate=(value:string)=>formatUKDateTime(value);
 /** Call only after the appropriate portal session has been verified. */

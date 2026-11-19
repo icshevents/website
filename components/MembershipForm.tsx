@@ -1,3 +1,4 @@
+import {formatUKLongDate} from '@/lib/uk-date-time';
 'use client';
 import Link from 'next/link';
 import {acknowledgeMembershipSubmission} from '@/lib/membership-communications';
@@ -25,7 +26,7 @@ function savedApplication(value:unknown):SavedApplication|null {
  // Keep only receipt fields; contact IDs and private applicant data do not belong in this view.
  return {id:value.id,reference:value.reference,createdAt:value.createdAt,category:value.category as SavedApplication['category'],feePence:value.feePence,currency:'GBP',paymentStatus:value.paymentStatus as SavedApplication['paymentStatus'],biginSyncStatus:value.biginSyncStatus,mode:value.mode as SavedApplication['mode'],activation:object(value.activation)&&['active','review_required','pending'].includes(String(value.activation.status))?{status:value.activation.status as 'active'|'review_required'|'pending',startDate:typeof value.activation.startDate==='string'?value.activation.startDate:null,expiryDate:typeof value.activation.expiryDate==='string'?value.activation.expiryDate:null}:null};
 }
-const membershipDateLabel=(value:string|null)=>value?new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(value+'T12:00:00Z')):'—';
+const membershipDateLabel=(value:string|null)=>value?formatUKLongDate(value):'—';
 function responseMessage(value:unknown){return object(value)&&object(value.error)&&typeof value.error.message==='string'&&value.error.message.length<=400?value.error.message:null;}
 function responseFields(value:unknown):FieldErrors {
  if(!object(value)||!object(value.error)||!object(value.error.fields))return {};

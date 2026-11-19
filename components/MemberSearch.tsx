@@ -1,3 +1,4 @@
+import {formatUKLongDate} from '@/lib/uk-date-time';
 'use client';
 
 import Link from 'next/link';
@@ -8,7 +9,7 @@ import styles from './MemberSearch.module.css';
 type Method = MemberSearchInput['method'];
 const options: { method: Method; label: string }[] = [{ method: 'email', label: 'Email address' }, { method: 'mobile', label: 'Phone number' }, { method: 'name', label: 'Full name' }];
 const renewalUrl = '/membership?category=renewal#join';
-const dateLabel = (iso: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z'));
+const dateLabel = formatUKLongDate;
 function readResult(value: unknown): MemberSearchResult | null {
   if (!value || typeof value !== 'object') return null;
   const v = value as Record<string, unknown>;
