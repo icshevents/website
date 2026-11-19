@@ -1,4 +1,4 @@
-import {formatUKLongDate} from '../uk-date-time';
+import {formatUKLongDate} from '../uk-date-time.ts';
 // Pure, injectable email adapter. Runtime callers must use server.ts.
 export type EmailKind = 'membership_active' | 'membership_reminder' | 'donation' | 'rishta' | 'event' | 'stall' | 'stall_notification';
 export type IftariConfirmation = {venue:string;when:string;lines:Array<{label:string;quantity:number;unitAmount:number;amount:number}>;donation:number;total:number;guests:number};

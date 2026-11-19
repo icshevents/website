@@ -1,4 +1,4 @@
-import {formatUKLongDate} from './uk-date-time';
+import {formatUKLongDate} from './uk-date-time.ts';
 import {createEventService} from './event-forms/service.js';
 import {activeParticipationEvents} from './participation-links.ts';
 import {bookingState,safeBookingUrl} from './events-hub/core.ts';

@@ -1,4 +1,4 @@
-import {formatUKDate,formatUKDateTime} from '../uk-date-time';
+import {formatUKDate,formatUKDateTime} from '../uk-date-time.ts';
 import type {MembershipApplication} from './model.ts';
 
 export type ExportEntry={deleted?:boolean;entryStatus?:string|null;application:MembershipApplication;memberId?:string;payment?:{status:string;paid_at:string|null};activation?:{status:string;start_date:string;expiry_date:string}};

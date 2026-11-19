@@ -1,4 +1,4 @@
-import {formatUKDateTime} from '../uk-date-time';
+import {formatUKDateTime} from '../uk-date-time.ts';
 import { z } from 'zod';
 import {iftariMenuSchema} from './iftari-menu.ts';
 export const publicationStatuses = ['draft','ready_for_review','published','cancelled','completed'] as const;
