@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { londonDate, parseDate } from '../membership.ts';
 import { membershipMobileKey } from '../membership-eligibility.ts';
+import {formatUKLongDate} from '../uk-date-time';
 import type { BookingLookup } from '../event-forms/booking-membership.ts';
 
 export const IFTARI_SLUG = 'ramadan-iftari-2027';
@@ -102,7 +103,8 @@ export async function verifyMemberTickets(input: BookingInput, lookup: BookingLo
   if (status !== 'active') throw new IftariError(`Lead booker: ${membershipMessages[status]}`, status === 'unavailable' ? 503 : 409);
 }
 export function eventWhen(settings: Pick<Settings, 'date' | 'time'>) {
-  const day = settings.date ? new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(settings.date + 'T12:00:00Z')) : 'Date to be confirmed';
-  const arrival = settings.time ? new Intl.DateTimeFormat('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' }).format(new Date('2000-01-01T' + settings.time + ':00Z')).replace(' ', '') : null;
+  const day = settings.date ? formatUKLongDate(settings.date) : 'Date to be confirmed';
+  // The saved wall-clock time is already UK local time, not UTC.
+  const arrival = settings.time || null;
   return `${day} · ${arrival ? 'Please arrive by ' + arrival + ' (UK time)' : 'Time to be confirmed'}`;
 }

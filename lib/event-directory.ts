@@ -1,5 +1,6 @@
 import {createEventService} from './event-forms/service.js';
 import {eventDirectory} from './event-forms/directory.js';
+import {formatUKLongDate,formatUKTime} from './uk-date-time';
 export const eventWorkspace='https://icsh.org.uk';
 export type EventForm={label:string;url:string;kind:'participation'|'stall'|'tickets';feeFromPence?:number};
 export type DirectoryEvent={id:string;title:string;startsAt:string;endsAt:string;venue:string;description:string;forms:EventForm[]};
@@ -31,5 +32,5 @@ export async function getEventDirectory():Promise<Directory>{
   return {available:true,mode:'live',events:parseEventDirectory(eventDirectory(state))};
  }catch{return {available:false,mode:'live',events:[]};}
 }
-export function londonDate(value:string){return new Intl.DateTimeFormat('en-GB',{dateStyle:'full',timeZone:'Europe/London'}).format(new Date(value));}
-export function londonTime(value:string){return new Intl.DateTimeFormat('en-GB',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'Europe/London'}).format(new Date(value));}
+export const londonDate=formatUKLongDate;
+export const londonTime=formatUKTime;
