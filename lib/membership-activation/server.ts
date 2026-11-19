@@ -16,7 +16,7 @@ import {activateMatchedMembership,ActivationReview} from '../zoho/membership-act
 import {ZohoError} from '../zoho/client';
 import {requestMembershipInvitation} from '../whatsapp-invitations/server';
 import {membershipTypeForApplication} from '../membership-type';
-const activationSchema=z.object({application_id:z.uuid(),account_id:z.string(),payment_intent_id:z.string().nullable(),paid_at:z.string().nullable(),activation_kind:z.enum(['paid','free']).default('paid'),start_date:z.iso.date(),expiry_date:z.iso.date(),contact_id:z.string().nullable(),status:z.enum(['pending','syncing','active','failed','review_required']),activated_at:z.string().nullable(),error_code:z.string().nullable()});
+const activationSchema=z.object({application_id:z.uuid(),account_id:z.string(),payment_intent_id:z.string().nullable(),paid_at:z.string().nullable(),activation_kind:z.enum(['paid','free']).default('paid'),start_date:z.iso.date(),expiry_date:z.iso.date(),renewal_base_expiry:z.iso.date().nullable().optional(),contact_id:z.string().nullable(),status:z.enum(['pending','syncing','active','failed','review_required']),activated_at:z.string().nullable(),error_code:z.string().nullable()});
 export type MembershipActivation=z.infer<typeof activationSchema>;
 export const activationEnabled=()=>process.env.ZOHO_BIGIN_MEMBERSHIP_ACTIVATION_ENABLED==='true';
 export function publicActivation(value:MembershipActivation|null){return value?{status:value.status==='active'?'active':value.status==='review_required'?'review_required':'pending',startDate:value.status==='active'?value.start_date:null,expiryDate:value.status==='active'?value.expiry_date:null}:null;}
@@ -39,7 +39,7 @@ async function activateMembership(id:string,free:boolean):Promise<'active'|'revi
    const term=await db.rpc('icsh_membership_activation_extend',{p_id:id,p_claim:claim,p_start:contact.membershipDate,p_expiry:contact.membershipExpiry});
    if(term.error||!term.data)throw new ActivationReview('RENEWAL_TERM_REQUIRES_REVIEW');
    return activationSchema.parse(term.data).expiry_date;
-  }:undefined,contact=>activationIdentityMatches(contact,app.answers)||verifiedMobileIdentity(app,contact,mobile));
+  }:undefined,contact=>activationIdentityMatches(contact,app.answers)||verifiedMobileIdentity(app,contact,mobile),app.answers.kind==='renewal'&&Boolean(x.renewal_base_expiry));
   const saved=await finish('active');if(saved.status==='active'){
    await completeVerifiedMobileChange(id).catch(()=>console.error('ICSH_MOBILE_CHANGE_PENDING'));
    await processFormEmails().catch(()=>console.error('ICSH_FORM_EMAIL_PROCESSING_PENDING'));

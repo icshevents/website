@@ -8,15 +8,19 @@ export class ActivationReview extends Error {readonly code:string;constructor(co
 export function activationIdentityMatches(contact:BiginContact,identity:ActivationIdentity){return contact.email===identity.email.trim().toLowerCase()&&normaliseMemberName((contact.firstName||'')+' '+(contact.lastName||''))===normaliseMemberName(identity.firstName+' '+identity.lastName)&&Boolean(membershipMobileKey(identity.mobile))&&membershipMobileKey(contact.mobile||'')===membershipMobileKey(identity.mobile);}
 export function activationMatches(contact:BiginContact,value:BiginPaidMembershipUpdate){return contact.membershipStatus==='Active'&&contact.membershipType===value.Membership_Type&&contact.paymentStatus===value.Payment_Status&&contact.membershipDate===value.Membership_Date&&contact.membershipExpiry===value.Expiry_Date;}
 /** The caller owns the durable paid-payment or validated-free activation claim. Only the five membership fields are written. */
-export async function activateMatchedMembership(client:ActivationClient,identity:ActivationIdentity,knownId:string|null,value:BiginPaidMembershipUpdate,bind:(id:string)=>Promise<boolean>,on=londonDate(),extendRenewal?:(contact:BiginContact)=>Promise<string>,identityMatches:(contact:BiginContact)=>boolean=contact=>activationIdentityMatches(contact,identity)){
+export async function activateMatchedMembership(client:ActivationClient,identity:ActivationIdentity,knownId:string|null,value:BiginPaidMembershipUpdate,bind:(id:string)=>Promise<boolean>,on=londonDate(),extendRenewal?:(contact:BiginContact)=>Promise<string>,identityMatches:(contact:BiginContact)=>boolean=contact=>activationIdentityMatches(contact,identity),renewalPrepared=false){
  let id=knownId;if(!id){const found=await client.searchBiginContactsByEmail(identity.email);if(found.hasMore||found.matches.length>1)throw new ActivationReview('CONTACT_MATCH_AMBIGUOUS');if(!found.matches.length)throw new Error('CONTACT_NOT_READY');id=found.matches[0].id;}
  let contact=await client.getBiginContact(id);if(contact.id!==id||!identityMatches(contact))throw new ActivationReview('CONTACT_IDENTITY_MISMATCH');
  if(!await bind(id))throw new Error('ACTIVATION_CLAIM_CHANGED');
- if(activationMatches(contact,value))return id;
+ const alreadyMatches=activationMatches(contact,value);
+ // An earlier application can have exactly the same paid date and expiry.
+ // A new same-day renewal must still add a year; only a durably prepared
+ // renewal for this application may treat matching CRM fields as a replay.
+ if(alreadyMatches&&(!extendRenewal||renewalPrepared))return id;
  // Preserve another current term, including one entered by an organiser.
  if(Boolean(contact.membershipDate)!==Boolean(contact.membershipExpiry)||(contact.membershipDate&&!parseDate(contact.membershipDate))||(contact.membershipExpiry&&!parseDate(contact.membershipExpiry)))throw new ActivationReview('EXISTING_MEMBERSHIP_DATES_INVALID');
- if(contact.membershipExpiry&&contact.membershipExpiry>value.Membership_Date&&(contact.membershipDate!==value.Membership_Date||contact.membershipExpiry!==value.Expiry_Date)){
-  if(!extendRenewal||contact.membershipStatus!=='Active'||!contact.membershipDate||contact.membershipDate>value.Membership_Date||Math.ceil((Date.parse(contact.membershipExpiry+'T12:00:00Z')-Date.parse(value.Membership_Date+'T12:00:00Z'))/86400000)>30)throw new ActivationReview('EXISTING_MEMBERSHIP_TERM');
+ if(contact.membershipExpiry&&contact.membershipExpiry>value.Membership_Date&&(!alreadyMatches||(extendRenewal&&!renewalPrepared))){
+  if(!extendRenewal||contact.membershipStatus!=='Active'||!contact.membershipDate||contact.membershipDate>value.Membership_Date)throw new ActivationReview('EXISTING_MEMBERSHIP_TERM');
   const expiry=await extendRenewal(contact);
   const next=new Date(contact.membershipExpiry+'T12:00:00Z');const month=next.getUTCMonth();next.setUTCFullYear(next.getUTCFullYear()+1);if(next.getUTCMonth()!==month)next.setUTCDate(0);
   if(expiry!==next.toISOString().slice(0,10))throw new ActivationReview('RENEWAL_TERM_INVALID');

@@ -55,8 +55,9 @@ export async function checkMembershipEligibility(value: MembershipIdentity, sear
   if (!parseDate(start) || !parseDate(expiry) || start >= expiry) return { status: 'review_required' };
   if (expiry <= on) return identity.kind === 'renewal'?allowed():{status:'renewal_required'};
   if (start > on || member.membershipStatus?.trim().toLowerCase() !== 'active') return { status: 'review_required' };
-  // A verified renewal may preserve the remaining days during the last 30 days.
-  if(identity.kind==='renewal' && Math.ceil((Date.parse(expiry+'T12:00:00Z')-Date.parse(on+'T12:00:00Z'))/86400000)<=30)return allowed();
+  // A verified existing member can renew at any time; the activation claim
+  // preserves any remaining days and adds another calendar year to expiry.
+  if(identity.kind==='renewal')return allowed();
   return { status: 'active', membershipDate: start, membershipExpiry: expiry,
     daysUntilExpiry: Math.ceil((Date.parse(expiry + 'T12:00:00Z') - Date.parse(on + 'T12:00:00Z')) / 86400000) };
 }
@@ -64,7 +65,7 @@ export async function checkMembershipEligibility(value: MembershipIdentity, sear
 export function membershipEligibilityMessage(result: MembershipEligibility): string {
   switch (result.status) {
     case 'allowed': return 'Your details have been checked. You can continue.';
-    case 'active': return 'You are still an active ICSH member. You do not need to join or renew yet.';
+    case 'active': return 'You already have an active ICSH membership. Choose Membership Renewal if you would like to renew early.';
     case 'identity_conflict': return 'Your details do not match the membership record for this email address. Check your full name and membership email address, or contact ICSH for help. For new applications, also check the mobile number. Mobile numbers may be shared.';
     case 'review_required': return 'We need to confirm your membership details before you can continue. Please contact ICSH for help.';
     case 'renewal_required': return 'Your membership needs renewal. Please choose Membership Renewal to continue with your existing details.';

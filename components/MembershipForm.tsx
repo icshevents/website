@@ -33,7 +33,7 @@ function responseFields(value:unknown):FieldErrors {
  return Object.fromEntries(Object.entries(value.error.fields).filter(([key,message])=>Object.hasOwn(EMPTY_ANSWERS,key)&&typeof message==='string'&&message.length<=400)) as FieldErrors;
 }
 const terms=[
- ['Membership Period.','Paid membership starts after verified payment; free membership starts after confirmed activation. You may renew during the final 30 days. Early renewal adds 12 months after your existing expiry date, preserving all remaining days. Renewals after expiry run for 12 months from verified payment or free activation.'],
+ ['Membership Period.','Paid membership starts after verified payment; free membership starts after confirmed activation. You may renew at any time. Renewing before expiry adds 12 months after your existing expiry date, so you keep all remaining days. Renewals after expiry run for 12 months from verified payment or free activation.'],
  ['Refund Policy.','Membership fees are non-refundable under any circumstances once payment has been received.'],
  ['Communication and Notifications.','By submitting, you agree to receive ICSH membership communications by email, SMS and WhatsApp, including membership confirmations and the members-only group invitation once your membership is active (after verified payment where a fee applies). Promotional marketing preferences are handled separately.'],
 ];

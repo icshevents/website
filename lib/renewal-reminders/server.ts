@@ -11,7 +11,7 @@ function store(){
  const db=createEventService();
  return{
   db,
-  state:async(c:BiginContact)=>{const r=await db.rpc('icsh_renewal_notice_state',{p_contact:c.id,p_email:c.email,p_expiry:c.membershipExpiry});if(r.error||!r.data)throw new Error('RENEWAL_STATE_UNAVAILABLE');return{permission:r.data.enabled===true&&(r.data.service_permission===true||c.emailOptOut===false),held:r.data.held!==false};},
+  state:async(c:BiginContact)=>{const r=await db.rpc('icsh_renewal_notice_state',{p_contact:c.id,p_email:c.email,p_expiry:c.membershipExpiry,p_start:c.membershipDate});if(r.error||!r.data)throw new Error('RENEWAL_STATE_UNAVAILABLE');return{permission:r.data.enabled===true&&(r.data.service_permission===true||c.emailOptOut===false),held:r.data.held!==false};},
   claim:async(c:BiginContact,s:RenewalStage,test=false)=>{const r=await db.rpc('icsh_renewal_notice_claim',{p_contact:c.id,p_expiry:c.membershipExpiry,p_stage:s,p_email:c.email,p_claim:randomUUID(),p_test:test});if(r.error)throw new Error('RENEWAL_CLAIM_UNAVAILABLE');return r.data as {id:string;token:string}|null;},
   finish:async(id:string,token:string,o:NoticeOutcome)=>{const r=await db.rpc('icsh_renewal_notice_finish',{p_id:id,p_claim:token,p_status:o.status,p_provider:o.providerId||null,p_error:o.code||null});if(r.error||r.data!==true)throw new Error('RENEWAL_SAVE_UNAVAILABLE');},
  };
