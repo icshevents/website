@@ -7,11 +7,11 @@ const record = { id: '123456789', fullName: 'Test Member', email: identity.email
 const search = records => async () => ({ records, hasMore: false });
 const check = (value = identity, records = [record], on = '2026-10-22') => checkMembershipEligibility(value, search(records), on);
 
-test('both joining and renewal block active members only after all three identifiers agree', async () => {
-  for (const kind of ['new', 'renewal']) {
-    assert.deepEqual(await check({ ...identity, kind }), { status: 'active', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19', daysUntilExpiry: 89 });
-  }
+test('a verified existing member may renew early while New Member remains blocked', async () => {
+  assert.deepEqual(await check(identity), { status: 'active', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19', daysUntilExpiry: 89 });
+  assert.deepEqual(await check({ ...identity, kind: 'renewal' }), { status: 'allowed' });
   assert.equal((await check({ ...identity, firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' })).status, 'active');
+  assert.deepEqual(await check({ ...identity, kind: 'renewal', firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' }), { status: 'allowed' });
 });
 
 test('different people with identical names are allowed when their email is unique, including a shared phone', async () => {
@@ -87,7 +87,7 @@ test('different family members may join with the same phone and separate emails,
  const lookup=async input=>{calls.push(input);assert.equal(input.method,'email');return {records:family.filter(r=>r.email===input.email),hasMore:false};};
  assert.deepEqual(await checkMembershipEligibility({...identity,email:'new-family@example.invalid',firstName:'New',lastName:'Family'},lookup,'2026-11-09'),{status:'allowed'});
  assert.deepEqual(await checkMembershipEligibility({...identity,kind:'renewal',email:'family@example.invalid',firstName:'Other',lastName:'Family'},lookup,'2026-11-09'),{status:'allowed'});
- assert.equal((await checkMembershipEligibility({...identity,kind:'renewal'},lookup,'2026-11-09')).status,'active');
+ assert.equal((await checkMembershipEligibility({...identity,kind:'renewal'},lookup,'2026-11-09')).status,'allowed');
  assert.equal(calls.length,3);assert.deepEqual(family,before);
 });
 
