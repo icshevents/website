@@ -18,7 +18,7 @@ test('the fallback groups both festival forms onto one card with safe public det
  const forms=selectHomeEventForms(records,now);
  assert.deepEqual(forms.map(f=>f.kind),['stall','participation']);
  assert.equal(forms[1].href,'/harrow-food-festival-2026/get-involved');
- assert.equal(forms[0].dateLabel,'13 December 2026');
+ assert.equal(forms[0].dateLabel,'Sunday, 13 December 2026');
  const cards=groupHomeEventForms(forms);
  assert.equal(cards.length,1);
  assert.deepEqual(cards[0].links.map(link=>link.href),['/stall-hire/festival-stalls','/harrow-food-festival-2026/get-involved']);

@@ -26,8 +26,8 @@ test('only the lead booker is checked once for multiple member tickets; non-memb
  assert.equal(bookingInputSchema.safeParse({...i,memberEmails:['guest@example.invalid']}).success,false);
  assert.equal(bookingInputSchema.safeParse({...i,verified:true}).success,false);
 });
-test('event date and arrival wording includes Saturday and 4:45pm',()=>{
- assert.equal(eventWhen(defaultSettings),'Saturday, 20 February 2027 · Please arrive by 4:45pm (UK time)');
+test('event date and arrival wording uses UK long date and 24-hour time',()=>{
+ assert.equal(eventWhen(defaultSettings),'Saturday, 20 February 2027 · Please arrive by 16:45 (UK time)');
  assert.equal(eventWhen({date:null,time:null}),'Date to be confirmed · Time to be confirmed');
 });
 test('Stripe uses existing ICSH account, separate authoritative line items, fixed expiry and stable idempotency',async()=>{const b=row(),requests=[];const client=new IftariStripeClient(config,async(url,options)=>{requests.push({url,options});return Response.json(url.endsWith('/account')?{id:config.account,charges_enabled:true}:session(b));});await client.createBooking(b);const p=requests[1].options.body;assert.equal(p.get('line_items[0][quantity]'),'2');assert.equal(p.get('line_items[0][price_data][unit_amount]'),'2550');assert.equal(p.get('line_items[3][price_data][product_data][name]'),'Optional ICSH Donation');assert.equal(p.get('line_items[3][price_data][unit_amount]'),'1000');assert.equal(p.get('expires_at'),String(b.checkout_expires));assert.equal(p.get('metadata[purpose]'),iftariPurpose);assert.match(p.get('success_url'),/\/ramadan-iftari-2027\/confirmation\?id=/);assert.equal(p.get('payment_method_types'),null);assert.match(requests[1].options.headers['Idempotency-Key'],new RegExp(b.id));});
