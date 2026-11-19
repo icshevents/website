@@ -1,3 +1,4 @@
+import {formatUKLongDate} from '../uk-date-time';
 // Pure, injectable email adapter. Runtime callers must use server.ts.
 export type EmailKind = 'membership_active' | 'membership_reminder' | 'donation' | 'rishta' | 'event' | 'stall' | 'stall_notification';
 export type IftariConfirmation = {venue:string;when:string;lines:Array<{label:string;quantity:number;unitAmount:number;amount:number}>;donation:number;total:number;guests:number};
@@ -34,7 +35,7 @@ export function confirmationContent(value:Confirmation) {
   if(value.kind==='membership_active'){
     const validDate=(s:string|undefined)=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
     if(typeof value.membership_number!=='string'||value.membership_number.trim().length<1||value.membership_number.length>100||/[\u0000-\u001f\u007f]/.test(value.membership_number)||!validDate(value.start_date)||!validDate(value.expiry_date)||value.expiry_date!<value.start_date!)throw new Error('MEMBERSHIP_DETAILS_INVALID');
-    const display=(s:string)=>new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(s+'T00:00:00Z'));
+    const display=formatUKLongDate;
     membership=[`Membership number: ${value.membership_number}`,`Membership starts: ${display(value.start_date!)}`,`Membership expires: ${display(value.expiry_date!)}`];
   }
   let booking:string[]=[];

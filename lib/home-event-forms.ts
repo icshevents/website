@@ -1,3 +1,4 @@
+import {formatUKLongDate} from './uk-date-time';
 import {createEventService} from './event-forms/service.js';
 import {activeParticipationEvents} from './participation-links.ts';
 import {bookingState,safeBookingUrl} from './events-hub/core.ts';
@@ -9,7 +10,7 @@ export type HomeUpcomingEvent={
  id:string;title:string;summary:string;date:string;dateLabel:string;venue:string;image?:string;bookingNotYetOpen?:boolean;
  links:{href:string;label:string}[];
 };
-const dateLabel=new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'Europe/London'});
+const dateLabel={format:formatUKLongDate};
 const created=(form:PublishedForm)=>Date.parse(form.created_at??'')||0;
 const summary=(text:string)=>text.length<=180?text:text.slice(0,177).replace(/\s+\S*$/,'')+'…';
 
