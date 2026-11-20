@@ -43,13 +43,14 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
   const attendees:Attendee[]=attendeeSlots.map(s=>({ticket:s.ticket,firstName:attendeeNames[s.key]?.firstName||'',lastName:attendeeNames[s.key]?.lastName||''}));
   const [donationChoice, setDonationChoice] = useState('0'), [customDonation, setCustomDonation] = useState('');
   const [quote, setQuote] = useState<Quote | null>(null), [quoteError, setQuoteError] = useState(''), [quotePending, setQuotePending] = useState(false);
+  const [discountAvailable,setDiscountAvailable]=useState(false),[codeInput,setCodeInput]=useState(''),[appliedCode,setAppliedCode]=useState(''),[discountFeedback,setDiscountFeedback]=useState('');
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState<{ id: string; capability: string } | null>(null);
   const [website, setWebsite] = useState(''), [notes, setNotes] = useState('');
   const quoteSequence = useRef(0);
   const donation = donationChoice === 'other' ? customDonation : donationChoice;
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/iftari/settings', { signal: controller.signal }).then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error); setSettings(data.settings);setFull(Boolean(data.limitReached)); setCsrf(data.csrf); }).catch(e => { if (e.name !== 'AbortError') setError(e.message || 'The booking form is temporarily unavailable.'); });
+    fetch('/api/iftari/settings', { signal: controller.signal }).then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error); setSettings(data.settings);setFull(Boolean(data.limitReached));setDiscountAvailable(Boolean(data.discountCodesAvailable)); setCsrf(data.csrf); }).catch(e => { if (e.name !== 'AbortError') setError(e.message || 'The booking form is temporarily unavailable.'); });
     return () => controller.abort();
   }, []);
   useEffect(() => {
@@ -60,14 +61,14 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
     setQuotePending(true);
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch('/api/iftari/quote', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ quantities, donation }) });
+        const response = await fetch('/api/iftari/quote', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ quantities, donation,...(appliedCode?{discountCode:appliedCode,email}:{} ) }) });
         const data = await response.json(); if (turn !== quoteSequence.current) return;
-        if (!response.ok) throw new Error(data.error); setQuote(data.quote);
-      } catch (e) { if (turn === quoteSequence.current && !(e instanceof Error && e.name === 'AbortError')) {if(e instanceof Error&&e.message===capacityMessage)setFull(true);setQuoteError(e instanceof Error ? e.message : 'Unable to calculate the total.');} }
+        if (!response.ok) throw new Error(data.error); setQuote(data.quote);if(appliedCode&&data.quote.promotion)setDiscountFeedback(data.quote.promotion.name+' applied · '+gbp(data.quote.promotion.discountPence)+' saved.');
+      } catch (e) { if (turn === quoteSequence.current && !(e instanceof Error && e.name === 'AbortError')) {if(e instanceof Error&&e.message===capacityMessage)setFull(true);setQuoteError(e instanceof Error ? e.message : 'Unable to calculate the total.');if(appliedCode)setDiscountFeedback(e instanceof Error?e.message:'Unable to verify discount code.');} }
       finally { if (turn === quoteSequence.current) setQuotePending(false); }
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [quantities, donation, csrf]);
+  }, [quantities, donation, csrf, appliedCode, ...(appliedCode?[email]:[])]);
   function quantityChange(key: TicketKey, value: number) {
     if (!Number.isSafeInteger(value) || value < 0 || value > (settings?.maxGuests || 12)) return;
     setQuote(null); setQuotePending(true); setQuantities(v => ({ ...v, [key]: value }));
@@ -80,7 +81,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
       // Retain the same booking after a lost response. A retry never creates a second charge.
       sessionStorage.setItem('icsh-iftari-' + identity.id, identity.capability);
       setSaved(identity);
-      const response = await fetch('/api/iftari/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ ...identity, firstName, lastName, email, mobile, quantities, attendees, donation, notes, expectedVersion: quote.version, expectedTotal: quote.total, website }) });
+      const response = await fetch('/api/iftari/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ ...identity, firstName, lastName, email, mobile, quantities, attendees, donation, notes, expectedVersion: quote.version, expectedTotal: quote.total,...(appliedCode?{discountCode:appliedCode}:{}), website }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error);
       window.location.assign(data.url || data.returnUrl);
     } catch (e) {
@@ -116,6 +117,14 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
         <fieldset disabled={busy || Boolean(saved)}><legend><span>04</span> An optional act of kindness</legend><p>Would you like to make an additional donation to support ICSH and its community activities?</p><div className={styles.donations}>{['0', '5', '10', '20', '50', 'other'].map(amount => <label key={amount} className={donationChoice === amount ? styles.selected : ''}><input type="radio" name="donation" value={amount} checked={donationChoice === amount} onChange={() => { setQuote(null); setQuotePending(true); setDonationChoice(amount); }} />{amount === '0' ? 'No donation' : amount === 'other' ? 'Other amount' : '£' + amount}</label>)}</div>
           {donationChoice === 'other' && <label className={styles.field}>Donation amount (£)<input type="text" inputMode="decimal" required maxLength={12} placeholder="0.00" value={customDonation} onChange={e => { setQuote(null); setQuotePending(true); setCustomDonation(e.target.value); }} /></label>}<p className={styles.note}>Entirely optional. Your donation defaults to £0.</p>
         </fieldset>
+        {discountAvailable&&<fieldset disabled={busy||Boolean(saved)}><legend><span>05</span> Early Bird Discount</legend><p>Have a discount code? Apply it to see the revised booking total before payment. Only one code can be used per booking.</p>
+          <label className={styles.field}>Have a discount code?<input type="text" maxLength={32} autoComplete="off" placeholder="Enter your code" value={codeInput} onChange={e=>{setCodeInput(e.target.value.toUpperCase());if(appliedCode){setAppliedCode('');setDiscountFeedback('Apply the new code to see the discount.');}}}/></label>
+          <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+            <button type="button" className={styles.linkButton} disabled={!codeInput.trim()} onClick={()=>{setDiscountFeedback('Checking code…');setAppliedCode(codeInput.trim().toUpperCase());}}>Apply Code</button>
+            {appliedCode&&<button type="button" className={styles.linkButton} onClick={()=>{setAppliedCode('');setCodeInput('');setDiscountFeedback('Discount code removed.');}}>Remove code</button>}
+          </div>
+          <p className={styles.note} role="status" aria-live="polite">{discountFeedback}</p>
+        </fieldset>}
         <label className={styles.honeypot} aria-hidden="true">Leave this field empty<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label>
         <p className={styles.note}>We use these details to manage your booking and payment, check member ticket eligibility and send your confirmation. Read our <Link href="/privacy">privacy notice</Link>.</p>
         {error && <p role="alert" className={styles.error}>{error}</p>}
@@ -124,6 +133,6 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
         <p className={styles.note}>Your places are confirmed after Stripe confirms successful payment. Card details are handled securely by Stripe.</p>
       </form>
     </div>
-    <aside className={styles.summary}><span className="eyebrow">Your evening, together</span><h2>Booking summary</h2><p>{settings.title}<br/>{settings.venue}</p><div aria-live="polite" aria-atomic="true">{quotePending ? <p>Updating your total…</p> : quoteError ? <p className={styles.error}>{quoteError}</p> : quote ? <><dl>{quote.lines.map(line => <div key={line.key}><dt>{line.key === 'donation' ? line.label : `${line.quantity} × ${line.label}`}<small>{line.key !== 'donation' ? `${gbp(line.unitAmount)} each` : 'Thank you for your support'}</small></dt><dd>{gbp(line.amount)}</dd></div>)}{!quote.donation && <div><dt>Optional ICSH Donation</dt><dd>£0.00</dd></div>}</dl><div className={styles.total}><span>Total payable</span><strong>{gbp(quote.total)}</strong></div><p className={styles.note}>{quote.guests} {quote.guests === 1 ? 'guest' : 'guests'} · All prices in GBP<br/>Member prices subject to verification.</p></> : <><p>Select your tickets to see your booking summary.</p><div className={styles.total}><span>Total payable</span><strong>£0.00</strong></div></>}</div><div className={styles.summaryFooter}>Secure payment with Stripe<br/><Link href="/contact">Need help with your booking?</Link></div></aside>
+    <aside className={styles.summary}><span className="eyebrow">Your evening, together</span><h2>Booking summary</h2><p>{settings.title}<br/>{settings.venue}</p><div aria-live="polite" aria-atomic="true">{quotePending ? <p>Updating your total…</p> : quoteError ? <p className={styles.error}>{quoteError}</p> : quote ? <><dl>{quote.lines.map(line => <div key={line.key}><dt>{line.key === 'donation' ? line.label : `${line.quantity} × ${line.label}`}<small>{line.key !== 'donation' ? `${gbp(line.unitAmount)} each` : 'Thank you for your support'}</small></dt><dd>{gbp(line.amount)}</dd></div>)}{!quote.donation && <div><dt>Optional ICSH Donation</dt><dd>£0.00</dd></div>}{quote.promotion&&<><div><dt>Original booking total</dt><dd>{gbp(quote.promotion.grossPence)}</dd></div><div><dt>Early Bird Discount ({quote.promotion.code})</dt><dd>-{gbp(quote.promotion.discountPence)}</dd></div></>}</dl><div className={styles.total}><span>Total payable</span><strong>{gbp(quote.total)}</strong></div><p className={styles.note}>{quote.guests} {quote.guests === 1 ? 'guest' : 'guests'} · All prices in GBP<br/>Member prices subject to verification.</p></> : <><p>Select your tickets to see your booking summary.</p><div className={styles.total}><span>Total payable</span><strong>£0.00</strong></div></>}</div><div className={styles.summaryFooter}>Secure payment with Stripe<br/><Link href="/contact">Need help with your booking?</Link></div></aside>
   </div>;
 }
