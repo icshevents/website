@@ -46,10 +46,10 @@ export default function EventDiscounts({eventId,formId,kind,api,onBack}:{eventId
  return <section className="panel hub-fields" aria-label="Early Bird Discounts">
   <div className="hub-toolbar"><div><h3>Early Bird Discounts</h3><p>Manage discounts for this booking form only. Other events and annual copies have separate codes and limits.</p></div><button type="button" className="button outline" onClick={onBack}>Back to forms</button></div>
   {!editing&&<><p>Discounts start inactive. Create a code, choose its value and usage limit, then activate it. Only one code can be applied to each booking.</p>
-   <div className="actions"><button type="button" className="button" disabled={busy||!loaded} onClick={()=>open(blank())}>+ Add discount code</button></div>
+   <div className="actions"><button type="button" className="button" disabled={busy||!loaded} onClick={()=>open(rows.find(x=>!x.code)||blank())}>+ Add discount code</button></div>
    {loaded&&rows.map(item=><article className="hub-managed-form" key={item.id||'placeholder'}>
     <div><strong>{item.name} {item.code?'· '+item.code:'· Not configured'}</strong>
-     <p>{item.active?(item.remaining>0?'Active':'Limit reached'):'Inactive'} · {item.basis==='fixed'?gbp(item.value):item.value+'%'} · {item.categories==='all'?'All paid tickets':item.categories==='adult'?'Adult tickets':'Child tickets'}</p>
+     <p>{item.active?(item.expiresAt&&Date.parse(item.expiresAt)<=Date.now()?'Expired':item.startsAt&&Date.parse(item.startsAt)>Date.now()?'Scheduled':item.remaining>0?'Active':'Limit reached'):'Inactive'} · {item.basis==='fixed'?gbp(item.value):item.value+'%'} · {item.categories==='all'?'All paid tickets':item.categories==='adult'?'Adult tickets':'Child tickets'}</p>
      <p><strong>{item.used} successful redemptions</strong> · {item.reserved} reserved · {item.remaining} remaining of {item.maximum} · {gbp(item.totalDiscountPence)} discounts given</p>
      <p>{item.startsAt?'From '+new Intl.DateTimeFormat('en-GB',{dateStyle:'short',timeStyle:'short',hourCycle:'h23',timeZone:'Europe/London'}).format(new Date(item.startsAt)):'No start date'} · {item.expiresAt?'Ends '+new Intl.DateTimeFormat('en-GB',{dateStyle:'short',timeStyle:'short',hourCycle:'h23',timeZone:'Europe/London'}).format(new Date(item.expiresAt)):'No expiry date'}</p>
     </div><button type="button" className="button outline" onClick={()=>open(item)}>Edit settings</button>
