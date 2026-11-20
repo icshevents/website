@@ -49,7 +49,7 @@ export function entriesCsv(entries:Entry[]){
   const total=e.kind==='iftari'?Number(q.total):Number(info.total);
   const gross=e.kind==='iftari'?Number(q.grossTotal??(total+discount)):Number(info.grossTicketPence??total);
   const code=e.kind==='iftari'?promo.code:info.discountCode;
-  const safe=n=>Number.isSafeInteger(n)&&n>=0?(n/100).toFixed(2):'';
+  const safe=(n:number)=>Number.isSafeInteger(n)&&n>=0?(n/100).toFixed(2):'';
   return [safe(gross),typeof code==='string'?code:'',safe(discount),safe(total)];
  };
  return '\uFEFF'+[
