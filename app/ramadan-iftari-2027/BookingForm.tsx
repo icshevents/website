@@ -13,24 +13,44 @@ import noticeStyles from './booking-notice.module.css';
 type Result = { status: string; message: string };
 function MembershipEmail({ label, value, onChange, csrf, disabled = false }: { label: string; value: string; onChange: (value: string) => void; csrf: string; disabled?: boolean }) {
   const [checked, setChecked] = useState<{ email: string; result: Result } | null>(null);
-  const [checking, setChecking] = useState(false);
-  const sequence = useRef(0);
-  useEffect(() => { sequence.current++; setChecking(false); }, [value]);
-  async function check() {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || !csrf) return;
-    const turn = ++sequence.current, address = value;
-    setChecking(true);
-    try {
-      const response = await fetch('/api/iftari/membership', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ email: address }) });
-      const result = await response.json();
-      if (turn === sequence.current) setChecked({ email: address, result: response.ok ? result : { status: 'unavailable', message: result.error || 'Please retry your membership check.' } });
-    } catch { if (turn === sequence.current) setChecked({ email: address, result: { status: 'unavailable', message: 'Membership checks are temporarily unavailable. Please retry.' } }); }
-    finally { if (turn === sequence.current) setChecking(false); }
-  }
-  const result = checked?.email === value ? checked.result : null;
-  return <label className={styles.field}>{label}<input type="email" required autoComplete="email" maxLength={254} value={value} onChange={e => onChange(e.target.value)} onBlur={check} disabled={disabled} />
-    <span className={styles.membership} role="status">{checking ? 'Checking membership…' : result?.message || 'Membership is checked securely when you leave this field.'}</span>
-    {result && result.status !== 'active' && !disabled && <button className={styles.linkButton} type="button" onClick={check} disabled={checking}>Check membership again</button>}
+  const [checkingEmail, setCheckingEmail] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const address = value.trim().toLowerCase();
+
+  useEffect(() => {
+    if (disabled || !csrf || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setCheckingEmail(address);
+      try {
+        const response = await fetch('/api/iftari/membership', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+          body: JSON.stringify({ email: address }),
+          signal: controller.signal,
+        });
+        const result = await response.json();
+        if (!controller.signal.aborted) {
+          setChecked({ email: address, result: response.ok ? result : { status: 'unavailable', message: result.error || 'Please retry your membership check.' } });
+        }
+      } catch {
+        if (!controller.signal.aborted) setChecked({ email: address, result: { status: 'unavailable', message: 'Membership checks are temporarily unavailable. Please retry.' } });
+      } finally {
+        if (!controller.signal.aborted) setCheckingEmail(null);
+      }
+    }, 450);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+      setCheckingEmail(null);
+    };
+  }, [address, csrf, disabled, retry]);
+
+  const result = checked?.email === address ? checked.result : null;
+  const checking = checkingEmail === address;
+  return <label className={styles.field}>{label}<input type="email" required autoComplete="email" maxLength={254} value={value} onChange={e => onChange(e.target.value)} disabled={disabled} />
+    <span className={styles.membership} role="status">{checking ? 'Checking membership…' : result?.message || 'Enter your membership email address to check your status.'}</span>
+    {result && result.status !== 'active' && !disabled && <button className={styles.linkButton} type="button" onClick={()=>setRetry(n=>n+1)} disabled={checking}>Check membership again</button>}
   </label>;
 }
 export default function BookingForm({menu}:{menu?:IftariMenu}) {
