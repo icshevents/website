@@ -90,11 +90,43 @@ select 'tickets',id from public.icsh_forms where kind='tickets' on conflict do n
 insert into public.icsh_event_discounts(scope_kind,scope_id)
 select 'iftari',id from public.icsh_events where source_type='iftari' on conflict do nothing;
 
+-- Recover checkouts which never obtained a Stripe session. This occurs under
+-- the same code-row lock used to admit new bookings, so a last-use race remains safe.
+-- Checkout sessions which exist must be released by verified Stripe outcomes.
+create function public.icsh_discount_release_stale(p_kind text,p_scope uuid)
+returns integer language plpgsql security invoker set search_path='' as $$
+declare target record;released integer:=0;changed integer:=0;
+begin
+ if p_kind not in ('tickets','iftari') or p_scope is null then return 0;end if;
+ for target in select id from public.icsh_event_discounts
+   where scope_kind=p_kind and scope_id=p_scope order by id for update loop
+  update public.icsh_event_discount_redemptions r
+  set status='released',released_at=now()
+  where r.discount_id=target.id and r.status='reserved'
+   and r.reserved_at<now()-interval '30 minutes'
+   and (
+    (r.scope_kind='tickets' and not exists(
+      select 1 from public.icsh_form_payments p where p.source_kind='event'
+        and p.source_id=r.booking_id and p.session_id is not null))
+    or (r.scope_kind='iftari' and not exists(
+      select 1 from public.icsh_iftari_bookings b where b.id=r.booking_id
+        and b.session_id is not null))
+   );
+  get diagnostics changed=row_count;
+  released:=released+changed;
+ end loop;
+ return released;
+end $$;
+revoke execute on function public.icsh_discount_release_stale(text,uuid) from public,anon,authenticated;
+grant execute on function public.icsh_discount_release_stale(text,uuid) to service_role;
+
 -- The public site sees only whether a currently redeemable offer exists.
 -- It never receives codes, member eligibility or remaining-customer details.
 create function public.icsh_discount_public_available(p_kind text,p_scope uuid)
-returns boolean language sql stable security invoker set search_path='' as $$
- select exists(
+returns boolean language plpgsql security invoker set search_path='' as $$
+begin
+ perform public.icsh_discount_release_stale(p_kind,p_scope);
+ return exists(
   select 1 from public.icsh_event_discounts d
   where d.scope_kind=p_kind and d.scope_id=p_scope
    and d.code is not null and d.active
@@ -104,8 +136,8 @@ returns boolean language sql stable security invoker set search_path='' as $$
     select coalesce(sum(r.units),0) from public.icsh_event_discount_redemptions r
     where r.discount_id=d.id and r.status in ('reserved','redeemed')
    )
- )
-$$;
+ );
+end $$;
 revoke execute on function public.icsh_discount_public_available(text,uuid) from public,anon,authenticated;
 grant execute on function public.icsh_discount_public_available(text,uuid) to service_role;
 
@@ -132,6 +164,7 @@ returns jsonb language plpgsql security invoker set search_path='' as $$
 declare kind text;
 begin
  kind:=public.icsh_discount_hub_scope(p_token,p_event,p_form);
+ perform public.icsh_discount_release_stale(kind,p_form);
  return coalesce((
  select jsonb_agg(jsonb_build_object(
   'id',d.id,'scopeKind',d.scope_kind,'scopeId',d.scope_id,'code',d.code,
