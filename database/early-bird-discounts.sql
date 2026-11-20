@@ -90,6 +90,25 @@ select 'tickets',id from public.icsh_forms where kind='tickets' on conflict do n
 insert into public.icsh_event_discounts(scope_kind,scope_id)
 select 'iftari',id from public.icsh_events where source_type='iftari' on conflict do nothing;
 
+-- The public site sees only whether a currently redeemable offer exists.
+-- It never receives codes, member eligibility or remaining-customer details.
+create function public.icsh_discount_public_available(p_kind text,p_scope uuid)
+returns boolean language sql stable security invoker set search_path='' as $
+ select exists(
+  select 1 from public.icsh_event_discounts d
+  where d.scope_kind=p_kind and d.scope_id=p_scope
+   and d.code is not null and d.active
+   and (d.starts_at is null or d.starts_at<=now())
+   and (d.expires_at is null or d.expires_at>now())
+   and d.maximum>(
+    select coalesce(sum(r.units),0) from public.icsh_event_discount_redemptions r
+    where r.discount_id=d.id and r.status in ('reserved','redeemed')
+   )
+ )
+$;
+revoke execute on function public.icsh_discount_public_available(text,uuid) from public,anon,authenticated;
+grant execute on function public.icsh_discount_public_available(text,uuid) to service_role;
+
 -- Verify both scope AND ownership through the existing Events Hub token.
 -- This is not accessible to the browser roles; it is invoked by the server
 -- through the same private session as existing form settings.
