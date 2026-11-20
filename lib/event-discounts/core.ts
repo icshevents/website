@@ -43,8 +43,8 @@ export function validDiscountSettings(s:DiscountConfiguration):void{
  }
  if(!Number.isSafeInteger(s.maximum)||s.maximum<0||s.maximum>1000000)throw Error('Redemption limit is invalid.');
  if(s.perCustomerMaximum!==null&&(!Number.isSafeInteger(s.perCustomerMaximum)||s.perCustomerMaximum<1||s.perCustomerMaximum>s.maximum))throw Error('Customer limit must be between 1 and the overall limit.');
- if(s.startsAt&&(!Number.isFinite(Date.parse(s.startsAt))||!s.startsAt.endsWith('Z')))throw Error('Enter a valid UK start date/time.');
- if(s.expiresAt&&(!Number.isFinite(Date.parse(s.expiresAt))||!s.expiresAt.endsWith('Z')))throw Error('Enter a valid UK expiry date/time.');
+ if(s.startsAt&&(!Number.isFinite(Date.parse(s.startsAt))||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(s.startsAt)))throw Error('Enter a valid UK start date/time.');
+ if(s.expiresAt&&(!Number.isFinite(Date.parse(s.expiresAt))||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(s.expiresAt)))throw Error('Enter a valid UK expiry date/time.');
  if(s.startsAt&&s.expiresAt&&Date.parse(s.expiresAt)<=Date.parse(s.startsAt))throw Error('Expiry must follow the start date.');
 }
 export function calculateDiscount(config:DiscountConfiguration,lines:TicketLine[],paidMember:boolean,now=Date.now()):DiscountBreakdown{
