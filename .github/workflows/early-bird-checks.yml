@@ -71,3 +71,5 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -f database/early-bird-iftari.sql
       - name: Run synthetic ticket and Iftari settlement test
         run: psql -X -v ON_ERROR_STOP=1 -f tests/early-bird-pg-smoke.sql
+      - name: Race two simultaneous checkouts for the final available use
+        run: bash tests/early-bird-pg-race.sh
