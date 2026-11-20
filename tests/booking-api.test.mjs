@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {ran
 import handler from '../lib/event-forms/handler.js';import{requestContext}from'../lib/event-forms/context.js';import{defaultFestivalConfig}from'../lib/event-forms/festival-config.js';import{formRow}from'../lib/event-forms/migration.js';import{eventDirectory}from'../lib/event-forms/directory.js';
 const event={id:'11111111-1111-4111-8111-111111111111',version:1,title:'Christmas Party prototype',slug:'christmas-party-prototype',status:'published',pricingStrategy:'booking_email',prototype:true,mode:'test',startsAt:'2026-12-19T18:00:00Z',endsAt:'2026-12-19T22:00:00Z',capacity:100,questions:[],membershipCheckRequired:false,rates:{member:1500,nonmember:2500,pensioner:1500,student:1500}};
 const contact={id:'10001',email:'member@example.com',membershipStatus:'Active',paymentStatus:'Completed',membershipDate:'2026-01-19',membershipExpiry:'2027-01-19'};
-function fixture(){const tables={icsh_forms:[formRow('tickets',structuredClone(event)),formRow('participation',defaultFestivalConfig())],icsh_submissions:[],icsh_audit_events:[],icsh_event_discounts:[]};let writes=0;
+function fixture(){const tables={icsh_forms:[formRow('tickets',structuredClone(event)),formRow('participation',defaultFestivalConfig())],icsh_submissions:[],icsh_audit_events:[],icsh_event_discounts:[],icsh_event_discount_redemptions:[]};let writes=0;
  const db={from(table){let rows=structuredClone(tables[table]||[]);const q={select(){return q;},maybeSingle(){return Promise.resolve({data:rows[0]??null,error:null});},in(k,v){rows=rows.filter(r=>v.includes(r[k]));return q;},eq(k,v){rows=rows.filter(r=>r[k]===v);return q;},order(){return q;},limit(n){rows=rows.slice(0,n);return q;},range(a,b){return Promise.resolve({data:rows.slice(a,b+1),count:rows.length,error:null});},insert(row){tables[table].push(row);return Promise.resolve({data:null,error:null});},then(a,b){return Promise.resolve({data:rows,error:null}).then(a,b);}};return q;},async rpc(name,args){if(name==='icsh_discount_release_stale')return{data:0,error:null};assert.equal(name,'icsh_event_write');writes++;for(const c of args.p_changes){const t=c.table==='forms'?'icsh_forms':'icsh_submissions',i=tables[t].findIndex(r=>r.id===c.data.id);if(i<0)tables[t].push(c.data);else tables[t][i]=c.data;}return{data:true,error:null};}};return{db,tables,get writes(){return writes;}};}
 async function call(f,path,body,lookupMembership=async()=>({records:[contact],hasMore:false}),admin=false){const req={url:'https://icsh.test/api/event-forms/'+path,query:{path},method:'POST',headers:{origin:'https://icsh.test','content-type':'application/json','x-csrf-token':'csrf','x-registration-token':'a'.repeat(64)},body};let status=200,raw;await requestContext.run({db:f.db,path,body,method:'POST',url:new URL(req.url),req,secret:'fixture-secret',lookupMembership,session:{admin,csrf:'csrf',issuedAt:Date.now()-3000,save:async()=>{}}},()=>handler(req,{get statusCode(){return status;},set statusCode(v){status=v;},setHeader(){},end(v){raw=v;}}));return{status,body:JSON.parse(raw)};}
 const query=()=>({eventId:event.id,email:'member@example.com',quantity:2,continueAsNonMember:false});
@@ -23,23 +23,31 @@ test('email alone verifies membership and rates without making a bookable quote'
  assert.ok(attempt.status>=400);
  assert.equal(f.writes,0);
 });
-test('a paid-only code does not hide an active member’s normal price',async t=>{
+test('discount audiences include active free members and distinguish inactive members from non-members',async t=>{
  freeze(t);
  const f=fixture();
  f.tables.icsh_forms[0].configuration.membershipPricingRule='active';
  f.tables.icsh_event_discounts.push({
-  id:randomUUID(),scope_kind:'tickets',scope_id:event.id,code:'PAIDONLY',name:'Early Bird Discount',
-  active:true,paid_members_only:true,basis:'fixed',value:500,categories:'all',application:'per_booking',
+  id:randomUUID(),scope_kind:'tickets',scope_id:event.id,code:'MEMBERS',name:'Early Bird Discount',
+  active:true,audience:'active',basis:'fixed',value:500,categories:'all',application:'per_booking',
   redemption_basis:'booking',maximum:10,per_customer_maximum:null,starts_at:null,expires_at:null,version:1
  });
  const read=async()=>({records:[{...contact,paymentStatus:'Not required'}],hasMore:false});
- const result=await call(f,'booking/quote',{...query(),discountCode:'PAIDONLY'},read);
- assert.equal(result.status,200);
- assert.equal(result.body.quote.memberStatus,'active');
- assert.equal(result.body.quote.total,3000);
- assert.equal(result.body.quote.promotion,undefined);
- assert.match(result.body.discountError,/paid ICSH members only/);
- const attempt=await call(f,'booking/registrations',{...booking(result.body.quote),discountCode:'PAIDONLY'},read);
+ const request={...query(),discountCode:'MEMBERS'};
+ const active=await call(f,'booking/quote',request,read);
+ assert.equal(active.body.quote.memberStatus,'active');
+ assert.equal(active.body.quote.promotion.payablePence,2500);
+ assert.equal(active.body.quote.promotion.membershipProof,undefined);
+ f.tables.icsh_event_discounts[0].audience='inactive';
+ const refused=await call(f,'booking/quote',request,read);
+ assert.equal(refused.body.quote.total,3000);
+ assert.equal(refused.body.quote.promotion,undefined);
+ assert.match(refused.body.discountError,/inactive or expired/);
+ const noRecord=await call(f,'booking/quote',request,async()=>({records:[],hasMore:false}));
+ assert.equal(noRecord.body.quote.promotion,undefined);
+ const expired=await call(f,'booking/quote',request,async()=>({records:[{...contact,membershipExpiry:'2026-10-21'}],hasMore:false}));
+ assert.equal(expired.body.quote.promotion.payablePence,4500);
+ const attempt=await call(f,'booking/registrations',{...booking(refused.body.quote),discountCode:'MEMBERS'},read);
  assert.equal(attempt.status,409);
  assert.equal(f.writes,0);
 });

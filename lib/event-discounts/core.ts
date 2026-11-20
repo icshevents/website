@@ -1,13 +1,16 @@
 /**
  * The Early Bird calculation is shared by ordinary ticket bookings and Iftari.
  * All amounts are integer GBP pence. This module does not grant eligibility:
- * the caller must verify a paid membership using the existing Bigin lookup.
+ * the caller verifies membership status using the existing Bigin lookup.
  */
 export type TicketCategory='adult'|'child'|'donation';
 export type DiscountBasis='fixed'|'percentage';
 export type DiscountApplication='per_ticket'|'per_booking';
 export type RedemptionBasis='booking'|'ticket';
 export type DiscountScope='tickets'|'iftari';
+
+export type DiscountAudience='all'|'active'|'inactive';
+export type VerifiedMembership='active'|'inactive'|null;
 
 export type DiscountConfiguration={
  id:string|null;
@@ -18,7 +21,7 @@ export type DiscountConfiguration={
  application:DiscountApplication; redemptionBasis:RedemptionBasis;
  maximum:number; perCustomerMaximum:number|null;
  startsAt:string|null; expiresAt:string|null;
- paidMembersOnly:boolean; active:boolean; version:number;
+ audience:DiscountAudience; active:boolean; version:number;
 };
 
 export type TicketLine={category:TicketCategory;quantity:number;unitPence:number};
@@ -27,7 +30,7 @@ export type DiscountBreakdown={grossPence:number;eligiblePence:number;discountPe
 export const emptyDiscount=(scopeKind:DiscountScope,scopeId:string):DiscountConfiguration=>({
  id:null,scopeKind,scopeId,code:null,name:'Early Bird Offer',
  basis:'fixed',value:0,categories:'all',application:'per_booking',redemptionBasis:'booking',
- maximum:0,perCustomerMaximum:null,startsAt:null,expiresAt:null,paidMembersOnly:false,active:false,version:0
+ maximum:0,perCustomerMaximum:null,startsAt:null,expiresAt:null,audience:'all',active:false,version:0
 });
 export function normaliseCode(value:string):string{
  const code=value.trim().toUpperCase();
@@ -47,12 +50,13 @@ export function validDiscountSettings(s:DiscountConfiguration):void{
  if(s.expiresAt&&(!Number.isFinite(Date.parse(s.expiresAt))||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(s.expiresAt)))throw Error('Enter a valid UK expiry date/time.');
  if(s.startsAt&&s.expiresAt&&Date.parse(s.expiresAt)<=Date.parse(s.startsAt))throw Error('Expiry must follow the start date.');
 }
-export function calculateDiscount(config:DiscountConfiguration,lines:TicketLine[],paidMember:boolean,now=Date.now()):DiscountBreakdown{
+export function calculateDiscount(config:DiscountConfiguration,lines:TicketLine[],membership:VerifiedMembership,now=Date.now()):DiscountBreakdown{
  validDiscountSettings(config);
  if(!config.active||!config.code)throw Error('This discount code is inactive.');
  if(config.startsAt&&now<Date.parse(config.startsAt))throw Error('This offer is not open yet.');
  if(config.expiresAt&&now>=Date.parse(config.expiresAt))throw Error('This discount code has expired.');
- if(config.paidMembersOnly&&!paidMember)throw Error('This offer is for paid ICSH members only.');
+ if(config.audience==='active'&&membership!=='active')throw Error('This offer is for active ICSH members only.');
+ if(config.audience==='inactive'&&membership!=='inactive')throw Error('This offer is for inactive or expired ICSH members only.');
  if(!lines.length||lines.some(l=>!['adult','child','donation'].includes(l.category)||!Number.isSafeInteger(l.quantity)||l.quantity<0||l.quantity>100||!Number.isSafeInteger(l.unitPence)||l.unitPence<0||l.unitPence>1_000_000))throw Error('Invalid ticket totals.');
  const grossPence=lines.reduce((sum,l)=>sum+l.quantity*l.unitPence,0);
  const eligible=lines.filter(l=>l.category!=='donation'&&(config.categories==='all'||l.category===config.categories)&&l.unitPence>0);

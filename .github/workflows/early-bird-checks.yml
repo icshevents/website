@@ -64,11 +64,12 @@ jobs:
         run: command -v psql || { sudo apt-get update && sudo apt-get install -y postgresql-client; }
       - name: Install fictitious existing schema
         run: psql -X -v ON_ERROR_STOP=1 -f tests/early-bird-pg-fixture.sql
-      - name: Apply three proposed SQL migrations to isolated database
+      - name: Apply discount SQL migrations to isolated database
         run: |
           psql -X -v ON_ERROR_STOP=1 -f database/early-bird-discounts.sql
           psql -X -v ON_ERROR_STOP=1 -f database/early-bird-redemption-ledger.sql
           psql -X -v ON_ERROR_STOP=1 -f database/early-bird-iftari.sql
+          psql -X -1 -v ON_ERROR_STOP=1 -f database/event-discount-membership-audience.sql
       - name: Run synthetic ticket and Iftari settlement test
         run: psql -X -v ON_ERROR_STOP=1 -f tests/early-bird-pg-smoke.sql
       - name: Check expired sessions, release holds and prevent expired checkouts

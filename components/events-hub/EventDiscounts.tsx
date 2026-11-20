@@ -44,7 +44,7 @@ export default function EventDiscounts({eventId,formId,kind,api,onBack}:{eventId
     redemptionBasis:editing.redemptionBasis,maximum:editing.maximum,
     perCustomerMaximum:editing.perCustomerMaximum,
     startsAt:start?londonISO(start):null,expiresAt:end?londonISO(end):null,
-    paidMembersOnly:editing.paidMembersOnly,active:editing.active,version:editing.version
+    audience:editing.audience,active:editing.active,version:editing.version
    };
    await api('discount/save',{eventId,formId,discount:offer});
    await reload();setEditing(null);setMessage('Discount settings saved.');notifyWorkspace('Discount settings saved.');
@@ -95,7 +95,7 @@ export default function EventDiscounts({eventId,formId,kind,api,onBack}:{eventId
     <label>Expiry (UK time, optional)<input type="datetime-local" lang="en-GB" value={end} onChange={e=>setEnd(e.target.value)}/></label>
    </div>
    <p className="form-context">All times are UK local time (GMT/BST), displayed as DD/MM/YYYY and HH:mm.</p>
-   <label>Who can use this discount?<select value={editing.paidMembersOnly?'paid':'all'} disabled={editing.used>0||editing.reserved>0} onChange={e=>update({paidMembersOnly:e.target.value==='paid'})}><option value="all">All customers</option><option value="paid">Paid ICSH members only</option></select></label>
+   <label>Who can use this discount?<select value={editing.audience} disabled={editing.used>0||editing.reserved>0} onChange={e=>update({audience:e.target.value as Entry['audience']})}><option value="all">All customers</option><option value="inactive">Inactive members only</option><option value="active">Active members only</option></select></label>
    <label className="hub-checkbox"><input type="checkbox" checked={editing.active} onChange={e=>update({active:e.target.checked})}/>Activate this discount code</label>
    <p><strong>Redemptions used:</strong> {editing.used} · <strong>Held in checkout:</strong> {editing.reserved} · <strong>Total given:</strong> {gbp(editing.totalDiscountPence)}</p>
    <div className="actions"><button type="button" className="button" disabled={busy} onClick={()=>void save()}>{busy?'Saving…':'Save Settings'}</button><button type="button" className="button outline" onClick={()=>setEditing(null)}>Cancel</button></div>

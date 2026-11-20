@@ -178,7 +178,7 @@ export async function handleIftari(request: Request, path: string) {
         ...(promotion?{
           p_expected_gross:originalQuote.total,p_expected_net:promotion.netPence,
           p_discount_code:promotion.code,p_customer_hash:promotion.customerHash,
-          p_paid_member_verified:promotion.paidMemberVerified
+          p_membership_proof:promotion.membershipProof
          }:{p_expected_total:input.expectedTotal}),
         p_account: config.account, p_mode: config.mode,
       });

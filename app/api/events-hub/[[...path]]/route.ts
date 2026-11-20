@@ -126,7 +126,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
      redemptionBasis:z.enum(['booking','ticket']),maximum:z.number().int().min(0).max(1000000),
      perCustomerMaximum:z.number().int().min(1).max(1000000).nullable(),
      startsAt:z.iso.datetime({offset:true}).nullable(),expiresAt:z.iso.datetime({offset:true}).nullable(),
-     paidMembersOnly:z.boolean(),active:z.boolean(),version:z.number().int().nonnegative()
+     audience:z.enum(['all','active','inactive']),active:z.boolean(),version:z.number().int().nonnegative()
     }).strict()
    }).strict();
    const b=schema.parse(body);

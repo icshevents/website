@@ -18,7 +18,7 @@ begin
  then raise exception 'New ticket form did not get inactive placeholder';end if;
  if public.icsh_discount_public_available('tickets',fid) then raise exception 'Inactive code visible';end if;
  update public.icsh_event_discounts set code='EARLY5',name='Early Bird Offer',basis='fixed',value=500,
- categories='all',application='per_booking',redemption_basis='booking',maximum=1,active=true where scope_id=fid;
+ categories='all',application='per_booking',redemption_basis='booking',maximum=1,active=true,audience='active' where scope_id=fid;
  if not public.icsh_discount_public_available('tickets',fid) then raise exception 'Active discount not visible';end if;
  original:=jsonb_build_object(
   'mode','live','status','pending','currency','gbp','total',2275,
@@ -29,7 +29,7 @@ begin
                                 jsonb_build_object('unitAmount',925,'ticket','child')),
   'booking',jsonb_build_object('promotion',jsonb_build_object(
       'code','EARLY5','grossPence',2775,'discountPence',500,'netPence',2275,
-      'units',1,'paidMemberVerified',false,'customerHash',repeat('b',64))));
+      'units',1,'membershipProof','active','customerHash',repeat('b',64))));
  insert into public.icsh_submissions(id,form_id,status,answers,mode)
  values(bid,fid,'new',jsonb_build_object('record',original),'live');
  if (select count(*) from public.icsh_event_discount_redemptions where booking_id=bid and status='reserved')<>1
@@ -83,13 +83,13 @@ begin
  '{"version":1,"status":"published","prices":{"member":2550,"nonmember":2800,"child":1300,"under5":0}}');
  if not exists(select 1 from public.icsh_event_discounts where scope_kind='iftari' and scope_id=eid2 and not active and code is null)
  then raise exception 'Iftari did not get separate inactive placeholder';end if;
- update public.icsh_event_discounts set code='IFT500',value=500,maximum=2,active=true
+ update public.icsh_event_discounts set code='IFT500',value=500,maximum=2,active=true,audience='inactive'
  where scope_kind='iftari' and scope_id=eid2;
  select public.icsh_iftari_reserve_discount(
   iid,repeat('c',64),repeat('d',64),
   jsonb_build_object('email','iftari@example.org','firstName','Test','lastName','Guest','mobile','+447700900000'),
   '{"member":0,"nonmember":2,"child":1,"under5":0}'::jsonb,
-  array[]::text[],500,1,7400,6900,'acct_TEST','live','ift500',repeat('e',64),false
+  array[]::text[],500,1,7400,6900,'acct_TEST','live','ift500',repeat('e',64),'inactive'::text
  ) into data;
  if (data->>'total')::integer<>6900 or (data->'quote'->'promotion'->>'discountPence')::integer<>500
     or (data->'quote'->>'donation')::integer<>500 then
