@@ -34,6 +34,8 @@ const quantity = z.number().int().min(0).max(50);
 export const quoteInputSchema = z.object({
   quantities: z.object({ member: quantity, nonmember: quantity, child: quantity, under5: quantity }).strict(),
   donation: z.string().max(20),
+  discountCode:z.string().trim().max(32).optional(),
+  email:z.string().trim().max(254).optional(),
 }).strict();
 const name = z.string().trim().min(1).max(80).refine(v => !/[<>\u0000-\u001f]/.test(v), 'Enter a valid name.');
 export const attendeeSchema = z.object({firstName:name,lastName:name,ticket:z.enum(ticketKeys)}).strict();
@@ -50,7 +52,7 @@ export const bookingInputSchema = quoteInputSchema.extend({
 export type BookingInput = z.infer<typeof bookingInputSchema>;
 export type QuoteInput = z.infer<typeof quoteInputSchema>;
 export type LineItem = { key: TicketKey | 'donation'; label: string; quantity: number; unitAmount: number; amount: number };
-export type Quote = { version: number; lines: LineItem[]; tickets: number; donation: number; total: number; guests: number; currency: 'GBP' };
+export type Quote = { version: number; lines: LineItem[]; tickets: number; donation: number; total: number; guests: number; currency: 'GBP'; promotion?:{code:string;name:string;grossPence:number;discountPence:number;payablePence:number;units:number} };
 export class IftariError extends Error {
   status: number;
   constructor(message: string, status = 400) { super(message); this.status = status; }
