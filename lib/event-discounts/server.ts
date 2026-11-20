@@ -2,7 +2,9 @@ import 'server-only';
 import {createHmac} from 'node:crypto';
 import {AppError} from '../event-forms/domain.js';
 import {calculateDiscount,normaliseCode,type DiscountConfiguration} from './core.ts';
-import type {BookingPrice,BookingDiagnostics} from '../event-forms/booking-membership.ts';
+import type {BookingPrice,BookingDiagnostics,BookingLookup} from '../event-forms/booking-membership.ts';
+import type {Quote as IftariQuote} from '../iftari/core.ts';
+import {londonDate,parseDate} from '../membership.ts';
 
 type DB={from:(name:string)=>any};
 export type VerifiedTicketPromotion={
@@ -10,7 +12,7 @@ export type VerifiedTicketPromotion={
  discountId:string;scopeKind:'tickets';scopeId:string;customerHash:string;paidMemberVerified:boolean;
 };
 function config(row:Record<string,any>):DiscountConfiguration{
- return {id:row.id,scopeKind:'tickets',scopeId:row.scope_id,code:row.code,name:row.name,
+ return {id:row.id,scopeKind:row.scope_kind,scopeId:row.scope_id,code:row.code,name:row.name,
  basis:row.basis,value:row.value,categories:row.categories,application:row.application,
  redemptionBasis:row.redemption_basis,maximum:row.maximum,
  perCustomerMaximum:row.per_customer_maximum,startsAt:row.starts_at,expiresAt:row.expires_at,
@@ -123,4 +125,66 @@ export async function verifiedIftariPromotion(args:{
  return {code,name:configuration.name,discountId:row.id,scopeId,scopeKind:'iftari',
   grossPence:calculated.grossPence,discountPence:calculated.discountPence,netPence:calculated.payablePence,
   units:calculated.units,customerHash,paidMemberVerified};
+}
+
+export type VerifiedIftariPromotion={
+ code:string;name:string;grossPence:number;discountPence:number;netPence:number;units:number;
+ discountId:string;scopeKind:'iftari';scopeId:string;customerHash:string;paidMemberVerified:boolean;
+};
+export const publicIftariPromotion=(p:VerifiedIftariPromotion)=>({
+ code:p.code,name:p.name,grossPence:p.grossPence,
+ discountPence:p.discountPence,payablePence:p.netPence,units:p.units
+});
+export async function verifiedIftariPromotion(args:{
+ db:DB;code?:string;quote:IftariQuote;email:string;secret:string;lookup:BookingLookup
+}):Promise<VerifiedIftariPromotion|null>{
+ if(!args.code?.trim())return null;
+ let code:string;
+ try{code=normaliseCode(args.code);}catch{throw new AppError('Invalid discount code for this booking form.',409);}
+ const scope=await args.db.from('icsh_events').select('id').eq('source_type','iftari').eq('source_key','ramadan-iftari-2027').maybeSingle();
+ if(scope.error||!scope.data)throw new AppError('The discount configuration for Iftari is unavailable.',503);
+ const scopeId=scope.data.id as string;
+ const result=await args.db.from('icsh_event_discounts').select('*')
+  .eq('scope_kind','iftari').eq('scope_id',scopeId).eq('code',code).maybeSingle();
+ if(result.error)throw new AppError('Discount codes are temporarily unavailable.',503);
+ if(!result.data)throw new AppError('Invalid discount code for this booking form.',409);
+ const d=config(result.data);
+ if(!d.active)throw new AppError('This discount code is inactive.',409);
+ let paidMemberVerified=false;
+ if(d.paidMembersOnly){
+  const address=args.email.trim().toLowerCase();
+  if(!address||!address.includes('@'))throw new AppError('Enter the lead booker email address to verify a member-only code.',409);
+  try{
+   const response=await args.lookup({method:'email',email:address});
+   const matches=[...new Map(response.records.filter(r=>r.email?.trim().toLowerCase()===address).map(r=>[r.id,r])).values()];
+   if(!response.hasMore&&matches.length===1){
+    const r=matches[0],start=r.membershipDate?.trim(),expiry=r.membershipExpiry?.trim(),today=londonDate();
+    paidMemberVerified=Boolean(
+     start&&expiry&&parseDate(start)&&parseDate(expiry)&&start<expiry
+     &&start<=today&&expiry>today
+     &&r.membershipStatus?.trim().toLowerCase()==='active'
+     &&r.paymentStatus?.trim().toLowerCase()==='completed'
+    );
+   }
+  }catch{throw new AppError('Paid membership verification is temporarily unavailable. Please try again.',503);}
+ }
+ let discount;
+ try{discount=calculateDiscount(d,args.quote.lines.map(l=>({
+  category:l.key==='donation'?'donation':l.key==='child'||l.key==='under5'?'child':'adult',
+  quantity:l.quantity,unitPence:l.unitAmount
+ })),paidMemberVerified);}catch(error){throw new AppError(error instanceof Error?error.message:'The discount is unavailable.',409);}
+ const customerHash=createHmac('sha256',args.secret).update('icsh-discount-customer-v1:'+args.email.toLowerCase().trim()).digest('hex');
+ const rows=await args.db.from('icsh_event_discount_redemptions').select('units,customer_hash')
+  .eq('discount_id',d.id).in('status',['reserved','redeemed']);
+ if(rows.error||!Array.isArray(rows.data))throw new AppError('Discount availability could not be checked.',503);
+ const used=rows.data.reduce((n:number,x:{units:number})=>n+x.units,0);
+ if(used+discount.units>d.maximum)throw new AppError('This discount has reached its maximum redemptions.',409);
+ if(d.perCustomerMaximum!==null){
+  const own=rows.data.filter((x:{customer_hash:string})=>x.customer_hash===customerHash)
+   .reduce((n:number,x:{units:number})=>n+x.units,0);
+  if(own+discount.units>d.perCustomerMaximum)throw new AppError('This discount has reached the limit for this customer.',409);
+ }
+ return {code,name:d.name,grossPence:discount.grossPence,discountPence:discount.discountPence,
+  netPence:discount.payablePence,units:discount.units,discountId:d.id,scopeKind:'iftari',
+  scopeId,customerHash,paidMemberVerified};
 }
