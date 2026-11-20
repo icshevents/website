@@ -4,7 +4,7 @@ import {calculateDiscount,normaliseCode,type DiscountConfiguration} from './core
 import type {BookingPrice,BookingDiagnostics} from '../event-forms/booking-membership.ts';
 import {londonDate,parseDate} from '../membership.ts';
 
-type DB={from:(name:string)=>any};
+type DB={from:(name:string)=>any;rpc:(name:string,args:Record<string,unknown>)=>PromiseLike<{data:unknown;error:unknown}>};
 export type VerifiedTicketPromotion={
  code:string;name:string;grossPence:number;discountPence:number;netPence:number;units:number;
  discountId:string;scopeKind:'tickets';scopeId:string;customerHash:string;paidMemberVerified:boolean;
