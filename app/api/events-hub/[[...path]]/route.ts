@@ -65,6 +65,7 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
   if(path.startsWith('task/'))return await taskFileRequest(req,path);
   const url=new URL(req.url);
   if(req.method==='GET'){
+   if(path==='discounts'){const q=new URL(req.url).searchParams;const eventId=z.uuid().parse(q.get('eventId')),formId=z.uuid().parse(q.get('formId'));return json(await hubRpc('icsh_discount_hub_list',{p_event:eventId,p_form:formId}));}
    if(path==='forms')return json(await hubRpc('icsh_hub_forms',{p_event:z.uuid().parse(new URL(req.url).searchParams.get('id'))}));
    if(path==='dashboard'){
     const dashboard = await hubRpc('icsh_hub_dashboard') as { events: HubEvent[]; tasks: unknown; team: unknown };
@@ -114,6 +115,28 @@ async function handle(req:Request,ctx:{params:Promise<{path?:string[]}>}){
   }
   if(!req.headers.get('content-type')?.startsWith('application/json'))throw new HubError('Invalid request.',415);
   const body=JSON.parse(await boundedBody(req,32000));
+  if(path==='discount/save'){
+   const schema=z.object({
+    eventId:z.uuid(),formId:z.uuid(),
+    discount:z.object({
+     id:z.uuid().nullable(),scopeKind:z.enum(['tickets','iftari']),scopeId:z.uuid(),
+     code:z.string().max(32).nullable(),name:z.string().trim().min(1).max(120),
+     basis:z.enum(['fixed','percentage']),value:z.number().int().min(0).max(1000000),
+     categories:z.enum(['adult','child','all']),application:z.enum(['per_ticket','per_booking']),
+     redemptionBasis:z.enum(['booking','ticket']),maximum:z.number().int().min(0).max(1000000),
+     perCustomerMaximum:z.number().int().min(1).max(1000000).nullable(),
+     startsAt:z.iso.datetime({offset:true}).nullable(),expiresAt:z.iso.datetime({offset:true}).nullable(),
+     paidMembersOnly:z.boolean(),active:z.boolean(),version:z.number().int().nonnegative()
+    }).strict()
+   }).strict();
+   const b=schema.parse(body);
+   if(b.discount.scopeId!==b.formId)throw new HubError('This code belongs to another event form.',403);
+   if(b.discount.active&&(!b.discount.code||!b.discount.value||!b.discount.maximum))throw new HubError('Enter a discount code, discount value and usage limit before activating.');
+   if(b.discount.basis==='percentage'&&b.discount.value>100)throw new HubError('Percentage discount must not exceed 100%.');
+   if(b.discount.perCustomerMaximum!==null&&b.discount.perCustomerMaximum>b.discount.maximum)throw new HubError('A customer cannot have more uses than the overall limit.');
+   const clean={...b.discount,code:b.discount.code?.trim().toUpperCase()||null};
+   return json(await hubRpc('icsh_discount_hub_save',{p_event:b.eventId,p_form:b.formId,p_discount:clean}));
+  }
   if(path==='form/settings'){
    const stamp=z.iso.datetime({offset:true});
    const settings=z.object({title:z.string().trim().min(1).max(140),venue:z.string().trim().min(1).max(240),capacity:z.number().int().min(1).max(10000).nullable(),startsAt:stamp,endsAt:stamp,bookingOpens:stamp.nullable(),bookingCloses:stamp.nullable(),rates:z.partialRecord(z.enum(['member','nonmember','child','childNonmember','under5','pensioner','student']),z.number().int().min(0).max(1000000)).nullable().optional()}).strict();
