@@ -13,8 +13,29 @@ import { websitePaymentConfiguration } from '../payments/core';
 import { constantEqual, digest, paymentHeaders, paymentConfiguration, paymentRequestOrigin, paymentReturnCookie, verifyStripeEvent } from '../membership-payments/core';
 import { bookingInputSchema, quoteInputSchema, settingsSchema, quoteBooking, verifyMember, verifyMemberTickets, IftariError, IFTARI_SLUG, membershipMessages } from './core';
 import { IftariStripeClient, bookingSource, iftariPurpose, type BookingRow } from './stripe';
+import {verifiedIftariPromotion,type VerifiedIftariPromotion} from '../event-discounts/server.ts';
 
 export const iftariCookie = '__Host-icsh-iftari';
+async function discountScope(){
+ const db=createEventService();
+ const r=await db.from('icsh_events').select('id').eq('source_type','iftari').eq('source_key',IFTARI_SLUG).eq('archived',false).maybeSingle();
+ if(r.error||!r.data)throw new IftariError('Iftari discount settings are not available.',503);
+ return r.data.id as string;
+}
+async function withDiscount(quote:ReturnType<typeof quoteBooking>,input:{discountCode?:string;email?:string}){
+ if(!input.discountCode?.trim())return {quote,promotion:null as VerifiedIftariPromotion|null};
+ const scopeId=await discountScope();
+ const promotion=await verifiedIftariPromotion({
+  db:createEventService(),scopeId,code:input.discountCode,email:input.email||'',
+  quote,lookup:searchBiginMembershipRecords,secret:process.env.SUPABASE_SECRET_KEY||''
+ });
+ if(!promotion)return {quote,promotion:null};
+ return {quote:{...quote,total:promotion.netPence,promotion:{
+  code:promotion.code,name:promotion.name,grossPence:promotion.grossPence,
+  discountPence:promotion.discountPence,payablePence:promotion.netPence,units:promotion.units
+ }},promotion};
+}
+
 const json = (value: unknown, status = 200, headers: Record<string, string> = {}) => Response.json(value, { status, headers: { ...paymentHeaders, ...headers } });
 export async function iftariSettings() {
   const result = await createEventService().from('icsh_iftari_settings').select('configuration').eq('slug', IFTARI_SLUG).single();
@@ -89,7 +110,20 @@ export async function handleIftari(request: Request, path: string) {
     }
     if (request.method === 'GET') {
       await rate(request, 'read', 150);
-      if (path === 'settings' || path === 'admin/settings'){const settings=await iftariSettings(),access=path==='settings'?await bookingAccess('iftari',IFTARI_SLUG):null;return json({settings:path==='settings'?{...settings,capacity:null,...(access?.limitReached?{status:'closed'}:{})}:settings,limitReached:Boolean(access?.limitReached),csrf:session.csrf},200,sessionHeader);}
+      if (path === 'settings' || path === 'admin/settings'){
+       const settings=await iftariSettings(),access=path==='settings'?await bookingAccess('iftari',IFTARI_SLUG):null;
+       let discountCodesAvailable=false;
+       if(path==='settings'){
+        try{
+         const scopeId=await discountScope();
+         const flags=await createEventService().from('icsh_event_discounts').select('id',{count:'exact',head:true})
+           .eq('scope_kind','iftari').eq('scope_id',scopeId).eq('active',true);
+         if(!flags.error)discountCodesAvailable=(flags.count||0)>0;
+        }catch{/* Feature is unavailable until the proposed staging migration is applied. */}
+       }
+       return json({settings:path==='settings'?{...settings,capacity:null,...(access?.limitReached?{status:'closed'}:{})}:settings,
+         limitReached:Boolean(access?.limitReached),discountCodesAvailable,csrf:session.csrf},200,sessionHeader);
+      }
       const match = path.match(/^bookings\/([a-f0-9-]{36})$/);
       if (match) {
         const b = await iftariBooking(match[1], request.headers.get('x-booking-token') || '');
@@ -116,7 +150,7 @@ export async function handleIftari(request: Request, path: string) {
       return json({ settings: settingsSchema.parse(result.data) });
     }
     const settings = await iftariSettings();
-    if (path === 'quote') return json({ quote: quoteBooking(settings, quoteInputSchema.parse(body)) });
+    if (path === 'quote') {const input=quoteInputSchema.parse(body);const output=await withDiscount(quoteBooking(settings,input),input);return json({quote:output.quote});}
     if (path === 'membership') {
       const value = z.object({ email: z.string().trim().pipe(z.email().max(254)) }).strict().parse(body);
       const status = await verifyMember(value.email, searchBiginMembershipRecords);
@@ -132,16 +166,34 @@ export async function handleIftari(request: Request, path: string) {
         if (old.request_hash !== requestHash) throw new IftariError(databaseErrors.P2701, 409);
         return openCheckout(request, old, input.capability);
       }
-      const quote = quoteBooking(settings, input);
+      const originalQuote=quoteBooking(settings,input);
+      const {quote,promotion}=await withDiscount(originalQuote,input);
       if (settings.version !== input.expectedVersion || quote.total !== input.expectedTotal) throw new IftariError(databaseErrors.P2703, 409);
       if (settings.status !== 'published') throw new IftariError(databaseErrors.P2702, 409);
       await verifyMemberTickets(input, searchBiginMembershipRecords);
-      const saved = await createEventService().rpc('icsh_iftari_reserve', {
+      const saved = await createEventService().rpc(promotion?'icsh_iftari_reserve_discount':'icsh_iftari_reserve', {
         p_id: input.id, p_request_hash: requestHash, p_capability_hash: digest(input.capability),
         p_contact: { firstName: input.firstName, lastName: input.lastName, email: input.email, mobile: membershipMobileKey(input.mobile), notes: input.notes, attendees:input.attendees },
         p_quantities: input.quantities, p_member_emails: input.quantities.member ? [input.email] : [], p_donation: quote.donation,
-        p_expected_version: input.expectedVersion, p_expected_total: input.expectedTotal, p_account: config.account, p_mode: config.mode,
+        p_expected_version: input.expectedVersion,
+        ...(promotion?{
+          p_expected_gross:originalQuote.total,p_expected_net:promotion.netPence,
+          p_discount_code:promotion.code,p_customer_hash:promotion.customerHash,
+          p_paid_member_verified:promotion.paidMemberVerified
+         }:{p_expected_total:input.expectedTotal}),
+        p_account: config.account, p_mode: config.mode,
       });
+      if(saved.error&&saved.error.code?.startsWith('P291')){
+        const notice:Record<string,string>={
+         P2911:'Your discount or booking total changed. Apply the code again.',
+         P2912:'This discount code is inactive, expired or invalid.',
+         P2913:'This code does not apply to these tickets or this membership.',
+         P2914:'This discount code is fully redeemed.',
+         P2915:'This discount code has reached its per-customer limit.',
+         P2916:'Your discount reservation has expired. Please start a new booking.'
+        };
+        throw new IftariError(notice[saved.error.code]||'Discount is no longer available.',409);
+      }
       if (saved.error || !saved.data) databaseError(saved.error);
       return openCheckout(request, saved.data as BookingRow, input.capability);
     }
