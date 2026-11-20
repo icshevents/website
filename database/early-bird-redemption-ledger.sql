@@ -152,7 +152,8 @@ begin
   if s.id is null or f.kind is distinct from 'tickets' then return null;end if;
   r:=s.answers->'record';amount:=(r->>'total')::integer;
   if r->>'mode' is distinct from s.mode or r->>'currency' is distinct from 'gbp' or jsonb_typeof(r->'attendees') is distinct from 'array'
-   or amount is null or amount<30
+   or amount is null
+   or (r->'booking'->'promotion' is not null and amount<30)
    or amount<>(
      select coalesce(sum((value->>'unitAmount')::integer),0)
      from jsonb_array_elements(r->'attendees')

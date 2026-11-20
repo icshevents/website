@@ -36,6 +36,15 @@ begin
  then raise exception 'Discount was not reserved at booking save';end if;
  payout:=public.icsh_form_payment_source('event',bid);
  if (payout->>'amount')::integer<>2275 then raise exception 'Payment amount did not use net discounted total';end if;
+ -- Existing undiscounted free bookings remain readable by the payment source.
+ insert into public.icsh_submissions(id,form_id,status,answers,mode)
+ values('10000000-0000-4000-8000-000000000006',fid,'new',
+  jsonb_build_object('record',(original - 'booking') || jsonb_build_object(
+   'total',0,'status','confirmed_free',
+   'attendees',jsonb_build_array(jsonb_build_object('unitAmount',0,'ticket','child')))), 'live');
+ payout:=public.icsh_form_payment_source('event','10000000-0000-4000-8000-000000000006');
+ if (payout->>'amount')::integer is distinct from 0 or (payout->>'eligible')::boolean is distinct from false
+ then raise exception 'Existing free booking could not be read';end if;
  -- The last remaining code cannot be reserved by another checkout.
  begin
   insert into public.icsh_submissions(id,form_id,status,answers,mode)
