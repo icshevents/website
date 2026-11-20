@@ -54,8 +54,8 @@ test('paid membership emails combine payment and activation, with a separate inc
 test('active membership uses confirmed ID and dates; incomplete details never claim activation',async()=>{
  const c=confirmationContent(value);
  assert.match(c.textbody,/Membership number: TEST1234/);
- assert.match(c.textbody,/Membership starts: 26 October 2026/);
- assert.match(c.textbody,/Membership expires: 25 October 2027/);
+ assert.match(c.textbody,/Membership starts: Monday, 26 October 2026/);
+ assert.match(c.textbody,/Membership expires: Monday, 25 October 2027/);
  let calls=0;const noSend=async()=>{calls++;throw Error();};
  for(const patch of [{membership_number:undefined},{membership_number:'bad\nID'},{start_date:'2026-02-30'},{expiry_date:'2025-10-25'}])await assert.rejects(sendConfirmation({...value,...patch},env,noSend));
  assert.equal(calls,0);
