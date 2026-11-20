@@ -1,8 +1,5 @@
 name: Early Bird Discounts validation
 on:
-  push:
-    branches:
-      - feature/early-bird-discounts
   pull_request:
     branches:
       - main
@@ -34,3 +31,43 @@ jobs:
       - name: Full legacy suite (reports pre-existing membership and UK-date expectation failures)
         continue-on-error: true
         run: pnpm test
+
+  postgres-smoke:
+    name: PostgreSQL 17 migration and redemption smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic_ci_only
+          POSTGRES_DB: icsh_earlybird_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d icsh_earlybird_ci"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: icsh_earlybird_ci
+      PGUSER: postgres
+      PGPASSWORD: synthetic_ci_only
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: PostgreSQL client
+        run: command -v psql || { sudo apt-get update && sudo apt-get install -y postgresql-client; }
+      - name: Install fictitious existing schema
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/early-bird-pg-fixture.sql
+      - name: Apply three proposed SQL migrations to isolated database
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f database/early-bird-discounts.sql
+          psql -X -v ON_ERROR_STOP=1 -f database/early-bird-redemption-ledger.sql
+          psql -X -v ON_ERROR_STOP=1 -f database/early-bird-iftari.sql
+      - name: Run synthetic ticket and Iftari settlement test
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/early-bird-pg-smoke.sql
