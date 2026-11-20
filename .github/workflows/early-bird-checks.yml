@@ -1,0 +1,33 @@
+name: Early Bird Discounts validation
+on:
+  push:
+    branches:
+      - feature/early-bird-discounts
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73b975ae2dcce3a1b2 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.25.0 --activate
+      - name: Install lockfile dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Unit and integration tests (no live connections)
+        run: pnpm test
+      - name: TypeScript checks
+        run: pnpm typecheck
+      - name: Next.js build
+        run: pnpm build
