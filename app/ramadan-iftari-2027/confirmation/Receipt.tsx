@@ -38,6 +38,7 @@ export default function Receipt({ id, initial }: { id: string; initial: ReceiptB
       <h2>{booking.event.title}</h2><p>{booking.event.venue}<br/>{eventWhen(booking.event)}</p>
       <dl>{booking.quote.lines.map(line => <div key={line.key}><dt>{line.key === 'donation' ? line.label : `${line.quantity} × ${line.label} at ${gbp(line.unitAmount)}`}</dt><dd>{gbp(line.amount)}</dd></div>)}</dl>
       {!booking.quote.donation && <p>Optional ICSH Donation: £0.00</p>}
+       {booking.quote.promotion&&<p><strong>Early Bird Discount ({booking.quote.promotion.code}): -{gbp(booking.quote.promotion.discountPence)}</strong><br/>Original booking total: {gbp(booking.quote.promotion.grossPence)}</p>}
       <div className={styles.total}><span>{booking.paidAt ? 'Total paid' : 'Total payable'}</span><strong>{gbp(booking.quote.total)}</strong></div>
       {booking.refundedAmount > 0 && <p>Refunded: {gbp(booking.refundedAmount)}</p>}
       {Boolean(booking.attendees?.length)&&<div><h2 style={{fontSize:26}}>Attendees</h2><ul>{booking.attendees!.map((a,i)=><li key={i}>{a.firstName} {a.lastName}</li>)}</ul></div>}
