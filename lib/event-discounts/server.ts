@@ -35,6 +35,8 @@ export async function verifiedTicketPromotion(args:{
  if(!r.data)throw new AppError('Invalid discount code for this booking form.',409);
  const d=config(r.data);
  if(!d.active)throw new AppError('This discount code is inactive.',409);
+ const release=await db.rpc('icsh_discount_release_stale',{p_kind:'tickets',p_scope:formId});
+ if(release.error)throw new AppError('Discount availability could not be refreshed.',503);
  const paidMemberVerified=!continueAsNonMember&&quote.memberStatus==='active'
   &&diagnostics.matchedCount===1&&!diagnostics.hasMore
   &&diagnostics.records.length===1
@@ -90,6 +92,8 @@ export async function verifiedIftariPromotion(args:{
   active:row.active,version:row.version
  };
  if(!configuration.active)throw new AppError('This discount code is inactive.',409);
+ const release=await db.rpc('icsh_discount_release_stale',{p_kind:'iftari',p_scope:scopeId});
+ if(release.error)throw new AppError('Discount availability could not be refreshed.',503);
  let paidMemberVerified=false;
  if(configuration.paidMembersOnly){
   const address=email?.trim().toLowerCase();
