@@ -80,11 +80,11 @@ begin
   and r.reserved_at<now()-interval '30 minutes'
   and not exists(select 1 from public.icsh_iftari_bookings paid
     where paid.id=r.booking_id and paid.session_id is not null);
- select coalesce(sum(units),0)::integer into used from public.icsh_event_discount_redemptions
+ select coalesce(sum(red.units),0)::integer into used from public.icsh_event_discount_redemptions red
  where discount_id=d.id and status in ('reserved','redeemed');
  if used+units>d.maximum then raise exception using errcode='P2914',message='Discount fully redeemed';end if;
  if d.per_customer_maximum is not null then
-  select coalesce(sum(units),0)::integer into own from public.icsh_event_discount_redemptions
+  select coalesce(sum(red.units),0)::integer into own from public.icsh_event_discount_redemptions red
    where discount_id=d.id and customer_hash=p_customer_hash and status in ('reserved','redeemed');
   if own+units>d.per_customer_maximum then raise exception using errcode='P2915',message='Customer redemption limit reached';end if;
  end if;
