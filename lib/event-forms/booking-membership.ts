@@ -26,7 +26,7 @@ export const BOOKING_LOOKUP_ERROR = "We couldn't verify your ICSH membership aut
 export async function prepareBookingPrice(event: BookingEvent, email: string, quantity: number, lookup: BookingLookup,
   continueAsNonMember = false, on = londonDate(), childQuantity = 0): Promise<{ quote: BookingPrice; proof: object; diagnostics: BookingDiagnostics }> {
   const input = parseMemberSearch({ method: 'email', email });
-  if (input.method !== 'email' || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 12 || !parseDate(on) || event.pricingStrategy !== 'booking_email') throw new Error('INVALID_BOOKING_PRICE_REQUEST');
+  if (input.method !== 'email' || !Number.isSafeInteger(quantity) || quantity < 0 || quantity > 12 || !parseDate(on) || event.pricingStrategy !== 'booking_email') throw new Error('INVALID_BOOKING_PRICE_REQUEST');
   if (!Number.isSafeInteger(childQuantity) || childQuantity < 0 || childQuantity > quantity || (childQuantity > 0 && (!Number.isSafeInteger(event.rates.child) || !Number.isSafeInteger(event.rates.childNonmember)))) throw new Error('INVALID_CHILD_QUANTITY');
   for (const amount of (['member','pensioner','student','nonmember'] as const).map(key => event.rates[key])) if (!Number.isSafeInteger(amount) || amount < 0 || amount > 1000000) throw new Error('INVALID_EVENT_RATES');
   const diagnostics: BookingDiagnostics = { emailSearched: input.email, found: null, hasMore: false, matchedCount: 0, records: [] };
@@ -56,8 +56,8 @@ export async function prepareBookingPrice(event: BookingEvent, email: string, qu
   }
   const childUnitAmount = unitAmount === null ? null : childQuantity > 0 ? (discountEligible ? event.rates.child! : event.rates.childNonmember!) : 0;
   if (childQuantity > 0 && childUnitAmount !== null && (!Number.isSafeInteger(childUnitAmount) || childUnitAmount < 0 || childUnitAmount > 1000000)) throw new Error('INVALID_CHILD_RATE');
-  const quote: BookingPrice = { memberStatus, discountEligible, unitAmount, total: unitAmount === null ? null : unitAmount * (quantity-childQuantity) + (childUnitAmount ?? 0) * childQuantity,
-    quantity, childQuantity, adultQuantity: quantity-childQuantity, childUnitAmount, currency: 'GBP', configurationVersion: event.version ?? 0, checkedOn: on, priceRule, canRegister: unitAmount !== null };
+  const quote: BookingPrice = { memberStatus, discountEligible, unitAmount, total: unitAmount === null || quantity === 0 ? null : unitAmount * (quantity-childQuantity) + (childUnitAmount ?? 0) * childQuantity,
+    quantity, childQuantity, adultQuantity: quantity-childQuantity, childUnitAmount, currency: 'GBP', configurationVersion: event.version ?? 0, checkedOn: on, priceRule, canRegister: quantity > 0 && unitAmount !== null };
   const proof = Object.freeze({}); proofs.set(proof, { eventId: event.id, version: event.version ?? 0, email: input.email, quantity, childQuantity, fallback: continueAsNonMember, quote: { ...quote } });
   return { quote, proof, diagnostics };
 }
