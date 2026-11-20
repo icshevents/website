@@ -51,7 +51,11 @@ export function createBookingUI({api,esc,money,main,go,submitAction}){
     const result=await api('booking/quote',{method:'POST',body:{eventId:e.id,email:email.value.trim().toLowerCase(),quantity:ticketCount(),childQuantity:Number(childQuantity?.value||0),continueAsNonMember:fallback,...(promoCode&&ticketCount()>0?{discountCode:promoCode}:{})}});
     if(id!==generation||queryKey!==key())return;
     if(result.quote.configurationVersion!==e.version){current=null;renderQuote(null,'Event settings have changed. Reload this page to review the latest details, terms and prices.');return;}
-    current={key:queryKey,quote:result.quote};renderQuote(result.quote,result.message);
+    if(hasDiscounts&&result.discountError){
+     promoCode='';
+     $('#booking-promo-message').textContent='Code not applied. '+result.discountError;
+    }
+    current={key:key(),quote:result.quote};renderQuote(result.quote,result.message);
     }catch(error){if(id!==generation||queryKey!==key())return;current=null;
      const message=promoCode&&error instanceof Error?error.message:"We couldn't verify your ICSH membership automatically. Please try again or continue as a non-member.";
      renderQuote({memberStatus:'unavailable',canRegister:false,unitAmount:null,total:null},message);
