@@ -83,7 +83,7 @@ begin
  return new;
 end $$;
 create trigger icsh_discount_iftari_placeholder_after_insert
-after insert on public.icsh_events for each row execute function public.icsh_discount_iftari_placeholder();
+after insert or update of source_type on public.icsh_events for each row execute function public.icsh_discount_iftari_placeholder();
 
 insert into public.icsh_event_discounts(scope_kind,scope_id)
 select 'tickets',id from public.icsh_forms where kind='tickets' on conflict do nothing;
@@ -168,6 +168,7 @@ begin
  else
    if c is null then raise exception using errcode='22023',message='Enter a code for an additional offer';end if;
  end if;
+ if old.id is null then used:=0;end if;
  max_use:=(p_discount->>'maximum')::integer;
  if max_use is null or max_use<used or max_use>1000000 then raise exception using errcode='22023',message='Redemption limit cannot be lower than existing paid and reserved uses';end if;
  if (p_discount->>'id') is not null then
