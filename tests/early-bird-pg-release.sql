@@ -44,6 +44,12 @@ begin
  then raise exception 'Released capacity not reusable';end if;
  update public.icsh_event_discount_redemptions
  set reserved_at=now()-interval '31 minutes' where booking_id=two;
+ -- The public form must reopen automatically when the stale hold runs out.
+ -- The server also refreshes holds before validating a submitted code.
+ if not public.icsh_discount_public_available('tickets',fid)
+ then raise exception 'A stale unclaimed checkout incorrectly hid the discount field';end if;
+ if (select status from public.icsh_event_discount_redemptions where booking_id=two)<>'released'
+ then raise exception 'The public availability check did not expire an unclaimed hold';end if;
  insert into public.icsh_submissions(id,form_id,status,answers,mode)
  values(three,fid,'new',jsonb_build_object('record',record_json),'live');
  if (select status from public.icsh_event_discount_redemptions where booking_id=two)<>'released'
