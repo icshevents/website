@@ -65,13 +65,12 @@ begin
    and r.reserved_at<now()-interval '30 minutes'
    and not exists(select 1 from public.icsh_form_payments p
       where p.source_kind='event' and p.source_id=r.booking_id and p.session_id is not null);
- select coalesce(sum(units),0)::integer into in_use from public.icsh_event_discount_redemptions
+ select coalesce(sum(red.units),0)::integer into in_use from public.icsh_event_discount_redemptions red
  where discount_id=d.id and status in ('reserved','redeemed');
  if in_use+units>d.maximum then raise exception using errcode='P2914',message='Discount use limit reached';end if;
  customer:=promo->>'customerHash';
  if d.per_customer_maximum is not null then
-  select coalesce(sum(units),0)::integer into for_customer
-   from public.icsh_event_discount_redemptions
+  select coalesce(sum(red.units),0)::integer into for_customer from public.icsh_event_discount_redemptions red
    where discount_id=d.id and customer_hash=customer and status in ('reserved','redeemed');
   if for_customer+units>d.per_customer_maximum then
    raise exception using errcode='P2915',message='Customer discount limit reached';
