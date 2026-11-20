@@ -14,7 +14,7 @@ declare
 begin
  b:=new.answers->'record';promo:=b->'booking'->'promotion';
  if promo is null or jsonb_typeof(promo)='null' then return new;end if;
- if new.mode<>'live' or new.status<>'pending' or b->>'mode'<>'live'
+ if new.mode<>'live' or b->>'status'<>'pending' or b->>'mode'<>'live'
    or promo->>'code' is null or promo->>'customerHash'!~'^[a-f0-9]{64}$'
    or jsonb_typeof(b->'attendees')<>'array' then
   raise exception using errcode='P2911',message='Discount booking invalid';
@@ -87,6 +87,24 @@ after insert on public.icsh_submissions for each row
 when (new.answers->'record'->'booking'->'promotion' is not null)
 execute function public.icsh_discount_ticket_reserve();
 
+-- A saved, expired, unclaimed discount must never acquire a new Stripe
+-- Checkout session. Existing session reconciliation remains permitted.
+create function public.icsh_discount_ticket_checkout_guard()
+returns trigger language plpgsql security invoker set search_path='' as $
+begin
+ if new.source_kind='event' and new.session_id is not null and old.session_id is null
+  and exists(select 1 from public.icsh_submissions s
+   where s.id=new.source_id and s.answers->'record'->'booking'->'promotion' is not null)
+  and not exists(select 1 from public.icsh_event_discount_redemptions r
+   where r.booking_id=new.source_id and r.scope_kind='tickets'
+   and r.status='reserved' for update)
+ then raise exception using errcode='P2916',message='The discount reservation has expired';end if;
+ return new;
+end $;
+create trigger icsh_discount_ticket_checkout_guard_before_update
+before update of session_id on public.icsh_form_payments
+for each row execute function public.icsh_discount_ticket_checkout_guard();
+
 -- Consume once only after verified Stripe payment, never after a mere saved
 -- booking or successful redirection. Refunds don't restore an offer's uses.
 create function public.icsh_discount_payment_settle()
@@ -109,8 +127,8 @@ after insert on public.icsh_form_payments for each row execute function public.i
 create trigger icsh_discount_payment_settle_after_update
 after update of status on public.icsh_form_payments for each row execute function public.icsh_discount_payment_settle();
 
-revoke all on function public.icsh_discount_ticket_reserve(),public.icsh_discount_payment_settle() from public,anon,authenticated;
-grant execute on function public.icsh_discount_ticket_reserve(),public.icsh_discount_payment_settle() to service_role;
+revoke all on function public.icsh_discount_ticket_reserve(),public.icsh_discount_payment_settle(),public.icsh_discount_ticket_checkout_guard() from public,anon,authenticated;
+grant execute on function public.icsh_discount_ticket_reserve(),public.icsh_discount_payment_settle(),public.icsh_discount_ticket_checkout_guard() to service_role;
 commit;
 
 -- Preserve the current live source guard, updating only its invariant to
