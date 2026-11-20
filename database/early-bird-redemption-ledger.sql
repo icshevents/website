@@ -183,7 +183,7 @@ begin
     ),false));
  end if;
  return null;
-end $function$
+end $function$;
 
 commit;
 
@@ -216,7 +216,7 @@ begin
   'attendees',(select jsonb_agg(jsonb_build_object('ticket',a->>'ticket','unitAmount',(a->>'unitAmount')::integer)) from jsonb_array_elements(r->'attendees') a)))
  on conflict(submission_id) do nothing;
  return new;
-end $function$
+end $function$;
 
 commit;
 
@@ -237,6 +237,6 @@ AS $function$
  'grossTicketPence',coalesce(r->'booking'->'promotion'->'grossPence',r->'total'),
  'discountPence',coalesce(r->'booking'->'promotion'->'discountPence','0'::jsonb),
  'netTotalPence',r->'total')
-$function$
+$function$;
 
 commit;
