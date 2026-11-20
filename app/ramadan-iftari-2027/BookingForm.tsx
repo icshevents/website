@@ -68,7 +68,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
       finally { if (turn === quoteSequence.current) setQuotePending(false); }
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [quantities, donation, csrf, appliedCode, ...(appliedCode?[email]:[])]);
+  }, [quantities, donation, csrf, appliedCode, email]);
   function quantityChange(key: TicketKey, value: number) {
     if (!Number.isSafeInteger(value) || value < 0 || value > (settings?.maxGuests || 12)) return;
     setQuote(null); setQuotePending(true); setQuantities(v => ({ ...v, [key]: value }));
