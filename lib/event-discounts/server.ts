@@ -58,7 +58,7 @@ export async function verifiedTicketPromotion(args:{
   if(own+calculated.units>d.perCustomerMaximum)throw new AppError('This discount has reached the limit for this customer.',409);
  }
  return {code,name:d.name,grossPence:calculated.grossPence,discountPence:calculated.discountPence,
-  netPence:calculated.payablePence,units:calculated.units,discountId:d.id,scopeKind:'tickets',
+  netPence:calculated.payablePence,units:calculated.units,discountId:d.id!,scopeKind:'tickets',
   scopeId:formId,customerHash,paidMemberVerified};
 }
 
