@@ -7,4 +7,5 @@ out/
 .local/
 *.tsbuildinfo
 # Cruise photographs are held for owner review before public release.
-public/assets/
+public/assets/*
+!public/assets/ramadan-iftari-2027-gold.webp

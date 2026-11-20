@@ -25,7 +25,7 @@ export default function EventEntries({entries,busy,demo,onReview,eventId,filenam
         .map(([,value]) => String(value)).join(' · ');
       const booking = bookingEntryView(entry.kind, entry.details);
       const displayedDetails = booking ? entryValues(booking.details) : flat;
-      const bookingStatus = entry.status.replaceAll('_',' ');
+      const bookingStatus = entry.status?.replaceAll('_',' ') || '—';
 
       return {
         id: entry.id,
