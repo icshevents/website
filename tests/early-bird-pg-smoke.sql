@@ -62,10 +62,17 @@ begin
  if (select status from public.icsh_event_discount_redemptions where booking_id=bid)<>'redeemed'
  then raise exception 'Refund restored a redeemed coupon';end if;
  if public.icsh_discount_public_available('tickets',fid) then raise exception 'Used-up discount still shown as available';end if;
- -- Duplicating a form adds its own inactive and unspent placeholder.
+ -- The authenticated form editor can duplicate a form without inheriting
+ -- access to the private discount tables or the previous form's offer.
+ grant insert on public.icsh_forms to authenticated;
+ set local role authenticated;
  insert into public.icsh_forms(id,slug,title,kind,status,configuration,mode)
  values(copyid,'test-tickets-next-year','Synthetic tickets 2029','tickets','draft',
   '{"mode":"live","status":"draft","capacity":12,"startsAt":"2029-12-20T13:00:00Z","version":1}'::jsonb,'live');
+ reset role;
+ if has_table_privilege('authenticated','public.icsh_event_discounts','INSERT')
+    or has_schema_privilege('authenticated','icsh_discount_internal','USAGE')
+ then raise exception 'Form editor has direct access to discounts';end if;
  if not exists(select 1 from public.icsh_event_discounts where scope_kind='tickets' and scope_id=copyid and not active and code is null)
  then raise exception 'Duplicated form inherited an active discount';end if;
  -- Iftari is independently scoped, with donation still undiscouned.

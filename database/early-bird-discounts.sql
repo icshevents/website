@@ -61,8 +61,12 @@ grant select,insert,update on public.icsh_event_discounts,public.icsh_event_disc
 
 -- Automatic, inactive placeholder on EVERY ticket form, including duplicated
 -- annual forms. The Iftari form is modelled by the linked event's UUID.
-create function public.icsh_discount_ticket_placeholder()
-returns trigger language plpgsql security invoker set search_path='' as $$
+-- Authenticated form editors already have their own form-insert permission.
+-- Keep the trigger private so they cannot otherwise write discount rows.
+create schema icsh_discount_internal;
+revoke all on schema icsh_discount_internal from public,anon,authenticated;
+create function icsh_discount_internal.ticket_placeholder()
+returns trigger language plpgsql security definer set search_path='' as $$
 begin
  if new.kind='tickets' then
   insert into public.icsh_event_discounts(scope_kind,scope_id)
@@ -70,8 +74,9 @@ begin
  end if;
  return new;
 end $$;
+revoke all on function icsh_discount_internal.ticket_placeholder() from public,anon,authenticated;
 create trigger icsh_discount_ticket_placeholder_after_insert
-after insert on public.icsh_forms for each row execute function public.icsh_discount_ticket_placeholder();
+after insert on public.icsh_forms for each row execute function icsh_discount_internal.ticket_placeholder();
 
 create function public.icsh_discount_iftari_placeholder()
 returns trigger language plpgsql security invoker set search_path='' as $$
@@ -241,12 +246,12 @@ begin
  return public.icsh_discount_hub_list(p_token,p_event,p_form);
 end $$;
 
-revoke all on function public.icsh_discount_ticket_placeholder(),public.icsh_discount_iftari_placeholder(),
+revoke all on function public.icsh_discount_iftari_placeholder(),
  public.icsh_discount_hub_scope(text,uuid,uuid),
  public.icsh_discount_hub_list(text,uuid,uuid),
  public.icsh_discount_hub_save(text,uuid,uuid,jsonb)
  from public,anon,authenticated;
-grant execute on function public.icsh_discount_ticket_placeholder(),public.icsh_discount_iftari_placeholder(),
+grant execute on function public.icsh_discount_iftari_placeholder(),
  public.icsh_discount_hub_scope(text,uuid,uuid),
  public.icsh_discount_hub_list(text,uuid,uuid),
  public.icsh_discount_hub_save(text,uuid,uuid,jsonb)
