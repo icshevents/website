@@ -145,12 +145,8 @@ begin
      and not exists(
        select 1 from public.icsh_event_discount_redemptions red
        where red.booking_id=p_id and red.scope_kind='tickets'
-         and red.scope_id=parent_id
-         and red.net_pence=amount
-         and red.status in ('reserved','redeemed')
+         and red.scope_id=parent_id and red.net_pence=amount
      )
-     and exists(select 1 from public.icsh_form_payments paid
-       where paid.source_kind='event' and paid.source_id=p_id)
    ) then
    raise exception using errcode='22023',message='Invalid saved booking amount';end if;
   return jsonb_build_object('kind',p_kind,'id',p_id,'mode',s.mode,'amount',amount,'currency','gbp','reference',r->>'reference',
