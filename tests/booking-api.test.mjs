@@ -9,6 +9,20 @@ const query=()=>({eventId:event.id,email:'member@example.com',quantity:2,continu
 const booking=q=>({eventId:event.id,idempotencyKey:randomUUID(),firstName:'Fictional',lastName:'Booker',email:'member@example.com',mobile:'07700900123',quantity:2,attendees:[{firstName:'Fictional',lastName:'Booker'},{firstName:'Test',lastName:'Guest'}],dietaryRequirements:'Vegetarian',additionalNotes:'Test',terms:true,continueAsNonMember:false,website:'',expectedQuote:{configurationVersion:q.configurationVersion,unitAmount:q.unitAmount,total:q.total}});
 const freeze=t=>t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-22T12:00:00Z')});
 test('public quote is minimal; final registration checks Bigin again and saves authoritative group pricing',async t=>{freeze(t);const f=fixture();let reads=0;const read=async()=>{reads++;return{records:[contact],hasMore:false};};const q=await call(f,'booking/quote',query(),read);assert.equal(q.status,200);assert.equal(q.body.quote.total,3000);assert.doesNotMatch(JSON.stringify(q.body),/10001|member@example|membershipExpiry|diagnostics/);const body=booking(q.body.quote),r=await call(f,'booking/registrations',body,read);assert.equal(r.status,201);assert.equal(r.body.registration.total,3000);assert.equal(reads,2);assert.equal(f.writes,1);const replay=await call(f,'booking/registrations',body,async()=>{throw Error('must not read on replay');});assert.equal(replay.status,200);assert.equal(replay.body.registration.id,r.body.registration.id);assert.equal(f.writes,1);});
+test('email alone verifies membership and rates without making a bookable quote',async t=>{
+ freeze(t);
+ const f=fixture();
+ const result=await call(f,'booking/quote',{...query(),quantity:0});
+ assert.equal(result.status,200);
+ assert.equal(result.body.quote.memberStatus,'active');
+ assert.equal(result.body.quote.unitAmount,1500);
+ assert.equal(result.body.quote.total,null);
+ assert.equal(result.body.quote.canRegister,false);
+ assert.equal(result.body.message,undefined);
+ const attempt=await call(f,'booking/registrations',{...booking({configurationVersion:1,unitAmount:1500,total:0}),quantity:0,attendees:[]});
+ assert.ok(attempt.status>=400);
+ assert.equal(f.writes,0);
+});
 test('a membership expiring or a price changing after review needs a new confirmation',async t=>{freeze(t);for(const change of ['membership','price']){const f=fixture(),q=await call(f,'booking/quote',query());if(change==='price'){f.tables.icsh_forms[0].configuration.rates.member=2000;f.tables.icsh_forms[0].configuration.version=2;}const r=await call(f,'booking/registrations',booking(q.body.quote),async()=>({records:[{...contact,...(change==='membership'?{membershipStatus:'Inactive'}:{})}],hasMore:false}));assert.equal(r.status,409);assert.equal(r.body.quote.total,change==='membership'?5000:4000);assert.equal(f.writes,0);}});
 test('provider failures require retry or explicit non-member pricing; fallback cannot claim a discount',async t=>{freeze(t);const f=fixture(),fail=async()=>{throw Error('secret-token');};const unverified=await call(f,'booking/quote',query(),fail);assert.equal(unverified.body.quote.canRegister,false);assert.doesNotMatch(JSON.stringify(unverified.body),/secret-token/);const fallback=await call(f,'booking/quote',{...query(),continueAsNonMember:true},fail);assert.equal(fallback.body.quote.total,5000);const body={...booking(fallback.body.quote),continueAsNonMember:true};const saved=await call(f,'booking/registrations',body,fail);assert.equal(saved.status,201);assert.equal(saved.body.registration.total,5000);});
 test('duplicates log a private keyed issue and never expose Contact IDs to anonymous visitors',async t=>{freeze(t);const f=fixture(),read=async()=>({records:[contact,{...contact,id:'20002'}],hasMore:false});const r=await call(f,'booking/quote',query(),read);assert.equal(r.body.quote.memberStatus,'ambiguous');assert.equal(r.body.quote.unitAmount,null);assert.doesNotMatch(JSON.stringify(r.body),/10001|20002|member@example/);assert.equal(f.tables.icsh_audit_events[0].action,'event.membership.duplicate_email');assert.doesNotMatch(JSON.stringify(f.tables.icsh_audit_events),/member@example/);});
