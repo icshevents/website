@@ -153,7 +153,16 @@ begin
    'description',r->>'eventTitle','email',r->'contact'->>'email','capabilityHash',r->>'capabilityHash','formId',parent_id,
    'eligible',coalesce(s.mode=f.mode and f.status='published' and f.configuration->>'status'='published'
     and (f.configuration->>'startsAt')::timestamptz>now() and not coalesce((f.configuration->>'prototype')::boolean,false)
-    and r->>'status' not in ('cancelled','confirmed_free'),false));
+    and r->>'status' not in ('cancelled','confirmed_free')
+    and (
+      r->'booking'->'promotion' is null
+      or exists (
+        select 1 from public.icsh_event_discount_redemptions red
+        where red.booking_id=p_id and red.scope_kind='tickets'
+          and red.scope_id=parent_id
+          and red.status in ('reserved','redeemed')
+      )
+    ),false));
  end if;
  return null;
 end $function$
