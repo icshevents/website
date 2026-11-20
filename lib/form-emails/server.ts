@@ -30,7 +30,7 @@ export async function processFormEmails(maximum=1) {
           const b=saved.data as (BookingRow & {needs_review:boolean})|null;
           outcome=saved.error||!b||b.status!=='paid'||b.needs_review||b.mode!=='live'||b.contact.email!==value.recipient
             ?{status:'failed',code:'IFTARI_STATE_CHANGED'}
-            :await sendConfirmation({...value,iftari:{venue:b.event_snapshot.venue,when:eventWhen(b.event_snapshot),lines:b.quote.lines,donation:b.quote.donation,total:b.total,guests:b.quote.guests}},process.env);
+            :await sendConfirmation({...value,iftari:{venue:b.event_snapshot.venue,when:eventWhen(b.event_snapshot),lines:b.quote.lines,donation:b.quote.donation,total:b.total,guests:b.quote.guests,discountPence:b.quote.promotion?.discountPence||0,discountCode:b.quote.promotion?.code}},process.env);
         }else outcome=await sendConfirmation(value,process.env);
       }else outcome=await sendConfirmation(value,process.env);
     }catch{outcome={status:'failed',code:'EMAIL_INPUT_OR_CONFIGURATION_INVALID'};}
