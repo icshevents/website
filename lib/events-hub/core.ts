@@ -52,13 +52,13 @@ export function entriesCsv(entries:Entry[]){
   const safe=n=>Number.isSafeInteger(n)&&n>=0?(n/100).toFixed(2):'';
   return [safe(gross),typeof code==='string'?code:'',safe(discount),safe(total)];
  };
- return '\\uFEFF'+[
+ return '\uFEFF'+[
   ['Reference','Form','Submitted (UK)','Booking status','Review status','Details','Internal notes','Entry status',
    'Original ticket total (GBP)','Discount code','Discount given (GBP)','Final booking total (GBP)'],
   ...entries.filter(e=>!e.deletedAt).map(e=>[
    e.reference,e.formTitle,formatUKDateTime(e.submittedAt),e.status,e.reviewStatus,e.details,e.notes,e.entryStatus||'Original',...values(e)
   ])
- ].map(row=>row.map(csvCell).join(',')).join('\\r\\n');
+ ].map(row=>row.map(csvCell).join(',')).join('\r\n');
 }
 export function londonInput(iso:string){const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(iso));const get=(k:string)=>p.find(x=>x.type===k)?.value;return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;}
 // Reject missing spring times and ambiguous autumn times instead of silently moving an event.
