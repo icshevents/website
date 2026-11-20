@@ -90,7 +90,7 @@ execute function public.icsh_discount_ticket_reserve();
 -- A saved, expired, unclaimed discount must never acquire a new Stripe
 -- Checkout session. Existing session reconciliation remains permitted.
 create function public.icsh_discount_ticket_checkout_guard()
-returns trigger language plpgsql security invoker set search_path='' as $
+returns trigger language plpgsql security invoker set search_path='' as $$
 begin
  if new.source_kind='event' and new.session_id is not null and old.session_id is null
   and exists(select 1 from public.icsh_submissions s
@@ -100,7 +100,7 @@ begin
    and r.status='reserved' for update)
  then raise exception using errcode='P2916',message='The discount reservation has expired';end if;
  return new;
-end $;
+end $$;
 create trigger icsh_discount_ticket_checkout_guard_before_update
 before update of session_id on public.icsh_form_payments
 for each row execute function public.icsh_discount_ticket_checkout_guard();
