@@ -27,12 +27,36 @@ export class IftariStripeClient extends WebsiteStripeClient {
       'payment_intent_data[metadata][purpose]': iftariPurpose, 'payment_intent_data[metadata][booking_id]': b.id,
       integration_identifier: 'icsh_iftari_checkout_znqvrmpt', 'adaptive_pricing[enabled]': 'false',
     });
-    b.quote.lines.forEach((line, i) => {
-      params.set(`line_items[${i}][quantity]`, String(line.quantity));
-      params.set(`line_items[${i}][price_data][currency]`, 'gbp');
-      params.set(`line_items[${i}][price_data][unit_amount]`, String(line.unitAmount));
-      params.set(`line_items[${i}][price_data][product_data][name]`, line.key === 'donation' ? line.label : `${b.event_snapshot.title} – ${line.label}`);
-    });
+    // Stripe's price_data cannot contain negative line items. The verified
+    // booking stores original category prices; Stripe charges one net ticket
+    // amount plus the unchanged optional donation.
+    const promotion=b.quote.promotion;
+    if(promotion){
+      const admissions=b.quote.tickets-promotion.discountPence;
+      if(admissions<0||admissions+b.quote.donation!==b.total||promotion.payablePence!==b.total)throw Error('Iftari discount total does not reconcile.');
+      const discountedLines=[
+        ...(admissions>0?[{key:'tickets',quantity:1,unitAmount:admissions,label:b.event_snapshot.title+' – Tickets after '+promotion.code}]:[]),
+        ...(b.quote.donation>0?[{key:'donation',quantity:1,unitAmount:b.quote.donation,label:'Optional ICSH Donation'}]:[])
+      ];
+      discountedLines.forEach((line,i)=>{
+        params.set(`line_items[${i}][quantity]`,String(line.quantity));
+        params.set(`line_items[${i}][price_data][currency]`,'gbp');
+        params.set(`line_items[${i}][price_data][unit_amount]`,String(line.unitAmount));
+        params.set(`line_items[${i}][price_data][product_data][name]`,line.label);
+      });
+      params.set('metadata[discount_code]',promotion.code);
+      params.set('metadata[original_total_pence]',String(promotion.grossPence));
+      params.set('metadata[discount_pence]',String(promotion.discountPence));
+      params.set('payment_intent_data[metadata][discount_code]',promotion.code);
+      params.set('payment_intent_data[metadata][discount_pence]',String(promotion.discountPence));
+    }else{
+      b.quote.lines.forEach((line, i) => {
+        params.set(`line_items[${i}][quantity]`, String(line.quantity));
+        params.set(`line_items[${i}][price_data][currency]`, 'gbp');
+        params.set(`line_items[${i}][price_data][unit_amount]`, String(line.unitAmount));
+        params.set(`line_items[${i}][price_data][product_data][name]`, line.key === 'donation' ? line.label : `${b.event_snapshot.title} – ${line.label}`);
+      });
+    }
     const session = await this.client.request('/checkout/sessions', params, `icsh-iftari-v1-${b.account_id}-${b.mode}-${b.id}`);
     this.validate(session, bookingSource(b));
     return session;
