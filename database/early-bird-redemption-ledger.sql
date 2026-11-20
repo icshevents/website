@@ -159,3 +159,36 @@ begin
 end $function$
 
 commit;
+
+-- Existing confirmation email queue must accept discounted final payment totals.
+begin;
+CREATE OR REPLACE FUNCTION public.icsh_queue_paid_ticket_email()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+declare r jsonb; f public.icsh_forms; p public.icsh_form_payments; recipient text;
+begin
+ r:=new.answers->'record';
+ if new.mode<>'live' or r->>'mode'<>'live' or r->>'status'<>'confirmed_paid' or coalesce((r->>'paymentReview')::boolean,false)
+  or old.answers->'record'->>'status'='confirmed_paid' then return new;end if;
+ if not exists(select 1 from public.icsh_form_email_settings where id and enabled) then return new;end if;
+ select * into f from public.icsh_forms where id=new.form_id;
+ if f.kind<>'tickets' or f.slug<>'icsh-winter-lunch-2026' or f.configuration->>'paidConfirmationEmail' is distinct from 'true' then return new;end if;
+ select * into p from public.icsh_form_payments where source_kind='event' and source_id=new.id;
+ if p.status is distinct from 'paid' or p.mode<>'live' or p.currency<>'gbp' or p.refunded_amount<>0 or p.paid_at is null or p.payment_intent_id is null or p.charge_id is null
+  or p.amount is distinct from (r->>'total')::integer or p.amount is distinct from ((select sum((a->>'unitAmount')::integer) from jsonb_array_elements(r->'attendees') a)-coalesce((r->'booking'->'promotion'->>'discountPence')::integer,0)) then return new;end if;
+ recipient:=lower(trim(r->'contact'->>'email'));
+ if recipient is null or recipient !~ '^[^[:space:]@<>]+@[^[:space:]@<>]+[.][^[:space:]@<>]+$' or length(recipient)>254 or recipient~'[[:cntrl:]]'
+  or recipient~'[.](invalid|test|example|localhost)$' or recipient~'@([^@]+[.])?example[.](com|org|net)$' then return new;end if;
+ insert into public.icsh_ticket_confirmation_emails(submission_id,payload) values(new.id,jsonb_build_object(
+  'recipient',recipient,'reference',r->>'reference','name',r->'contact'->>'name','title',r->>'eventTitle','venue',f.configuration->>'venue',
+  'startsAt',r->>'eventStartsAt','endsAt',f.configuration->>'endsAt','total',p.amount,
+  'discountPence',coalesce((r->'booking'->'promotion'->>'discountPence')::integer,0),
+  'discountCode',r->'booking'->'promotion'->>'code','discountName',r->'booking'->'promotion'->>'name',
+  'attendees',(select jsonb_agg(jsonb_build_object('ticket',a->>'ticket','unitAmount',(a->>'unitAmount')::integer)) from jsonb_array_elements(r->'attendees') a)))
+ on conflict(submission_id) do nothing;
+ return new;
+end $function$
+
+commit;
