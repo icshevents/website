@@ -116,9 +116,8 @@ export async function handleIftari(request: Request, path: string) {
        if(path==='settings'){
         try{
          const scopeId=await discountScope();
-         const flags=await createEventService().from('icsh_event_discounts').select('id',{count:'exact',head:true})
-           .eq('scope_kind','iftari').eq('scope_id',scopeId).eq('active',true);
-         if(!flags.error)discountCodesAvailable=(flags.count||0)>0;
+         const flags=await createEventService().rpc('icsh_discount_public_available',{p_kind:'iftari',p_scope:scopeId});
+         if(!flags.error)discountCodesAvailable=flags.data===true;
         }catch{/* Feature is unavailable until the proposed staging migration is applied. */}
        }
        return json({settings:path==='settings'?{...settings,capacity:null,...(access?.limitReached?{status:'closed'}:{})}:settings,
