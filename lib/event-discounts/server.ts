@@ -1,4 +1,3 @@
-import 'server-only';
 import {createHmac} from 'node:crypto';
 import {AppError} from '../event-forms/domain.js';
 import {calculateDiscount,normaliseCode,type DiscountConfiguration} from './core.ts';
