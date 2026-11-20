@@ -219,3 +219,24 @@ begin
 end $function$
 
 commit;
+
+-- Give Events Hub form entries clear, separate gross/discount/net fields.
+-- No existing submission or payment data is rewritten.
+begin;
+CREATE OR REPLACE FUNCTION public.icsh_hub_entry_details(r jsonb)
+ RETURNS jsonb
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+ select jsonb_build_object('contact',r->'contact','personal',r->'personal','business',r->'business','answers',case when jsonb_typeof(r->'questionSnapshot')='array' then coalesce((select jsonb_object_agg(q->>'label',r->'answers'->(q->>'id')) from jsonb_array_elements(r->'questionSnapshot') q where r->'answers' ? (q->>'id')),r->'answers') else r->'answers' end,
+ 'attendees',(select coalesce(jsonb_agg(jsonb_build_object('name',a->>'name','ticket',a->>'ticket','unitAmount',a->'unitAmount')),'[]') from jsonb_array_elements(coalesce(r->'attendees','[]')) a),
+ 'involvement',r->'involvement','cooking',r->'cooking','volunteering',r->'volunteering','donation',r->'donation',
+ 'customAnswers',r->'customAnswers','package',r->'packageSnapshot','requirements',r->'requirements','additionalNotes',r->'additionalNotes','total',r->'total','fee',r->'fee',
+ 'discountCode',r->'booking'->'promotion'->>'code',
+ 'grossTicketPence',coalesce(r->'booking'->'promotion'->'grossPence',r->'total'),
+ 'discountPence',coalesce(r->'booking'->'promotion'->'discountPence','0'::jsonb),
+ 'netTotalPence',r->'total')
+$function$
+
+commit;
