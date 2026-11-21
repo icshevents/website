@@ -161,3 +161,7 @@ button,input,select,textarea{font-family:var(--font-body)}
 /* Use the full event feature width when no poster has been uploaded. */
 .our-events-section .our-event-list>.our-event-panel--no-poster{grid-template-columns:minmax(0,1fr)}
 .our-events-section .our-event-panel--no-poster .our-event-summary{min-height:0}
+
+.cover-photo-placeholder{display:grid;place-items:center;width:100%;height:100%;background:#eeddc3;color:var(--green);font:54px var(--font-display)}
+.article-cover .cover-photo-placeholder{height:min(550px,60vw);border-radius:8px}
+@media(max-width:650px){.article-cover .cover-photo-placeholder{height:310px}}

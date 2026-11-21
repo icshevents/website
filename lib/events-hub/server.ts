@@ -38,7 +38,7 @@ export async function allEntries(eventId:string,formId:string|null){const out:En
 /** Public, already-published content only. Drafts, forms and private planning never enter this projection. */
 export async function publicPastEvents():Promise<PublicEvent[]|null>{
  if(process.env.ICSH_EVENTS_HUB_ENABLED!=='true')return null;
- const r=await createEventService().from('icsh_events').select('id,slug,published,source_type,source_key').or('published_status.eq.completed,archived.eq.true').not('published','is',null);
+ const r=await createEventService().from('icsh_events').select('id,slug,published,published_image,source_type,source_key').or('published_status.eq.completed,archived.eq.true').not('published','is',null);
  if(r.error)throw new HubError('Past events are temporarily unavailable.',503);
- return r.data.map(e=>({id:e.id,slug:e.slug,content:{...(e.published as EventContent),capacity:null},status:'completed',sourceType:e.source_type,sourceKey:e.source_key})).sort((a,b)=>Date.parse(b.content.startsAt)-Date.parse(a.content.startsAt));
+ return r.data.map(e=>({id:e.id,slug:e.slug,content:{...(e.published as EventContent),...(e.published_image?{image:'/api/events-image/'+e.id}:{}),capacity:null},status:'completed',sourceType:e.source_type,sourceKey:e.source_key})).sort((a,b)=>Date.parse(b.content.startsAt)-Date.parse(a.content.startsAt));
 }
