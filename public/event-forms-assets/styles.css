@@ -42,6 +42,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:-.015em;
 /* Body copy in the public booking, festival and stall forms. */
 .public-event-form {
   --body-text-size: 16px;
+  --cta-copy-gap: 24px;
   font-size: var(--body-text-size);
 }
 
@@ -75,4 +76,8 @@ h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:-.015em;
   .stall-page .field-error
 ) {
   font-size: var(--body-text-size);
+}
+
+.public-event-form main :is(p, ul, ol, dl, h2, h3):has(+ .btn:not([hidden])) {
+  margin-block-end: var(--cta-copy-gap);
 }
