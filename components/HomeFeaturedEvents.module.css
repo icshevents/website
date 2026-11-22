@@ -90,7 +90,7 @@
 .summary {
   margin: 0 18px 4px;
   color: var(--muted);
-  font-size: 13px;
+  font-size:var(--body-text-size);
   line-height: 1.6;
 }
 
@@ -106,7 +106,7 @@
   border-radius: 5px;
   background: #f1e5cc;
   color: #493716;
-  font-size: 12px;
+  font-size:var(--body-text-size);
   font-weight: 700;
 }
 

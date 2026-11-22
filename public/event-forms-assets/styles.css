@@ -38,3 +38,41 @@ h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:-.015em;
 .stall-hire-choice .check { cursor: pointer; margin-bottom: 0; }
 .stall-hire-choice .check + .check { margin-top: 10px; }
 .stall-hire-choice input { accent-color: var(--green); }
+
+/* Body copy in the public booking, festival and stall forms. */
+.public-event-form {
+  --body-text-size: 16px;
+  font-size: var(--body-text-size);
+}
+
+.public-event-form :is(
+  .hero p,
+  .section-head p,
+  .card-body p,
+  .card-bottom,
+  .community-note,
+  .details,
+  .notice,
+  .error,
+  .field-error,
+  .small,
+  .summary-row,
+  .booking-tier-meta,
+  .ticket-summary-label,
+  .receipt-list,
+  .list-item,
+  .data-warning,
+  .festival-heading .description,
+  .festival-info,
+  .festival-layout .panel > p:not(.eyebrow),
+  .festival-selection,
+  .involvement-card > span:last-child,
+  .shift-option small,
+  .festival-confirmation .panel > p:not(.eyebrow),
+  .festival-reference span,
+  .festival-dl,
+  .stall-page .festival-layout > .festival-aside .summary-row,
+  .stall-page .field-error
+) {
+  font-size: var(--body-text-size);
+}
