@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type {HomeUpcomingEvent} from '@/lib/home-event-forms';
 import styles from './HomeFeaturedEvents.module.css';
 
@@ -16,7 +17,9 @@ export default function HomeFeaturedEvents({events,available}:{events:HomeUpcomi
             <article>
               <Link href={mainLink.href} className={styles.mainLink}>
                 {event.image && <div className={styles.artwork}>
-                  <img src={event.image} alt="" loading="lazy" decoding="async"/>
+                  <div className={styles.poster}>
+                    <Image src={event.image} alt="" fill sizes="(max-width: 600px) calc(100vw - 64px), (max-width: 975px) 44vw, 390px"/>
+                  </div>
                 </div>}
                 <h3>{event.title}</h3>
               </Link>

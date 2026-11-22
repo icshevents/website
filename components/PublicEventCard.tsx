@@ -1,6 +1,7 @@
 import MenuPopup from '@/app/ramadan-iftari-2027/MenuPopup';
 import {resolveEventMenu} from '@/lib/events-hub/iftari-menu';
 import Link from 'next/link';
+import Image from 'next/image';
 import {Arrow} from './Shared';
 import {bookingState} from '@/lib/events-hub/core';
 import type {PublicEvent} from '@/lib/events-hub/server';
@@ -8,13 +9,21 @@ import {londonDate,londonTime} from '@/lib/event-directory';
 
 const money=(n:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
 
-export default function PublicEventCard({event:e}:{event:PublicEvent}){
+export default function PublicEventCard({event:e,firstPoster=false}:{event:PublicEvent;firstPoster?:boolean}){
  const c=e.content,cancelled=e.status==='cancelled',state=cancelled?'Closed':bookingState(c);
  const bookingUrl=c.bookingType==='external'?c.externalUrl:e.sourceType==='iftari'?'/ramadan-iftari-2027':e.sourceType==='tickets'?'/event-tickets/'+(e.bookingSlug||e.slug):'';
  const forms=cancelled?[]:(e.forms||[]).filter(f=>f.url!==bookingUrl||!c.bookingEnabled);
  const bookingButton=Boolean(bookingUrl)&&!cancelled&&(state==='Open'||e.sourceType==='iftari');
  const posterClickable=e.slug==='icsh-winter-lunch-2026'&&Boolean(bookingUrl)&&!cancelled;
- const poster=<img className="public-event-poster" src={c.image} alt={c.title+' poster or leaflet'}/>;
+ const poster=c.image&&<Image
+  className="public-event-poster"
+  src={c.image}
+  alt={c.title+' poster or leaflet'}
+  fill
+  sizes="(max-width: 480px) calc(100vw - 80px), (max-width: 860px) calc(100vw - 112px), (max-width: 1336px) 45vw, 590px"
+  loading={firstPoster?'eager':'lazy'}
+  fetchPriority={firstPoster?'high':undefined}
+ />;
  return <article className={"panel our-event-panel"+(c.image?"":" our-event-panel--no-poster")} id={e.slug}>
   <div className="our-event-summary">
    <div className="our-event-copy">
