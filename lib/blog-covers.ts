@@ -5,6 +5,9 @@ import {posts} from '@/lib/content';
 import {publicPastEvents} from '@/lib/events-hub/server';
 
 export const postsWithEventCovers = cache(async () => {
+ const stories = posts();
+ if (stories.every(post => post.dedicatedCover)) return stories;
+
  const pastEvents = await publicPastEvents().catch(() => null);
  const covers = new Map<string, {image: string; imageAlt: string}>();
 
@@ -19,5 +22,5 @@ export const postsWithEventCovers = cache(async () => {
   }
  }
 
- return posts().map(post => ({...post, ...covers.get(post.slug)}));
+ return stories.map(post => post.dedicatedCover ? post : {...post, ...covers.get(post.slug)});
 });
