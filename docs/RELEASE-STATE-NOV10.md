@@ -16,6 +16,12 @@ This repository is public. Community photograph/logo binaries remain excluded un
 
 No production deployment or database migration is requested by this GitHub reconciliation. The existing production deployment remains the reference. Changes to GitHub can trigger any configured automation: confirm asset availability, production environment and build configuration before enabling Git-triggered deployments.
 
+### Required photos in production builds
+
+Supply the approved files listed in `scripts/release-photos.json` with every direct production deployment. An API source-file deployment can reuse those files by their content hashes and byte lengths. For a CLI deployment, assemble the files in the checkout and run `node scripts/check-release-photos.mjs --check` before deploying. The production build also checks every listed file and stops if one is missing or changed.
+
+When intentionally replacing a photo served from the build, update the inventory with the approved file's path, SHA-1 and byte length. Event photos uploaded through the Events Hub are stored separately and do not need entries in this inventory.
+
 ## Development
 
 Use Node 24 and pnpm 11.25.0. Install with `pnpm install --frozen-lockfile`; run `pnpm test`, `pnpm typecheck`, and `pnpm build`. Keep private credentials in environment variables. For future work, start from main and merge reviewed, verified changes back into main so it stays current.
