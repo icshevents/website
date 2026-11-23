@@ -11,3 +11,6 @@ export async function postHtml(post:Post) { return String(await remark().use(htm
 export function displayDate(value:string) { return new Date(value+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric',timeZone:'Europe/London'}); }
 export const canonicalOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://icsh.org.uk';
 export const launched = process.env.SITE_LAUNCHED === 'true' && process.env.VERCEL_ENV !== 'preview';
+
+// Publish the current membership information to search on the canonical production site.
+export const membershipIndexingEnabled = launched || process.env.VERCEL_ENV === 'production';

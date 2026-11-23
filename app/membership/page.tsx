@@ -3,9 +3,15 @@ import Link from 'next/link';
 import MembershipForm from '@/components/MembershipForm';
 import {MEMBERSHIP_RATES,londonDate,priceLabel} from '@/lib/membership';
 import {MEMBERSHIP_PRICING} from '@/lib/membership-pricing';
+import {membershipIndexingEnabled} from '@/lib/content';
 import {paymentConfiguration} from '@/lib/membership-payments/server';
 export const dynamic='force-dynamic';
-export const metadata={title:'Membership',description:'ICSH annual membership: standard £20, pensioner £15 for ages 65+, and free for full-time students aged 17–21 and for minors aged 16 and below. Apply to join or renew.',alternates:{canonical:'/membership'}};
+export const metadata = {
+ title: 'Membership',
+ description: `Join or renew ICSH membership. Standard membership is £${MEMBERSHIP_PRICING.standardFee} for ${MEMBERSHIP_PRICING.durationMonths} months. Senior and free membership options are available.`,
+ alternates: {canonical:'/membership'},
+ robots: {index:membershipIndexingEnabled, follow:membershipIndexingEnabled},
+};
 export default async function Membership({searchParams}:{searchParams:Promise<{category?:string}>}) {
  const {category}=await searchParams;
  return <>
