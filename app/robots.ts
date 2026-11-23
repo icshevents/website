@@ -1,14 +1,15 @@
 import type {MetadataRoute} from 'next';
 import {launched,canonicalOrigin,membershipIndexingEnabled} from '@/lib/content';
-export default function robots():MetadataRoute.Robots {
+
+export default function robots(): MetadataRoute.Robots {
   if (launched) return {rules:{userAgent:'*',allow:'/'},sitemap:canonicalOrigin+'/sitemap.xml'};
+
+  // Let crawlers read the production pages' indexing directives. The public
+  // membership page opts into indexing and the other pages retain noindex.
+  if (membershipIndexingEnabled) return {rules:{userAgent:'*',allow:'/'}};
+
   return {rules:[
-    // Permit Meta's link/website checks while retaining the pre-launch search block.
     {userAgent:['facebookexternalhit','Facebot'],allow:'/'},
-    ...(membershipIndexingEnabled ? [
-      // Search Console's live test uses a separate crawler from Google Search.
-      {userAgent:'Google-InspectionTool',allow:'/membership',disallow:['/membership/','/admin','/api/']},
-      {userAgent:'*',allow:'/membership',disallow:['/','/membership/']},
-    ] : [{userAgent:'*',disallow:'/'}]),
+    {userAgent:'*',disallow:'/'},
   ]};
 }
