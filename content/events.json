@@ -11,7 +11,13 @@
     "bookingUrl": null,
     "membershipRequirements": null,
     "image": "/assets/cruise/cruise-100-1600.webp",
-    "blogSlug": "norwegian-fjords-cruise-2026"
+    "blogSlug": "norwegian-fjords-cruise-2026",
+    "pastEventCover": {
+      "src": "/assets/cruise/norwegian-fjords-2026-cover.webp",
+      "alt": "Four cruise guests by the waterfront in front of a Statue of Liberty replica",
+      "width": 1200,
+      "height": 1600
+    }
   },
   {
     "id": "ladies-health-wellbeing-2026",

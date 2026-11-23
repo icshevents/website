@@ -11,13 +11,20 @@ import {iftariSettings} from '@/lib/iftari/server';
 export const metadata={title:'Events & Services',description:'Explore ICSH events, get involved in Harrow Food Festival and find event application forms.',alternates:{canonical:'/events'}};
 export const dynamic='force-dynamic';
 const gbp=(n:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n/100);
+function pastEventArt(image: string, cover?: (typeof events)[number]['pastEventCover']) {
+ if (!cover || image.startsWith('/api/events-image/')) return {image};
+ return {image:cover.src, imageAlt:cover.alt, imageDimensions:{width:cover.width,height:cover.height}};
+}
 export default async function Events(){
  const [managed,completed]=await Promise.all([publicEvents(),publicPastEvents()]);
  if(managed!==null){const next=managed.filter(e=>e.status!=='completed').sort((a,b)=>Date.parse(a.content.startsAt)-Date.parse(b.content.startsAt));const firstPoster=next.find(e=>e.content.image);return <>
  <PageHero className="events-page-hero" label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
  <section className="section white our-events-section"><div className="wrap">{next.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>We’ll publish dates and booking details here.</div>}<div className="our-event-list">{next.map(e=><PublicEventCard key={e.id} event={e} firstPoster={e===firstPoster}/>)}</div></div></section>
  <section className="section services-directory"><div className="wrap"><div className="eyebrow">Here for our community</div><h2>Community services</h2><div className="service-directory-grid"><article className="panel"><span className="tag">Introductions & connection</span><h3>Rishta service</h3><p>A confidential, community-supported service for people seeking a life partner.</p><Link className="button" href="/rishta-service">Explore Rishta service <Arrow/></Link></article></div></div></section>
- <PastEventsCarousel events={(completed||[]).map(e=>({id:e.id,title:e.content.title,date:londonDate(e.content.startsAt),venue:e.content.venue,description:e.content.description,image:e.content.image,story:e.sourceType==='archive'?events.find(a=>a.id===e.sourceKey)?.blogSlug:undefined}))}/>
+ <PastEventsCarousel events={(completed||[]).map(e=>{
+  const archive=e.sourceType==='archive'?events.find(a=>a.id===e.sourceKey):undefined;
+  return {id:e.id,title:e.content.title,date:londonDate(e.content.startsAt),venue:e.content.venue,description:e.content.description,...pastEventArt(e.content.image,archive?.pastEventCover),story:archive?.blogSlug};
+ })}/>
  <CTA/><section className="section white"><div className="wrap" style={{display:'flex',justifyContent:'flex-end'}}><Link className="button outline" href="/admin">Organiser sign in <Arrow/></Link></div></section></>;}
  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Europe/London'});
  const [directory,iftari]=await Promise.all([getEventDirectory(),iftariSettings().catch(()=>null)]);
@@ -42,6 +49,6 @@ export default async function Events(){
 
   </div></section>
   <section className="section services-directory"><div className="wrap"><div className="eyebrow">Here for our community</div><h2>Community services</h2><div className="service-directory-grid"><article className="panel"><span className="tag">Introductions & connection</span><h3>Rishta service</h3><p>A confidential, community-supported service for people seeking a life partner.</p><Link href="/rishta-service" className="button">Explore Rishta service <Arrow/></Link></article></div></div></section>
-  <PastEventsCarousel events={past.map(e=>({id:e.id,title:e.title,date:displayDate(e.start),venue:e.location,description:e.description,image:e.image,story:e.blogSlug}))}/><CTA/><section className="section white"><div className="wrap" style={{display:'flex',justifyContent:'flex-end'}}><Link className="button outline" href="/admin">Organiser sign in <Arrow/></Link></div></section>
+  <PastEventsCarousel events={past.map(e=>({id:e.id,title:e.title,date:displayDate(e.start),venue:e.location,description:e.description,...pastEventArt(e.image,e.pastEventCover),story:e.blogSlug}))}/><CTA/><section className="section white"><div className="wrap" style={{display:'flex',justifyContent:'flex-end'}}><Link className="button outline" href="/admin">Organiser sign in <Arrow/></Link></div></section>
  </>;
 }
