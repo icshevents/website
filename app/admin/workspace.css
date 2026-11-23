@@ -44,3 +44,5 @@ body:has(.organiser-workspace) footer{background:#1f2a44;color:#fff}
 .organiser-workspace .entry-table tbody tr:nth-child(even){background:#faf7f2}
 .organiser-workspace .entry-table tbody tr:hover{background:#f1e9dc}
 @media(max-width:650px){.workspace-context-inner{width:calc(100% - 36px);padding:14px 0;gap:14px;align-items:flex-start}.workspace-context-title{font-size:13px}.workspace-context-title small{font-size:11px}.workspace-context a{font-size:11px;padding:7px 9px}.organiser-workspace .section{padding:32px 0}.organiser-workspace .page-hero{padding:32px 0}}
+
+.organiser-workspace{--font-body:'Outfit',Arial,sans-serif;font-family:var(--font-body)}

@@ -41,7 +41,9 @@ h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:-.015em;
 
 /* Body copy in the public booking, festival and stall forms. */
 .public-event-form {
+  --font-body: Arial, Helvetica, sans-serif;
   --body-text-size: 16px;
+  font-family: var(--font-body);
   --cta-copy-gap: 24px;
   font-size: var(--body-text-size);
 }
