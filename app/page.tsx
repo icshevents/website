@@ -4,7 +4,7 @@ import {postsWithEventCovers} from '@/lib/blog-covers';
 import HomeFeaturedEvents from '@/components/HomeFeaturedEvents';
 import {getHomeEventForms,groupHomeEventForms,selectHomeUpcomingEvents} from '@/lib/home-event-forms';
 import {publicEvents} from '@/lib/events-hub/server';
-export const metadata={title:'Home | ICSH',alternates:{canonical:'/'}};
+export const metadata={title:'Home | ICSH',alternates:{canonical:'/'},verification:{google:'VjkXgKTz6K_He4SO8kIoFkXECLcUpKCzbHeFKBTmchI'}};
 export const dynamic='force-dynamic';
 async function upcomingEvents(){
  const published=await publicEvents().catch(()=>null);
