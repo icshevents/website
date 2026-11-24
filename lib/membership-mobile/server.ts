@@ -6,15 +6,14 @@ import {membershipActivationClient as client,searchBiginMembershipRecords} from 
 import {checkMembershipEligibility,parseMembershipIdentity,membershipMobileKey,type MembershipIdentity} from '../membership-eligibility';
 import {sendTransactionalContent} from '../form-emails/core';
 import {getMembershipApplication} from '../membership-applications/store';
-import {activationIdentityMatches} from '../zoho/membership-activation';
-import {mobileCodeHash,proofHash,mobileVerificationContent,emailNameMatches,verifiedMobileIdentity,type MobileVerification} from './core';
+import {mobileCodeHash,proofHash,mobileVerificationContent,verifiedMobileIdentity,renewalContactChanges,type MobileVerification} from './core';
 import type {MembershipAnswers} from '../membership-validation';
-const schema=z.object({id:z.uuid(),contact_id:z.string(),email:z.string(),old_mobile:z.string().nullable(),new_mobile:z.string(),application_id:z.uuid().nullable(),verified_at:z.string().nullable(),proof_until:z.string().nullable(),mobile_status:z.enum(['pending','writing','confirmed','review_required']),claim_id:z.uuid().nullable()});
+const schema=z.object({id:z.uuid(),contact_id:z.string(),email:z.string(),old_mobile:z.string().nullable(),new_mobile:z.string(),application_id:z.uuid().nullable(),verified_at:z.string().nullable(),proof_until:z.string().nullable(),mobile_status:z.enum(['pending','writing','confirmed','review_required']),claim_id:z.uuid().nullable(),old_first_name:z.string().nullable(),old_last_name:z.string().nullable(),new_first_name:z.string().nullable(),new_last_name:z.string().nullable()});
 const headers={'Cache-Control':'private, no-store','X-Robots-Tag':'noindex'};
-export async function mobileVerificationForApplication(appId:string):Promise<MobileVerification|null>{const r=await createEventService().from('icsh_membership_mobile_verifications').select('id,contact_id,email,old_mobile,new_mobile,application_id,verified_at,proof_until,mobile_status,claim_id').eq('application_id',appId).maybeSingle();if(r.error)throw Error('MOBILE_VERIFICATION_UNAVAILABLE');return r.data?schema.parse(r.data):null;}
-export async function validMobileProof(answers:MembershipAnswers,token:string|undefined,applicationId:string){
+export async function mobileVerificationForApplication(appId:string):Promise<MobileVerification|null>{const r=await createEventService().from('icsh_membership_mobile_verifications').select('id,contact_id,email,old_mobile,new_mobile,application_id,verified_at,proof_until,mobile_status,claim_id,old_first_name,old_last_name,new_first_name,new_last_name').eq('application_id',appId).maybeSingle();if(r.error)throw Error('MOBILE_VERIFICATION_UNAVAILABLE');return r.data?schema.parse(r.data):null;}
+export async function validMobileProof(answers:MembershipAnswers,token:string|undefined,applicationId:string,nameChanged=false){
  if(!answers.mobileVerificationId||!token||!/^[a-f0-9]{64}$/.test(token)||answers.kind!=='renewal')return false;
- const r=await createEventService().rpc('icsh_membership_mobile_proof',{p_id:answers.mobileVerificationId,p_hash:proofHash(token),p_email:answers.email.trim().toLowerCase(),p_mobile:membershipMobileKey(answers.mobile),p_application:applicationId});
+ const r=await createEventService().rpc('icsh_membership_contact_proof',{p_id:answers.mobileVerificationId,p_hash:proofHash(token),p_email:answers.email.trim().toLowerCase(),p_mobile:membershipMobileKey(answers.mobile),p_application:applicationId,p_first:answers.firstName.trim(),p_last:answers.lastName.trim(),p_name_changed:nameChanged});
  if(r.error)throw Error('MOBILE_VERIFICATION_UNAVAILABLE');return r.data===true;
 }
 export async function handleMobileVerification(request:Request){
@@ -33,11 +32,15 @@ export async function handleMobileVerification(request:Request){
    const parsed=z.object({action:z.literal('start'),identity:z.unknown()}).strict().safeParse(body);if(!parsed.success)return reply({error:'Invalid request.'},400);
    let identity:MembershipIdentity;try{identity=parseMembershipIdentity(parsed.data.identity);}catch{return reply({error:'Review your membership details.'},400);}
    if(identity.kind!=='renewal')return reply({error:'This check is for membership renewals.'},400);
-   const decision=await checkMembershipEligibility(identity,searchBiginMembershipRecords);if(decision.status!=='allowed'||!decision.mobileChanged)return reply({error:'Check your renewal details again before requesting a code.'},409);
+   const decision=await checkMembershipEligibility(identity,searchBiginMembershipRecords);if(decision.status!=='allowed'||(!decision.mobileChanged&&!decision.nameChanged))return reply({error:'Check your renewal details again before requesting a code.'},409);
    const found=await client.searchBiginContactsByEmail(identity.email);if(found.hasMore||found.matches.length!==1)return reply({error:'Your membership needs ICSH review.'},409);
-   const contact=await client.getBiginContact(found.matches[0].id);if(!emailNameMatches(contact,identity))return reply({error:'Your membership needs ICSH review.'},409);
+   const contact=await client.getBiginContact(found.matches[0].id);if(contact.email!==identity.email)return reply({error:'Your membership needs ICSH review.'},409);
    const id=randomUUID(),code=String(randomInt(0,1000000)).padStart(6,'0');
-   const created=await db.rpc('icsh_membership_mobile_start',{p_id:id,p_contact:contact.id,p_email:contact.email,p_old:membershipMobileKey(contact.mobile||''),p_new:identity.mobile,p_code_hash:mobileCodeHash(id,code,secret)});
+   const created=await db.rpc('icsh_membership_contact_start',{
+    p_id:id,p_contact:contact.id,p_email:contact.email,p_old:membershipMobileKey(contact.mobile||''),p_new:identity.mobile,
+    p_code_hash:mobileCodeHash(id,code,secret),p_old_first:contact.firstName?.trim()??null,p_old_last:contact.lastName?.trim()??null,
+    p_new_first:identity.firstName,p_new_last:identity.lastName,
+   });
    if(created.error)throw Error('Unavailable');if(created.data!==true)return reply({error:'Please wait before requesting another code. Up to five codes can be requested per day.'},429);
    const sent=await sendTransactionalContent(id,contact.email,mobileVerificationContent(code),process.env);
    const saved=await db.from('icsh_membership_mobile_verifications').update({delivery_status:sent.status==='accepted'?'accepted':sent.status==='retry'?'failed':sent.status}).eq('id',id);
@@ -48,9 +51,9 @@ export async function handleMobileVerification(request:Request){
   const token=randomBytes(32).toString('hex');const r=await db.rpc('icsh_membership_mobile_verify',{p_id:parsed.data.challengeId,p_code_hash:mobileCodeHash(parsed.data.challengeId,parsed.data.code,secret),p_proof_hash:proofHash(token)});
   if(r.error)throw Error('Unavailable');if(r.data!==true)return reply({error:'That code is incorrect, expired or already used. Check the code or request a new one.'},400);
   return reply({verified:true,proofToken:token});
- }catch{return reply({error:'The mobile-number check is temporarily unavailable. Your form details are still here.'},503);}
+ }catch{return reply({error:'Email verification is temporarily unavailable. Your form details are still here.'},503);}
 }
-/** Membership activation is separate from the subsequent, email-verified number change. */
+/** Membership activation is separate from the subsequent, email-verified contact update. */
 export async function completeVerifiedMobileChange(appId:string){
  const app=await getMembershipApplication(appId);if(!app||app.deletedAt)return false;if(!app.answers.mobileVerificationId)return true;
  const db=createEventService(),claim=randomUUID();
@@ -60,12 +63,13 @@ export async function completeVerifiedMobileChange(appId:string){
  try{
   let c=await client.getBiginContact(v.contact_id);
   if(!verifiedMobileIdentity(app,c,v)||c.membershipStatus!=='Active'||c.membershipDate!==r.data.start_date||c.membershipExpiry!==r.data.expiry_date)return await finish(false);
-  if(membershipMobileKey(c.mobile||'')===v.new_mobile)return await finish(true);
+  const changes=renewalContactChanges(c,v);
+  if(!Object.keys(changes).length)return await finish(true);
   // A lost acknowledgement gets readback only; never overwrite a subsequently edited record.
   if(r.data.claimed!==true)return false;
-  await client.updateBiginMobile(v.contact_id,v.new_mobile);
+  await client.updateBiginRenewalContact(v.contact_id,changes);
   c=await client.getBiginContact(v.contact_id);
-  return await finish(activationIdentityMatches(c,app.answers)&&membershipMobileKey(c.mobile||'')===v.new_mobile);
+  return await finish(verifiedMobileIdentity(app,c,v)&&!Object.keys(renewalContactChanges(c,v)).length);
  }catch{await finish(false);return false;}
 }
 export async function mobileReadyForInvitation(appId:string){const app=await getMembershipApplication(appId);if(!app||app.deletedAt)return false;if(!app.answers.mobileVerificationId)return true;const v=await mobileVerificationForApplication(appId);return v?.mobile_status==='confirmed';}

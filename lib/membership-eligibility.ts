@@ -8,7 +8,7 @@ export type RenewalStatus =
   | { status: 'inactive' }
   | { status: 'active'; currentExpiry: string; renewedExpiry: string };
 export type MembershipEligibility =
-  | { status: 'allowed'; mobileChanged?:true; renewal?: RenewalStatus }
+  | { status: 'allowed'; mobileChanged?:true; nameChanged?:true; renewal?: RenewalStatus }
   | { status: 'active'; membershipDate: string; membershipExpiry: string; daysUntilExpiry: number }
   | { status: 'identity_conflict' | 'review_required' | 'renewal_required' | 'new_required' };
 export type MembershipRecordSearch = { records: MembershipSearchRecord[]; hasMore: boolean };
@@ -47,13 +47,17 @@ export async function checkMembershipEligibility(value: MembershipIdentity, sear
   if (emails.length > 1) return { status: 'review_required' };
   if (!emails.length) return { status: identity.kind === 'new' ? 'allowed' : 'new_required' };
   const member = emails[0];
-  // Retain existing-contact identity verification on this email-selected record.
-  // Sharing that same number with other contacts does not make it ambiguous.
-  if (normaliseMemberName(member.fullName ?? '') !== normaliseMemberName(identity.firstName + ' ' + identity.lastName) ||
-    (identity.kind!=='renewal' && (!member.mobile || membershipMobileKey(member.mobile) !== identity.mobile))) return { status: 'identity_conflict' };
-  const mobileChanged=identity.kind==='renewal'&&membershipMobileKey(member.mobile||'')!==identity.mobile;
+  const submittedName = identity.firstName + ' ' + identity.lastName;
+  const mobileChanged = membershipMobileKey(member.mobile || '') !== identity.mobile;
+  if (identity.kind === 'new' &&
+    (normaliseMemberName(member.fullName ?? '') !== normaliseMemberName(submittedName) || mobileChanged)) return { status: 'identity_conflict' };
+  // The registered email selects the renewal contact. Differences are verified
+  // through that mailbox before saving, including changes to spelling or case.
+  const nameChanged = member.firstName !== undefined && member.lastName !== undefined
+    ? member.firstName?.trim() !== identity.firstName || member.lastName?.trim() !== identity.lastName
+    : member.fullName?.trim() !== submittedName;
   const allowRenewal = (renewal: RenewalStatus): MembershipEligibility => ({
-    status: 'allowed', ...(mobileChanged ? { mobileChanged: true } : {}), renewal,
+    status: 'allowed', ...(mobileChanged ? { mobileChanged: true } : {}), ...(nameChanged ? { nameChanged: true } : {}), renewal,
   });
   const start = member.membershipDate?.trim(), expiry = member.membershipExpiry?.trim();
   // The agreed lookup policy treats missing dates as needing renewal.
@@ -101,5 +105,6 @@ export function publicMembershipEligibility(result: MembershipEligibility): Memb
   if (result.status !== 'allowed') return { status: result.status };
   const renewal = parseRenewalStatus(result.renewal);
   if (result.renewal && !renewal) throw new Error('INVALID_MEMBERSHIP_DECISION');
-  return { status: 'allowed', ...(result.mobileChanged === true ? { mobileChanged: true } : {}), ...(renewal ? { renewal } : {}) };
+  return { status: 'allowed', ...(result.mobileChanged === true ? { mobileChanged: true } : {}),
+    ...(result.nameChanged === true ? { nameChanged: true } : {}), ...(renewal ? { renewal } : {}) };
 }

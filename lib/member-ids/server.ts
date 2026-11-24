@@ -10,7 +10,7 @@ import {ensureContactMemberId} from './core';
 export async function ensureWebsiteMemberId(app:MembershipApplication,contactId:string){
  if(process.env.ZOHO_BIGIN_MEMBER_IDS_ENABLED!=='true'||app.mode!=='live'||app.deletedAt)return null;
  const mobile=app.answers.mobileVerificationId?await mobileVerificationForApplication(app.id):null;
- const db=createEventService();return ensureContactMemberId(membershipActivationClient,contactId,contact=>activationIdentityMatches(contact,app.answers)||verifiedMobileIdentity(app,contact,mobile),{
+ const db=createEventService();return ensureContactMemberId(membershipActivationClient,contactId,contact=>app.answers.mobileVerificationId?verifiedMobileIdentity(app,contact,mobile):activationIdentityMatches(contact,app.answers),{
   reserve:async(candidate,rejected)=>{const r=await db.rpc('icsh_member_id_reserve',{p_application:app.id,p_contact:contactId,p_candidate:candidate,p_rejected:rejected||null});if(r.error)throw new Error('MEMBER_ID_RESERVATION_UNAVAILABLE');return r.data?{memberId:r.data.member_id,writeStarted:r.data.write_started,assigned:Boolean(r.data.confirmed_at)}:null;},
   start:async value=>{const r=await db.rpc('icsh_member_id_start',{p_contact:contactId,p_member_id:value});if(r.error)throw new Error('MEMBER_ID_RESERVATION_UNAVAILABLE');return r.data===true;},
   confirm:async value=>{const r=await db.rpc('icsh_member_id_confirm',{p_application:app.id,p_contact:contactId,p_member_id:value});if(r.error)throw new Error('MEMBER_ID_CONFIRMATION_UNAVAILABLE');},

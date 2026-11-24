@@ -86,6 +86,7 @@ export type BiginContact = {
   membershipDate: string | null;
   membershipExpiry: string | null;
 };
+export type BiginRenewalContactUpdate = { firstName?: string; lastName?: string; mobile?: string };
 
 function contactId(value: unknown): value is string {
   return typeof value === 'string' && /^[1-9]\d{0,29}$/.test(value);
@@ -97,11 +98,12 @@ function contactEmail(value: unknown): string | null {
   return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email) ? email : null;
 }
 
+const safeName = (name: unknown): name is string => typeof name === 'string' && name.trim().length > 0 && name.trim().length <= 80 && !/[<>\u0000-\u001f]/.test(name);
+
 function pendingContactPayload(value: unknown): BiginPendingContactCreate {
   const keys = ['First_Name', 'Last_Name', 'Email', 'Mobile', 'Membership_Status', 'Membership_Type', 'Payment_Status', 'Email_Opt_Out'];
   if (!object(value) || Object.keys(value).length !== keys.length ||
     !keys.every(key => Object.prototype.hasOwnProperty.call(value, key))) throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
-  const safeName = (name: unknown): name is string => typeof name === 'string' && name.trim().length > 0 && name.trim().length <= 80 && !/[<>\u0000-\u001f]/.test(name);
   const email = contactEmail(value.Email);
   if (!safeName(value.First_Name) || !safeName(value.Last_Name) || !email ||
     typeof value.Mobile !== 'string' || value.Mobile.length > 25 || !/^[\d() .+-]+$/.test(value.Mobile) ||
@@ -498,6 +500,7 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
         return v;
       };
       return { id: item.id, fullName: optionalText('Full_Name'), email: optionalText('Email'), mobile: optionalText('Mobile'),
+        ...(Object.hasOwn(item,'First_Name') && Object.hasOwn(item,'Last_Name') ? {firstName:optionalText('First_Name'),lastName:optionalText('Last_Name')} : {}),
         membershipStatus: optionalText('Membership_Status'), paymentStatus: optionalText('Payment_Status'),
         membershipDate: optionalText('Membership_Date'), membershipExpiry: optionalText('Expiry_Date') };
     });
@@ -523,12 +526,16 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     const records=object(response.data)&&Array.isArray(response.data.data)?response.data.data:[];
     if(records.length!==1||!object(records[0])||records[0].code!=='SUCCESS'||records[0].status!=='success'||!object(records[0].details)||records[0].details.id!==id)throw new ZohoError('ZOHO_PROVIDER_REJECTED');
   }
-  async function updateBiginMobile(id:string,mobile:string):Promise<void>{
+  async function updateBiginRenewalContact(id:string,value:BiginRenewalContactUpdate):Promise<void>{
     if(env.ZOHO_BIGIN_MEMBERSHIP_WRITES_ENABLED!=='true'||env.ZOHO_BIGIN_MEMBERSHIP_ACTIVATION_ENABLED!=='true')throw new ZohoError('ZOHO_MEMBERSHIP_WRITES_DISABLED');
-    if(!contactId(id)||membershipMobileKey(mobile)!==mobile)throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    if(!contactId(id)||!object(value)||!Object.keys(value).length||Object.keys(value).some(key=>!['firstName','lastName','mobile'].includes(key)))throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    const {firstName,lastName,mobile}=value;
+    if((Object.hasOwn(value,'firstName')&&!safeName(firstName))||(Object.hasOwn(value,'lastName')&&!safeName(lastName))||
+      (Object.hasOwn(value,'mobile')&&(typeof mobile!=='string'||membershipMobileKey(mobile)!==mobile)))throw new ZohoError('ZOHO_REQUEST_NOT_ALLOWED');
+    const payload={...(firstName?{First_Name:firstName.trim()}:{}),...(lastName?{Last_Name:lastName.trim()}:{}),...(mobile?{Mobile:mobile}:{})};
     const {configuration}=inspectConfiguration('bigin',env);if(!configuration)throw new ZohoError('ZOHO_CONFIGURATION_INVALID');
     const token=await accessToken(configuration,stateFor('bigin',configuration));
-    const response=await request(new URL('/bigin/v2/Contacts/'+id,configuration.api),{method:'PUT',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Zoho-oauthtoken ${token.value}`},body:JSON.stringify({data:[{Mobile:mobile}],trigger:[]})});
+    const response=await request(new URL('/bigin/v2/Contacts/'+id,configuration.api),{method:'PUT',headers:{Accept:'application/json','Content-Type':'application/json',Authorization:`Zoho-oauthtoken ${token.value}`},body:JSON.stringify({data:[payload],trigger:[]})});
     if(hasProviderError(response.data))throw providerError(response.status,response.data);
     const b=response.data;if(!object(b)||!Array.isArray(b.data)||b.data.length!==1||!object(b.data[0])||b.data[0].code!=='SUCCESS'||b.data[0].status!=='success'||!object(b.data[0].details)||b.data[0].details.id!==id)throw new ZohoError('ZOHO_PROVIDER_REJECTED');
   }
@@ -611,7 +618,7 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
       return 'accepted';
     }catch{return 'unknown';}
   }
-  return { get, listBiginRenewalContacts, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, updateBiginPaidMembership, updateBiginMobile, searchBiginContactsByMemberId,updateBiginMemberId,requestBiginInvitation,inspectBiginInvitationFields,lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
+  return { get, listBiginRenewalContacts, searchBiginMembershipRecords, searchBiginContactsByEmail, getBiginContact, createBiginContact, updateBiginPaidMembership, updateBiginRenewalContact, searchBiginContactsByMemberId,updateBiginMemberId,requestBiginInvitation,inspectBiginInvitationFields,lookupBiginMembership, getConfiguration: (service: ZohoService) => getZohoConfiguration(service, env) };
 }
 
 const defaultClient = createZohoClient();

@@ -832,3 +832,19 @@ test('verified mobile proof permits renewal but the secret never appears in its 
  const r=await handleMembershipApplications(post(auth,submission({answers:answers({kind:'renewal',mobileVerificationId:challenge}),mobileProofToken:proof})),context.deps);
  assert.equal(r.status,201);const text=await r.text();assert.ok(!text.includes(proof));assert.ok(!text.includes(challenge));assert.equal(context.calls.save[0][0].answers.mobileVerificationId,challenge);assert.ok(!JSON.stringify(context.calls.save[0]).includes(proof));
 });
+
+test('a name-only renewal change also requires proof through the registered mailbox',async()=>{
+ const challenge='f56aefee-629f-4d7f-b3d1-7bb09d6937a4',proof='c'.repeat(64);
+ const context=harness({checkIdentity:async()=>({status:'allowed',nameChanged:true}),
+  verifyMobileChange:async(a,t,requestId,nameChanged)=>nameChanged===true&&a.firstName==='Updated'&&a.mobileVerificationId===challenge&&t===proof&&requestId===id});
+ const auth=await bootstrap(context);
+ const application=answers({kind:'renewal',firstName:'Updated',mobileVerificationId:challenge});
+ const blocked=await handleMembershipApplications(post(auth,submission({answers:application})),context.deps);
+ assert.equal(blocked.status,409);
+ assert.ok((await blocked.json()).error.fields.firstName);
+ assert.equal(context.calls.save.length,0);
+ const accepted=await handleMembershipApplications(post(auth,submission({answers:application,mobileProofToken:proof})),context.deps);
+ assert.equal(accepted.status,201);
+ assert.equal(context.calls.save[0][0].answers.firstName,'Updated');
+ assert.doesNotMatch(await accepted.text(),new RegExp(proof));
+});

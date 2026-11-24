@@ -39,7 +39,7 @@ async function activateMembership(id:string,free:boolean):Promise<'active'|'revi
    const term=await db.rpc('icsh_membership_activation_extend',{p_id:id,p_claim:claim,p_start:contact.membershipDate,p_expiry:contact.membershipExpiry});
    if(term.error||!term.data)throw new ActivationReview('RENEWAL_TERM_REQUIRES_REVIEW');
    return activationSchema.parse(term.data).expiry_date;
-  }:undefined,contact=>activationIdentityMatches(contact,app.answers)||verifiedMobileIdentity(app,contact,mobile),app.answers.kind==='renewal'&&Boolean(x.renewal_base_expiry));
+  }:undefined,contact=>app.answers.mobileVerificationId?verifiedMobileIdentity(app,contact,mobile):activationIdentityMatches(contact,app.answers),app.answers.kind==='renewal'&&Boolean(x.renewal_base_expiry));
   const saved=await finish('active');if(saved.status==='active'){
    await completeVerifiedMobileChange(id).catch(()=>console.error('ICSH_MOBILE_CHANGE_PENDING'));
    await processFormEmails().catch(()=>console.error('ICSH_FORM_EMAIL_PROCESSING_PENDING'));

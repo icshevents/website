@@ -9,7 +9,7 @@ import type { MembershipApplication, MembershipBiginSyncOutcome, SaveMembershipA
 import {testMembershipQuote,ownerTestEmail} from '../membership-test-pricing.ts';
 
 export type MembershipApiDependencies = {
-  verifyMobileChange?:(answers:MembershipAnswers,token:string|undefined,applicationId:string)=>Promise<boolean>;
+  verifyMobileChange?:(answers:MembershipAnswers,token:string|undefined,applicationId:string,nameChanged?:boolean)=>Promise<boolean>;
   secret: string;
   available: () => Promise<boolean>;
   checkIdentity: (identity: MembershipIdentity) => Promise<MembershipEligibility>;
@@ -215,7 +215,11 @@ export async function handleMembershipApplications(request: Request, deps: Membe
       if (saved && equal(saved.requestHash, requestHash) && equal(saved.capabilityHash, hash(parsed.data.receiptToken))) return Response.json({ ok: true, application: membershipReceipt(await deliverSavedMembershipApplication(saved, deps)) }, { headers });
       return Response.json({ ok: false, error: { code: 'MEMBERSHIP_CHECK_BLOCKED', message: membershipEligibilityMessage(eligibility) }, eligibility }, { status: 409, headers });
     }
-    if((eligibility.mobileChanged||answers.mobileVerificationId)&&(!deps.verifyMobileChange||!await deps.verifyMobileChange(answers,parsed.data.mobileProofToken,parsed.data.requestKey)))throw new ApiError(409,'MOBILE_VERIFICATION_REQUIRED','Please verify your new mobile number using the code sent to your membership email.',{mobile:'Verify your new number before continuing.'});
+    if((eligibility.mobileChanged||eligibility.nameChanged||answers.mobileVerificationId)&&
+      (!deps.verifyMobileChange||!await deps.verifyMobileChange(answers,parsed.data.mobileProofToken,parsed.data.requestKey,eligibility.nameChanged===true))){
+      const message='Verify your updated details using the code sent to your membership email.';
+      throw new ApiError(409,'MOBILE_VERIFICATION_REQUIRED',message,eligibility.nameChanged?{firstName:message}:{mobile:message});
+    }
     const input:SaveMembershipApplicationInput = {
       id: parsed.data.requestKey.toLowerCase(), mode: 'live', requestHash, capabilityHash: hash(parsed.data.receiptToken),
       answers, category: quote.category, feePence: quote.fee * 100,

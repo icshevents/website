@@ -11,6 +11,7 @@ export type MemberSearchResult =
   | { status: 'not_found' | 'ambiguous' | 'expired_undated' | 'dates_unavailable' };
 export type MembershipSearchRecord = {
   id: string; fullName: string | null; email: string | null; mobile: string | null;
+  firstName?: string | null; lastName?: string | null;
   membershipStatus: string | null; paymentStatus: string | null;
   membershipDate: string | null; membershipExpiry: string | null;
   membershipType?: string | null;

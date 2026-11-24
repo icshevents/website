@@ -13,7 +13,7 @@ test('a verified existing member may renew early while New Member remains blocke
   assert.deepEqual(await check(identity), { status: 'active', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19', daysUntilExpiry: 89 });
   assert.deepEqual(await check({ ...identity, kind: 'renewal' }), activeRenewal);
   assert.equal((await check({ ...identity, firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' })).status, 'active');
-  assert.deepEqual(await check({ ...identity, kind: 'renewal', firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' }), activeRenewal);
+  assert.deepEqual(await check({ ...identity, kind: 'renewal', firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' }), { ...activeRenewal, nameChanged: true });
 });
 
 test('different people with identical names are allowed when their email is unique, including a shared phone', async () => {
@@ -115,4 +115,13 @@ test('active renewal quotes preserve the current term and clamp leap-day expiry 
     status: 'allowed', renewal: { status: 'active', currentExpiry: '2028-02-29', renewedExpiry: '2029-02-28' },
     quote: { category: 'standard', feePence: 2000, currency: 'GBP' },
   });
+});
+
+test('renewal selects the exact email even when both the name and mobile change', async () => {
+  const renamed = { ...identity, kind: 'renewal', firstName: 'Updated', lastName: 'Surname', mobile: '07700900124' };
+  assert.deepEqual(await check(renamed), { ...activeRenewal, nameChanged: true, mobileChanged: true });
+  assert.deepEqual(await check(renamed, [{ ...record, email: 'elsewhere@example.invalid' }]), { status: 'new_required' });
+  assert.deepEqual(await check(renamed, [record, { ...record, id: '555555' }]), { status: 'review_required' });
+  const split = { ...record, fullName: 'Member, Test', firstName: 'Test', lastName: 'Member' };
+  assert.deepEqual(await check({ ...identity, kind: 'renewal' }, [split]), activeRenewal);
 });
