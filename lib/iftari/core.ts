@@ -21,6 +21,12 @@ export const settingsSchema = z.object({
   prices: z.object({ member: price.min(30), nonmember: price.min(30), child: price.min(30), under5: price.nullable() }).strict(),
   capacity: z.number().int().min(1).max(10000).nullable(),
   maxGuests: z.number().int().min(1).max(50), allowRepeatMemberDiscounts: z.boolean(),
+  // The Events Hub stores each form's schedule alongside its legacy settings.
+  startsAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  endsAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  bookingOpens: z.iso.datetime({ offset: true }).nullable().optional(),
+  bookingCloses: z.iso.datetime({ offset: true }).nullable().optional(),
+  hubIndependent: z.boolean().optional(),
 }).strict();
 export type Settings = z.infer<typeof settingsSchema>;
 export const defaultSettings: Settings = {
