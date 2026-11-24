@@ -94,6 +94,14 @@
  line-height: 1.5;
 }
 
+.offer .eligibility {
+ padding: 5px 12px;
+ border-radius: 4px;
+ color: #091810;
+ background: var(--sale-green);
+ font-weight: 700;
+}
+
 .offer .savings {
  color: var(--sale-green);
  font-size: clamp(42px, 5vw, 72px);

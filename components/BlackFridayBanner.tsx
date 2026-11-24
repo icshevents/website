@@ -15,9 +15,9 @@ export default function BlackFridayBanner() {
     </h1>
    </div>
    <div className={styles.offer}>
+    <p className={styles.eligibility}>Exclusive to active ICSH members</p>
     <p className={styles.savings}>10% off</p>
     <p className={styles.events}>Winter Lunch and Ramadan Iftari</p>
-    <p>Exclusively for active ICSH members.</p>
     <div className={styles.checkout}>
      <p>Use code <strong className={styles.code}>ICSH10</strong> when booking.</p>
      <p>Ends <time dateTime={blackFridayEndsAt}>8 December 2026 at 11:59 pm UK time</time>.</p>
