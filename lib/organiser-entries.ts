@@ -12,6 +12,57 @@ export async function entryPages<T>(load:(from:number,to:number)=>PromiseLike<{d
 const bookingCurrency = new Intl.NumberFormat('en-GB', {style:'currency', currency:'GBP'});
 const asRecord = (value:unknown):Record<string,unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string,unknown> : {};
+function displayAmounts(
+  record: Record<string, unknown>,
+  labels: Record<string, string>,
+): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(record).map(([key, value]) => {
+    const label = Object.hasOwn(labels, key) ? labels[key] : undefined;
+    return label && typeof value === 'number' && Number.isSafeInteger(value)
+      ? [label, bookingCurrency.format(value / 100)]
+      : [key, value];
+  }));
+}
+
+function displayQuote(value: unknown) {
+  const quote = displayAmounts(asRecord(value), {
+    tickets: 'Ticket subtotal', donation: 'Donation', total: 'Total', grossTotal: 'Original total',
+  });
+  if (Array.isArray(quote.lines)) {
+    quote.lines = quote.lines.map(line => displayAmounts(asRecord(line), {
+      unitAmount: 'Unit price', amount: 'Line total',
+    }));
+  }
+  if (quote.promotion) {
+    quote.promotion = displayAmounts(asRecord(quote.promotion), {
+      grossPence: 'Original total', discountPence: 'Discount', payablePence: 'Total payable',
+    });
+  }
+  return quote;
+}
+
+export function eventEntryAmounts(details: Record<string, unknown>) {
+  const display = displayAmounts(details, {
+    total: 'Total', fee: 'Stall fee', grossTicketPence: 'Original ticket total',
+    discountPence: 'Discount', netTotalPence: 'Final booking total',
+  });
+
+  // Only convert stored money fields. Custom answers can contain arbitrary numbers and labels.
+  if (details.donation) {
+    const donation = asRecord(details.donation);
+    const {amountPence, ...contribution} = donation;
+    display.donation = donation.type === 'money'
+      ? displayAmounts(donation, {amountPence: 'Pledge amount'})
+      : contribution;
+  }
+  if (details.package) display.package = displayAmounts(asRecord(details.package), {fee: 'Stall fee'});
+  if (details.quote) display.quote = displayQuote(details.quote);
+  if (Array.isArray(details.attendees)) {
+    display.attendees = details.attendees.map(attendee => displayAmounts(asRecord(attendee), {unitAmount: 'Ticket price'}));
+  }
+  return display;
+}
+
 const asText = (value:unknown) => typeof value === 'string' ? value.trim() : '';
 const quantity = (value:unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 

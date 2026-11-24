@@ -1,3 +1,4 @@
+import {eventEntryAmounts} from '../organiser-entries.ts';
 import {formatUKDateTime} from '../uk-date-time.ts';
 import { z } from 'zod';
 import {iftariMenuSchema} from './iftari-menu.ts';
@@ -56,7 +57,7 @@ export function entriesCsv(entries:Entry[]){
   ['Reference','Form','Submitted (UK)','Booking status','Review status','Details','Internal notes','Entry status',
    'Original ticket total (GBP)','Discount code','Discount given (GBP)','Final booking total (GBP)'],
   ...entries.filter(e=>!e.deletedAt).map(e=>[
-   e.reference,e.formTitle,formatUKDateTime(e.submittedAt),e.status,e.reviewStatus,e.details,e.notes,e.entryStatus||'Original',...values(e)
+   e.reference,e.formTitle,formatUKDateTime(e.submittedAt),e.status,e.reviewStatus,eventEntryAmounts(e.details),e.notes,e.entryStatus||'Original',...values(e)
   ])
  ].map(row=>row.map(csvCell).join(',')).join('\r\n');
 }
