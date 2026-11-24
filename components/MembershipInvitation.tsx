@@ -40,7 +40,9 @@ export default function MembershipInvitation({months}:{months:number}) {
     if (shown.current || pathname !== '/') return;
     try { if (window.sessionStorage.getItem(invitationSeenKey) === '1') return; } catch { /* The in-memory flag still prevents repeat prompts during navigation. */ }
     const modal = dialog.current;
-    const timer = window.setTimeout(openInvitation, 7000);
+    const timer = window.setTimeout(() => {
+      if (!document.getElementById('black-friday-title')) openInvitation();
+    }, 7000);
     return () => {
       window.clearTimeout(timer);
       if (modal?.open) { modal.close(); document.body.style.overflow = previousOverflow.current; }
