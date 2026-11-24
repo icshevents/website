@@ -2,7 +2,7 @@
 
 import EntryTable from '@/components/organiser/EntryTable';
 import type {Entry} from '@/lib/events-hub/core';
-import {bookingEntryView, entryDate, entryValues} from '@/lib/organiser-entries';
+import {bookingEntryView, entryDate, entryValues, eventEntryAmounts} from '@/lib/organiser-entries';
 
 type Props = {
   eventId:string;
@@ -20,11 +20,11 @@ export default function EventEntries({entries,busy,demo,onReview,eventId,filenam
     filename={filename}
     columns={['Form','Name','Contact','Submitted (UK)','Booking status','Review status']}
     entries={entries.map(entry => {
-      const flat = entryValues(entry.details);
+      const flat = entryValues(eventEntryAmounts(entry.details));
       const find = (part:string) => Object.entries(flat).filter(([key]) => key.toLowerCase().includes(part))
         .map(([,value]) => String(value)).join(' · ');
       const booking = bookingEntryView(entry.kind, entry.details);
-      const displayedDetails = booking ? entryValues(booking.details) : flat;
+      const displayedDetails = booking ? entryValues(eventEntryAmounts(booking.details)) : flat;
       const bookingStatus = entry.status?.replaceAll('_',' ') || '—';
 
       return {
@@ -47,7 +47,7 @@ export default function EventEntries({entries,busy,demo,onReview,eventId,filenam
           <dl>
             {booking && booking.total !== null && <div><dt><strong>Total</strong></dt><dd>{booking.total}</dd></div>}
             {Object.entries(displayedDetails).map(([key,value]) =>
-              <div key={key}><dt><strong>{key.replace(/([A-Z])/g,' $1')}</strong></dt><dd>{String(value)}</dd></div>
+              <div key={key}><dt><strong>{key.replace(/([a-z])([A-Z])/g,'$1 $2')}</strong></dt><dd>{String(value)}</dd></div>
             )}
             {booking && <div>
               <dt><strong>Attendees</strong></dt>

@@ -30,3 +30,13 @@ test('event CSV omits workspace-deleted entries and separates the entry label fr
  const base={reference:'EVT-KEEP',formTitle:'Fictional event',submittedAt:'2026-11-17',status:'confirmed_paid',reviewStatus:'new',details:{},notes:'',entryStatus:'refunded'};
  const csv=entriesCsv([base,{...base,reference:'EVT-REMOVED',deletedAt:'2026-11-17T00:00:00Z'}]);assert.match(csv,/EVT-KEEP/);assert.doesNotMatch(csv,/EVT-REMOVED/);assert.match(csv,/confirmed_paid/);assert.match(csv,/Entry status/);assert.match(csv,/refunded/);
 });
+
+test('event CSV details show donation and payment amounts in pounds', () => {
+ const csv = entriesCsv([{
+  kind:'iftari', reference:'IFT-TEST', formTitle:'Iftari bookings', submittedAt:'2026-11-17',
+  status:'paid', reviewStatus:'read_only', notes:'', details:{quote:{tickets:2500,donation:575,total:3075}},
+ }]);
+ assert.match(csv,/""Donation"":""£5\.75""/);
+ assert.match(csv,/""Total"":""£30\.75""/);
+ assert.match(csv,/"30\.75"$/);
+});
