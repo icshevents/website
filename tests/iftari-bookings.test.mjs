@@ -1,10 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { defaultSettings, quoteBooking, bookingInputSchema, quoteInputSchema, donationPence, verifyMember, verifyMemberTickets, eventWhen } from '../lib/iftari/core.ts';
+import { defaultSettings, settingsSchema, quoteBooking, bookingInputSchema, quoteInputSchema, donationPence, verifyMember, verifyMemberTickets, eventWhen } from '../lib/iftari/core.ts';
 import { IftariStripeClient, bookingSource, iftariPurpose } from '../lib/iftari/stripe.ts';
 import { confirmationContent } from '../lib/form-emails/core.ts';
 const config={key:'rk_test_fixture',webhookSecret:'whsec_fixture',account:'acct_fixture',mode:'test',origin:'https://website-fixture-icsh.vercel.app'};
+test('Iftari settings accept Events Hub schedules without dropping pricing or form limits',()=>{
+ const hubSettings={...defaultSettings,status:'published',prices:{member:2400,nonmember:2800,child:1200,under5:0},capacity:60,
+  startsAt:'2027-02-20T16:45:00+00:00',endsAt:'2027-02-20T19:30:00Z',bookingOpens:null,bookingCloses:null,hubIndependent:true};
+ const settings=settingsSchema.parse(hubSettings);
+ assert.deepEqual(settings,hubSettings);
+ assert.equal(quoteBooking(settings,{quantities:{member:1,nonmember:0,child:1,under5:0},donation:'0'}).total,3600);
+ assert.deepEqual(settingsSchema.parse(defaultSettings),defaultSettings);
+ assert.equal(settingsSchema.safeParse({...hubSettings,startsAt:'not-a-date'}).success,false);
+ assert.equal(settingsSchema.safeParse({...hubSettings,hubIndependent:'true'}).success,false);
+ assert.equal(settingsSchema.safeParse({...hubSettings,unrecognisedSetting:true}).success,false);
+});
 const input=()=>({id:randomUUID(),capability:'a'.repeat(64),firstName:'Test',lastName:'Booker',email:'booker@example.invalid',mobile:'07700900123',quantities:{member:2,nonmember:1,child:2,under5:0},attendees:['member','member','nonmember','child','child'].map((ticket,i)=>({ticket,firstName:'Test',lastName:'Guest '+i})),donation:'10',expectedVersion:1,expectedTotal:11500,website:''});
 const member=(changes={})=>({id:'10001',fullName:'Test Member',email:'member@example.invalid',membershipStatus:'Active',paymentStatus:'Not required',membershipDate:'2026-01-01',membershipExpiry:'2027-01-01',...changes});
 const lookup=(records,hasMore=false)=>async()=>({records,hasMore});
