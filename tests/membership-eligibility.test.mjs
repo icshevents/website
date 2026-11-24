@@ -4,14 +4,16 @@ import { checkMembershipEligibility, membershipMobileKey } from '../lib/membersh
 import { handleMembershipEligibility } from '../lib/membership-eligibility-api.ts';
 const identity = { kind: 'new', firstName: 'Test', lastName: 'Member', email: 'member@example.invalid', mobile: '07700900123' };
 const record = { id: '123456789', fullName: 'Test Member', email: identity.email, mobile: '+447700900123', membershipStatus: 'Active', paymentStatus: 'Completed', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19' };
+const activeRenewal = { status: 'allowed', renewal: { status: 'active', currentExpiry: '2027-01-19', renewedExpiry: '2028-01-19' } };
+const inactiveRenewal = { status: 'allowed', renewal: { status: 'inactive' } };
 const search = records => async () => ({ records, hasMore: false });
 const check = (value = identity, records = [record], on = '2026-10-22') => checkMembershipEligibility(value, search(records), on);
 
 test('a verified existing member may renew early while New Member remains blocked', async () => {
   assert.deepEqual(await check(identity), { status: 'active', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19', daysUntilExpiry: 89 });
-  assert.deepEqual(await check({ ...identity, kind: 'renewal' }), { status: 'allowed' });
+  assert.deepEqual(await check({ ...identity, kind: 'renewal' }), activeRenewal);
   assert.equal((await check({ ...identity, firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' })).status, 'active');
-  assert.deepEqual(await check({ ...identity, kind: 'renewal', firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' }), { status: 'allowed' });
+  assert.deepEqual(await check({ ...identity, kind: 'renewal', firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' }), activeRenewal);
 });
 
 test('different people with identical names are allowed when their email is unique, including a shared phone', async () => {
@@ -37,11 +39,12 @@ test('duplicate email and incomplete email searches require review without consu
 test('expired and undated members are directed to renewal while invalid or inconsistent terms require review', async () => {
   for (const changes of [{ membershipExpiry: '2026-10-22' }, { membershipDate: null }, { membershipExpiry: '' }]) {
     assert.equal((await check(identity, [{ ...record, ...changes }])).status, 'renewal_required');
-    assert.equal((await check({ ...identity, kind: 'renewal' }, [{ ...record, ...changes }])).status, 'allowed');
+    assert.deepEqual(await check({ ...identity, kind: 'renewal' }, [{ ...record, ...changes }]), inactiveRenewal);
   }
   for (const changes of [{ membershipDate: '2026-02-30' }, { membershipDate: '2026-12-01' }, { membershipStatus: 'Inactive' }, { membershipExpiry: '2025-01-19' }]) {
     assert.equal((await check(identity, [{ ...record, ...changes }])).status, 'review_required');
   }
+  assert.deepEqual(await check({ ...identity, kind: 'renewal' }, [{ ...record, membershipStatus: 'Inactive' }]), { status: 'review_required' });
   // Free memberships can be active without a fee payment; status and term govern.
   assert.equal((await check(identity, [{ ...record, paymentStatus: 'Not required' }])).status, 'active');
 });
@@ -86,11 +89,30 @@ test('different family members may join with the same phone and separate emails,
  const family=[record,{...record,id:'222222222',fullName:'Other Family',email:'family@example.invalid',membershipDate:'2025-01-01',membershipExpiry:'2026-01-01'}];const before=structuredClone(family),calls=[];
  const lookup=async input=>{calls.push(input);assert.equal(input.method,'email');return {records:family.filter(r=>r.email===input.email),hasMore:false};};
  assert.deepEqual(await checkMembershipEligibility({...identity,email:'new-family@example.invalid',firstName:'New',lastName:'Family'},lookup,'2026-11-09'),{status:'allowed'});
- assert.deepEqual(await checkMembershipEligibility({...identity,kind:'renewal',email:'family@example.invalid',firstName:'Other',lastName:'Family'},lookup,'2026-11-09'),{status:'allowed'});
+ assert.deepEqual(await checkMembershipEligibility({...identity,kind:'renewal',email:'family@example.invalid',firstName:'Other',lastName:'Family'},lookup,'2026-11-09'),inactiveRenewal);
  assert.equal((await checkMembershipEligibility({...identity,kind:'renewal'},lookup,'2026-11-09')).status,'allowed');
  assert.equal(calls.length,3);assert.deepEqual(family,before);
 });
 
 test('a new email with an existing full name and shared phone does not reuse that contact',async()=>{
  const calls=[];const result=await checkMembershipEligibility({...identity,email:'different@example.invalid'},async input=>{calls.push(input);return {records:[record],hasMore:false};},'2026-11-09');assert.deepEqual(result,{status:'allowed'});assert.deepEqual(calls,[{method:'email',email:'different@example.invalid'}]);
+});
+
+test('active renewal quotes preserve the current term and clamp leap-day expiry like activation', async () => {
+  const input = { ...identity, kind: 'renewal', quote: { dob: '01/01/1990', education: 'no' } };
+  const crmRecord = { ...record, membershipDate: '2027-02-28', membershipExpiry: '2028-02-29' };
+  const on = '2027-07-01';
+  const response = await handleMembershipEligibility(request(input), {
+    ...deps, today: () => on,
+    check: async value => {
+      const decision = await check(value, [crmRecord], on);
+      return { ...decision, renewal: { ...decision.renewal, contactId: record.id }, email: identity.email };
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('cache-control'), /no-store/);
+  assert.deepEqual(await response.json(), {
+    status: 'allowed', renewal: { status: 'active', currentExpiry: '2028-02-29', renewedExpiry: '2029-02-28' },
+    quote: { category: 'standard', feePence: 2000, currency: 'GBP' },
+  });
 });

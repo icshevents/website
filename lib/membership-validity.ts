@@ -31,14 +31,20 @@ function timestampToLondonDate(value: unknown): string | null {
   return validDate(date) ? date : null;
 }
 
-function period(startDate: string, source: MembershipValiditySource, on: string): MembershipValidity {
-  const [year, month, day] = startDate.split('-');
+export function membershipAnniversary(date: string): string | null {
+  if (!validDate(date)) return null;
+  const [year, month, day] = date.split('-');
   const followingYear = String(Number(year) + 1).padStart(4, '0');
   let expiryDate = `${followingYear}-${month}-${day}`;
   // Twelve calendar months: the anniversary of 29 February is constrained to
   // 28 February when the following year has no leap day.
   if (month === '02' && day === '29' && !validDate(expiryDate)) expiryDate = `${followingYear}-02-28`;
-  if (!validDate(expiryDate)) return { status: 'unresolved', reason: 'The membership anniversary is outside the supported date range.' };
+  return validDate(expiryDate) ? expiryDate : null;
+}
+
+function period(startDate: string, source: MembershipValiditySource, on: string): MembershipValidity {
+  const expiryDate = membershipAnniversary(startDate);
+  if (!expiryDate) return { status: 'unresolved', reason: 'The membership anniversary is outside the supported date range.' };
   return {
     status: on < startDate ? 'not_started' : on >= expiryDate ? 'expired' : 'current',
     startDate,

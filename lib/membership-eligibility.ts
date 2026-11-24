@@ -1,10 +1,14 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min';
 import { londonDate, parseDate } from './membership.ts';
+import { membershipAnniversary } from './membership-validity.ts';
 import { normaliseMemberName, type MemberSearchInput, type MembershipSearchRecord } from './member-search.ts';
 
 export type MembershipIdentity = { kind: 'new' | 'renewal'; firstName: string; lastName: string; email: string; mobile: string };
+export type RenewalStatus =
+  | { status: 'inactive' }
+  | { status: 'active'; currentExpiry: string; renewedExpiry: string };
 export type MembershipEligibility =
-  | { status: 'allowed'; mobileChanged?:true }
+  | { status: 'allowed'; mobileChanged?:true; renewal?: RenewalStatus }
   | { status: 'active'; membershipDate: string; membershipExpiry: string; daysUntilExpiry: number }
   | { status: 'identity_conflict' | 'review_required' | 'renewal_required' | 'new_required' };
 export type MembershipRecordSearch = { records: MembershipSearchRecord[]; hasMore: boolean };
@@ -48,16 +52,21 @@ export async function checkMembershipEligibility(value: MembershipIdentity, sear
   if (normaliseMemberName(member.fullName ?? '') !== normaliseMemberName(identity.firstName + ' ' + identity.lastName) ||
     (identity.kind!=='renewal' && (!member.mobile || membershipMobileKey(member.mobile) !== identity.mobile))) return { status: 'identity_conflict' };
   const mobileChanged=identity.kind==='renewal'&&membershipMobileKey(member.mobile||'')!==identity.mobile;
-  const allowed=():MembershipEligibility=>({status:'allowed',...(mobileChanged?{mobileChanged:true as const}:{})});
+  const allowRenewal = (renewal: RenewalStatus): MembershipEligibility => ({
+    status: 'allowed', ...(mobileChanged ? { mobileChanged: true } : {}), renewal,
+  });
   const start = member.membershipDate?.trim(), expiry = member.membershipExpiry?.trim();
   // The agreed lookup policy treats missing dates as needing renewal.
-  if (!start || !expiry) return identity.kind === 'renewal'?allowed():{status:'renewal_required'};
+  if (!start || !expiry) return identity.kind === 'renewal' ? allowRenewal({ status: 'inactive' }) : { status: 'renewal_required' };
   if (!parseDate(start) || !parseDate(expiry) || start >= expiry) return { status: 'review_required' };
-  if (expiry <= on) return identity.kind === 'renewal'?allowed():{status:'renewal_required'};
+  if (expiry <= on) return identity.kind === 'renewal' ? allowRenewal({ status: 'inactive' }) : { status: 'renewal_required' };
   if (start > on || member.membershipStatus?.trim().toLowerCase() !== 'active') return { status: 'review_required' };
   // A verified existing member can renew at any time; the activation claim
   // preserves any remaining days and adds another calendar year to expiry.
-  if(identity.kind==='renewal')return allowed();
+  if (identity.kind === 'renewal') {
+    const renewedExpiry = membershipAnniversary(expiry);
+    return renewedExpiry ? allowRenewal({ status: 'active', currentExpiry: expiry, renewedExpiry }) : { status: 'review_required' };
+  }
   return { status: 'active', membershipDate: start, membershipExpiry: expiry,
     daysUntilExpiry: Math.ceil((Date.parse(expiry + 'T12:00:00Z') - Date.parse(on + 'T12:00:00Z')) / 86400000) };
 }
@@ -73,6 +82,15 @@ export function membershipEligibilityMessage(result: MembershipEligibility): str
   }
 }
 
+export function parseRenewalStatus(value: unknown): RenewalStatus | null {
+  if (!value || typeof value !== 'object' || !('status' in value)) return null;
+  if (value.status === 'inactive') return { status: 'inactive' };
+  if (value.status !== 'active' || !('currentExpiry' in value) || !('renewedExpiry' in value) ||
+    typeof value.currentExpiry !== 'string' || typeof value.renewedExpiry !== 'string' ||
+    membershipAnniversary(value.currentExpiry) !== value.renewedExpiry) return null;
+  return { status: 'active', currentExpiry: value.currentExpiry, renewedExpiry: value.renewedExpiry };
+}
+
 /** Explicit public boundary: never forward provider/contact extras. */
 export function publicMembershipEligibility(result: MembershipEligibility): MembershipEligibility {
   if (result.status === 'active') {
@@ -80,5 +98,8 @@ export function publicMembershipEligibility(result: MembershipEligibility): Memb
     return { status: 'active', membershipDate: result.membershipDate, membershipExpiry: result.membershipExpiry, daysUntilExpiry: result.daysUntilExpiry };
   }
   if (!['allowed', 'identity_conflict', 'review_required', 'renewal_required', 'new_required'].includes(result.status)) throw new Error('INVALID_MEMBERSHIP_DECISION');
-  return result.status==='allowed'&&result.mobileChanged===true?{status:'allowed',mobileChanged:true}:{ status: result.status };
+  if (result.status !== 'allowed') return { status: result.status };
+  const renewal = parseRenewalStatus(result.renewal);
+  if (result.renewal && !renewal) throw new Error('INVALID_MEMBERSHIP_DECISION');
+  return { status: 'allowed', ...(result.mobileChanged === true ? { mobileChanged: true } : {}), ...(renewal ? { renewal } : {}) };
 }

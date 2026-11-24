@@ -44,7 +44,7 @@ test('the clearly named owner test Contact cannot change the real member result 
  const record=r=>({id:r.id,Full_Name:r.fullName,Email:r.email,Mobile:r.mobile,Membership_Status:r.membershipStatus,Payment_Status:r.paymentStatus,Membership_Date:r.membershipDate,Expiry_Date:r.membershipExpiry});
  const calls=[];const client=createZohoClient(env,async(url,init)=>{const u=new URL(url);calls.push({url:u,method:init.method});if(u.pathname==='/oauth/v2/token')return Response.json({access_token:'fixture',expires_in:3600});assert.equal(init.method,'GET');const requested=u.searchParams.get('email');return Response.json({data:(requested?(requested===email?[owner]:[real]):[real,owner]).map(record),info:{more_records:false}});});
  assert.deepEqual((await client.searchBiginMembershipRecords({method:'mobile',mobile:phone})).records,[real]);
- const result=await checkMembershipEligibility({kind:'renewal',firstName:'Real',lastName:'Member',email:real.email,mobile:phone},client.searchBiginMembershipRecords,today);assert.equal(result.status,'active');assert.equal(result.membershipExpiry,real.membershipExpiry);
+ const result=await checkMembershipEligibility({kind:'renewal',firstName:'Real',lastName:'Member',email:real.email,mobile:phone},client.searchBiginMembershipRecords,today);assert.equal(result.status,'allowed');assert.equal(result.renewal.status,'active');assert.equal(result.renewal.currentExpiry,real.membershipExpiry);
  assert.equal((await client.searchBiginMembershipRecords({method:'email',email})).records[0].id,owner.id);
  assert.equal(calls.some(c=>c.url.pathname.startsWith('/bigin/')&&c.method!=='GET'),false);
 });

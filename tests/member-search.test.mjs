@@ -121,10 +121,10 @@ test('renewal matches a stored national test number when Bigin misses its countr
     return found ? json({ data: [saved], info: { more_records: false } }) : new Response(null, { status: 204 });
   });
   const lookup = value => client.searchBiginMembershipRecords(value);
-  assert.deepEqual(await checkMembershipEligibility(identity, lookup, '2026-10-28'), { status: 'allowed' });
+  assert.deepEqual(await checkMembershipEligibility(identity, lookup, '2026-10-28'), { status: 'allowed', renewal: { status: 'inactive' } });
   assert.deepEqual(await checkMembershipEligibility({ ...identity, kind: 'new' }, lookup, '2026-10-28'), { status: 'renewal_required' });
   saved.Membership_Date = '2026-10-28'; saved.Expiry_Date = '2027-10-28';
-  assert.equal((await checkMembershipEligibility(identity, lookup, '2026-10-28')).status, 'active');
+  assert.deepEqual(await checkMembershipEligibility(identity, lookup, '2026-10-28'), { status: 'allowed', renewal: { status: 'active', currentExpiry: '2027-10-28', renewedExpiry: '2028-10-28' } });
   assert.equal(requests, 1, 'parallel searches share a single OAuth refresh');
 });
 

@@ -1,6 +1,7 @@
 import {membershipMobileKey} from '../membership-eligibility.ts';
 import {normaliseMemberName} from '../member-search.ts';
 import {londonDate,parseDate} from '../membership.ts';
+import {membershipAnniversary} from '../membership-validity.ts';
 import type {BiginContact,BiginContactSearch,BiginPaidMembershipUpdate} from './client.ts';
 export type ActivationIdentity={firstName:string;lastName:string;email:string;mobile:string};
 export type ActivationClient={getBiginContact(id:string):Promise<BiginContact>;searchBiginContactsByEmail(email:string):Promise<BiginContactSearch>;updateBiginPaidMembership(id:string,value:BiginPaidMembershipUpdate):Promise<void>};
@@ -22,8 +23,7 @@ export async function activateMatchedMembership(client:ActivationClient,identity
  if(contact.membershipExpiry&&contact.membershipExpiry>value.Membership_Date&&(!alreadyMatches||(extendRenewal&&!renewalPrepared))){
   if(!extendRenewal||contact.membershipStatus!=='Active'||!contact.membershipDate||contact.membershipDate>value.Membership_Date)throw new ActivationReview('EXISTING_MEMBERSHIP_TERM');
   const expiry=await extendRenewal(contact);
-  const next=new Date(contact.membershipExpiry+'T12:00:00Z');const month=next.getUTCMonth();next.setUTCFullYear(next.getUTCFullYear()+1);if(next.getUTCMonth()!==month)next.setUTCDate(0);
-  if(expiry!==next.toISOString().slice(0,10))throw new ActivationReview('RENEWAL_TERM_INVALID');
+  if(expiry!==membershipAnniversary(contact.membershipExpiry))throw new ActivationReview('RENEWAL_TERM_INVALID');
   value={...value,Expiry_Date:expiry};
  }
  if(value.Expiry_Date<=on)throw new ActivationReview('PAID_TERM_EXPIRED');

@@ -6,14 +6,18 @@ import MemberSearch from './MemberSearch';
 import MembershipPayment from './MembershipPayment';
 import {useEffect,useRef,useState} from 'react';
 import {britishToIso,isoToBritish,londonDate,priceLabel,isStudentAge,STUDENT_DECLARATION} from '@/lib/membership';
-import {membershipEligibilityMessage,type MembershipEligibility} from '@/lib/membership-eligibility';
+import {membershipEligibilityMessage,parseRenewalStatus,type MembershipEligibility} from '@/lib/membership-eligibility';
 import {MEMBERSHIP_PRICING} from '@/lib/membership-pricing';
 import {EMPTY_ANSWERS,getQuote,validateStep,validateApplication,updateAnswer,errorStep,registrationAgeError,type MembershipAnswers,type FieldErrors} from '@/lib/membership-validation';
 function eligibilityResult(value:unknown):MembershipEligibility|null {
  if(!object(value)||typeof value.status!=='string')return null;
  if(value.status==='active'){if(typeof value.membershipDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value.membershipDate)||!Number.isFinite(Date.parse(value.membershipDate))||typeof value.membershipExpiry!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value.membershipExpiry)||!Number.isFinite(Date.parse(value.membershipExpiry))||!Number.isSafeInteger(value.daysUntilExpiry)||Number(value.daysUntilExpiry)<1)return null;return {status:'active',membershipDate:value.membershipDate,membershipExpiry:value.membershipExpiry,daysUntilExpiry:Number(value.daysUntilExpiry)};}
- if(value.status==='allowed')return {status:'allowed',...(value.mobileChanged===true?{mobileChanged:true}:{})};
- return ['allowed','identity_conflict','review_required','renewal_required','new_required'].includes(value.status)?{status:value.status} as MembershipEligibility:null;
+ if(value.status==='allowed'){
+  const renewal=parseRenewalStatus(value.renewal);
+  if(value.renewal!==undefined&&!renewal)return null;
+  return {status:'allowed',...(value.mobileChanged===true?{mobileChanged:true}:{}),...(renewal?{renewal}:{})};
+ }
+ return ['identity_conflict','review_required','renewal_required','new_required'].includes(value.status)?{status:value.status} as MembershipEligibility:null;
 }
 const steps=['Personal details','Review & Declaration','Confirmation'];
 const screenForError=(key:keyof MembershipAnswers)=>errorStep(key)>=3?2:1;
@@ -52,6 +56,7 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
  const baseQuote=getQuote(values,today);
  const quote=baseQuote&&checkedPrice?.key===priceKey?{...baseQuote,fee:checkedPrice.feePence/100}:baseQuote;
  const studentAge=quote!==null&&isStudentAge(quote.age);
+ const renewalStatus=values.kind==='renewal'&&eligibility?.status==='allowed'?eligibility.renewal:undefined;
  useEffect(()=>{if(mounted.current)heading.current?.focus({preventScroll:false});mounted.current=true;},[step]);
  function change<K extends keyof MembershipAnswers>(key:K,value:MembershipAnswers[K]) {if(submissionLock.current)return;if(['kind','email','mobile','firstName','lastName'].includes(key))setMobileProof(null);if(['email','dob','education'].includes(key))setCheckedPrice(null);attempt.current=null;setReceipt(null);setEligibility(null);setMembershipCheckError('');setSubmissionError('');setDeliveryError('');const on=londonDate();setToday(on);const ageError=key==='dob'?registrationAgeError(getQuote({...values,[key]:value},on)):undefined;setValues(current=>{const next=updateAnswer(current,key,value,on);return key==='education'?{...next,studentDeclaration:value==='yes'}:next;});setErrors(current=>({...current,[key]:ageError,...(key==='dob'||key==='education'?{studentDeclaration:undefined,education:undefined}:{})}));}
  function blur(key:keyof MembershipAnswers,stage:number){setErrors(current=>({...current,[key]:validateStep(values,stage,londonDate())[key]}));}
@@ -184,6 +189,10 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
      <div className="form-field"><label htmlFor="mobile">Mobile Number <span aria-hidden="true">*</span></label><div className="phone-control"><label className="sr-only" htmlFor="mobile-country">Mobile country code</label><select id="mobile-country" autoComplete="off" defaultValue="GB"><option value="GB">UK +44</option></select><input id="mobile" type="tel" autoComplete="off" required maxLength={25} value={values.mobile} onChange={event=>change('mobile',event.target.value)} onBlur={()=>blur('mobile',1)} aria-invalid={Boolean(errors.mobile)} aria-describedby={`mobile-hint${errors.mobile?' mobile-error':''}`}/></div><span className="field-hint" id="mobile-hint">Enter a valid mobile or WhatsApp number. Family members may share the same number.</span>{fieldError('mobile')}</div>
     </>}
     {step===2&&<>
+     {renewalStatus&&<div className="membership-check-result">
+      <strong>{renewalStatus.status==='active'?'Active ICSH member':'Inactive ICSH member, please renew.'}</strong>
+      {renewalStatus.status==='active'&&<p>Your membership is active until {membershipDateLabel(renewalStatus.currentExpiry)}. If you renew now, the extra 12 months start on that date and your membership will expire on {membershipDateLabel(renewalStatus.renewedExpiry)}.</p>}
+     </div>}
      <p>Check your details and annual fee before submitting.</p>{mobileProof&&<p className="notice">Your new mobile number has been verified. It will be applied after renewal is confirmed.</p>}<dl className="review-details"><div><dt>Name</dt><dd>{values.firstName} {values.lastName}</dd></div><div><dt>Date of birth</dt><dd>{values.dob}</dd></div><div><dt>Email</dt><dd>{values.email}</dd></div><div><dt>Mobile</dt><dd>{values.mobile}</dd></div></dl><div className="membership-fee-detail"><span>Annual membership fee</span><strong>{quote?priceLabel(quote.fee):'—'}</strong><p>{paymentsEnabled?'If a fee is due, secure checkout opens after your application is saved.':'No payment is collected through this form.'}</p></div>
      <details className="membership-terms" id="membership-terms"><summary>Read the membership terms</summary>{terms.map(([title,body])=><div key={title}><h5>{title}</h5><p>{body}</p></div>)}</details>
     </>}
