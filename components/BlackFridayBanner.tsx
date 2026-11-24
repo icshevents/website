@@ -20,7 +20,10 @@ export default function BlackFridayBanner() {
     <p className={styles.events}>Winter Lunch and Ramadan Iftari</p>
     <div className={styles.checkout}>
      <p>Use code <strong className={styles.code}>ICSH10</strong> when booking.</p>
-     <p>Ends <time dateTime={blackFridayEndsAt}>8 December 2026</time> or when event places fill up, whichever comes first.</p>
+     <p>
+      Ends <time dateTime={blackFridayEndsAt}>8 December 2026</time> or when event places fill up,<br/>
+      whichever comes first.
+     </p>
     </div>
     <div className={styles.actions}>
      <Link className={styles.join} href="/membership?category=new#join">Become a member</Link>
