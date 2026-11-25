@@ -1,5 +1,7 @@
 # Membership form — original inventory and implementation
 
+For the policies that govern the live form, see [ICSH membership rules](MEMBERSHIP-RULES.md). This page records the original implementation.
+
 Updated 22 October 2026. This documents the membership form and fictional test-application implementation for the existing ICSH development website, https://website-nine-beta-11.vercel.app/. The same GitHub repository (icshevents/website) and Vercel project (website, prj_DCOHiPxvqSLB5or751jMeLsDeYzr) are retained. The additive database setup and database assertions are verified; deployment/browser verification remains outstanding, and Bigin contact creation still requires separate authorisation. No separate website or preview project is created.
 
 ## Original form inspection

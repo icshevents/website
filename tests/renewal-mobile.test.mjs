@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {checkMembershipEligibility,publicMembershipEligibility} from '../lib/membership-eligibility.ts';
 const id={kind:'renewal',firstName:'Alex',lastName:'Taylor',email:'alex@example.invalid',mobile:'07700900993'};
@@ -31,4 +32,26 @@ test('a verified contact change is bound to the app, email, old or new name, and
  assert.equal(verifiedMobileIdentity(app,{...old,lastName:'Edited by organiser'},proof),false);
  assert.equal(verifiedMobileIdentity({...app,answers:{...app.answers,firstName:'Altered'}},old,proof),false);
  assert.equal(verifiedMobileIdentity(app,{...old,id:'456',...update},proof),false);
+});
+
+test('the contact-change claim requires completed activation and the correct payment or free eligibility', () => {
+ const migration = readFileSync(new URL('../database/membership-renewal-mobile.sql', import.meta.url), 'utf8');
+ const claim = migration.split('create function public.icsh_membership_mobile_claim(')[1]
+  ?.split('create function public.icsh_membership_mobile_finish(')[0] ?? '';
+ assert.match(claim, /x\.status is distinct from 'active'/);
+ assert.match(claim, /v\.verified_at is null/);
+ assert.match(claim, /v\.contact_id is distinct from x\.contact_id/);
+ const paidGuard = claim.match(/x\.activation_kind\s*=\s*'paid'\s+and\s+not exists\s*\(([^)]+)\)/)?.[1] ?? '';
+ assert.match(paidGuard, /p\.application_id\s*=\s*a\.id/);
+ assert.match(paidGuard, /p\.mode\s*=\s*'live'/);
+ assert.match(paidGuard, /p\.status\s*=\s*'paid'/);
+ assert.match(paidGuard, /p\.refunded_amount\s*=\s*0/);
+ assert.match(paidGuard, /p\.payment_intent_id\s*=\s*x\.payment_intent_id/);
+ assert.match(claim, /x\.activation_kind='free' and not public\.icsh_free_membership_eligible\(a\.id\)/);
+});
+
+test('the form offers renewal for a registered email and includes the verification email reminder', () => {
+ const form = readFileSync(new URL('../components/MembershipForm.tsx', import.meta.url), 'utf8');
+ assert.match(form, /eligibility\?\.status==='renewal_required'&&<button.*Switch to Membership Renewal/);
+ assert.match(form, /If you can’t find the email, check your <strong>Spam or Junk<\/strong> folder/);
 });
