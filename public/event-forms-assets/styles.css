@@ -83,3 +83,29 @@ h1,h2,h3{font-family:var(--font-display);font-weight:400;letter-spacing:-.015em;
 .public-event-form main :is(p, ul, ol, dl, h2, h3):has(+ .btn:not([hidden])) {
   margin-block-end: var(--cta-copy-gap);
 }
+
+.booking-layout {
+  grid-template-areas: "fields summary" "checkout summary";
+  row-gap: 0;
+}
+.booking-fields { grid-area: fields; }
+.booking-summary { grid-area: summary; }
+.booking-checkout { grid-area: checkout; }
+
+@media (max-width: 900px) {
+  .booking-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "fields" "summary" "checkout";
+  }
+
+  .booking-summary { padding: 16px; }
+  .booking-summary > .eyebrow { display: none; }
+  .booking-summary h3 { margin: 0 0 10px; }
+  .booking-summary .summary-row { gap: 12px; margin: 6px 0; line-height: 1.4; }
+  .booking-summary .summary-row > span { overflow-wrap: anywhere; }
+  .booking-summary .summary-row strong { text-align: end; }
+  .booking-summary .summary-row:not(:first-of-type) strong { white-space: nowrap; }
+  .booking-summary .summary-row.total { margin-top: 10px; padding-top: 10px; }
+  .booking-summary > .small { margin: 6px 0 0; line-height: 1.4; }
+  .booking-summary .divider { margin: 10px 0; }
+}
