@@ -1,4 +1,5 @@
 import {publicEvents,publicPastEvents} from '@/lib/events-hub/server';
+import BlackFridayBanner, {isBlackFridayOfferActive} from '@/components/BlackFridayBanner';
 import PublicEventCard from '@/components/PublicEventCard';
 import PastEventsCarousel from '@/components/PastEventsCarousel';
 import Link from 'next/link';
@@ -17,9 +18,10 @@ function pastEventArt(image: string, cover?: (typeof events)[number]['pastEventC
 }
 export default async function Events(){
  const [managed,completed]=await Promise.all([publicEvents(),publicPastEvents()]);
+ const promotion = isBlackFridayOfferActive() && <BlackFridayBanner compact/>;
  if(managed!==null){const next=managed.filter(e=>e.status!=='completed').sort((a,b)=>Date.parse(a.content.startsAt)-Date.parse(b.content.startsAt));const firstPoster=next.find(e=>e.content.image);return <>
  <PageHero className="events-page-hero" label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
- <section className="section white our-events-section"><div className="wrap">{next.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>We’ll publish dates and booking details here.</div>}<div className="our-event-list">{next.map(e=><PublicEventCard key={e.id} event={e} firstPoster={e===firstPoster}/>)}</div></div></section>
+ <section className="section white our-events-section"><div className="wrap">{promotion}{next.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>We’ll publish dates and booking details here.</div>}<div className="our-event-list">{next.map(e=><PublicEventCard key={e.id} event={e} firstPoster={e===firstPoster}/>)}</div></div></section>
  <section className="section services-directory"><div className="wrap"><div className="eyebrow">Here for our community</div><h2>Community services</h2><div className="service-directory-grid"><article className="panel"><span className="tag">Introductions & connection</span><h3>Rishta service</h3><p>A confidential, community-supported service for people seeking a life partner.</p><Link className="button" href="/rishta-service">Explore Rishta service <Arrow/></Link></article></div></div></section>
  <PastEventsCarousel events={(completed||[]).map(e=>{
   const archive=e.sourceType==='archive'?events.find(a=>a.id===e.sourceKey):undefined;
@@ -41,7 +43,7 @@ export default async function Events(){
  ].sort((a,b)=>a.date.localeCompare(b.date));
  return <>
   <PageHero className="events-page-hero" label="ICSH · Events & services" title="Events & Services" description="Find your next gathering, explore our community services and support good causes."/>
-  <section className="section white our-events-section"><div className="wrap">
+  <section className="section white our-events-section"><div className="wrap">{promotion}
    {!directory.available&&<div className="notice"><strong>The latest event forms are temporarily unavailable here.</strong><p>Please try again shortly or contact the ICSH committee.</p><Link className="text-link" href="/contact">Contact ICSH <Arrow/></Link></div>}
    {directory.available&&cards.length===0&&<div className="notice"><strong>New dates will be announced soon</strong>Follow ICSH or contact the committee for news of the next event. We’ll publish dates and booking details here.</div>}
    <div className="our-event-list">{cards.map(card=>card.node)}</div>
