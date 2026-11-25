@@ -116,6 +116,10 @@
  line-height: 1.12;
 }
 
+.mobileBreak {
+ display: none;
+}
+
 .checkout {
  display: grid;
  gap: 9px;
@@ -175,6 +179,10 @@
   grid-template-columns: 1fr;
  }
 
+ .banner:global(.wrap) {
+  width: calc(100% - 24px);
+ }
+
  .artwork {
   padding: 52px 16px;
  }
@@ -184,9 +192,22 @@
  }
 
  .offer {
-  margin: 0 24px 28px;
+  container-type: inline-size;
+  margin: 0 clamp(4px, 5vw - 12px, 24px) 28px;
   padding: 22px 0 0;
   border-inline-start: 0;
   border-block-start: 1px solid rgb(169 222 152 / 35%);
+ }
+
+ .mobileBreak {
+  display: initial;
+ }
+
+ .checkout .deadline {
+  font-size: clamp(.75rem, 4.1cqi, 1rem);
+ }
+
+ .actions {
+  column-gap: 12px;
  }
 }
