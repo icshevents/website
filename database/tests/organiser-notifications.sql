@@ -33,4 +33,23 @@ begin
  if (p->>'total')::int<>4400 or (p->>'donation')::int<>100 or (p->>'discount')::int<>500 or jsonb_array_length(p->'tickets')<>2 then raise exception 'Iftari breakdown mismatch';end if;
  if (select count(*) from public.icsh_form_emails where kind='organiser_notification')<>baseline+6 then raise exception 'Unexpected organiser queue count';end if;
 end $$;
+-- Confirmation paths use read-only links to existing live entries; no customer rows are changed.
+create temporary table icsh_membership_activations as select * from public.icsh_membership_activations with no data;
+create temporary table icsh_form_payments as select * from public.icsh_form_payments with no data;
+create trigger test_organiser after insert or update on pg_temp.icsh_membership_activations for each row execute function public.icsh_queue_organiser_notification();
+create trigger test_organiser after insert or update on pg_temp.icsh_form_payments for each row when(new.source_kind='donation') execute function public.icsh_queue_organiser_notification();
+do $$
+declare aid uuid;did uuid;value integer;baseline bigint;
+begin
+ select count(*) into baseline from public.icsh_form_emails where kind='organiser_notification';
+ select id into strict aid from public.icsh_membership_applications where mode='live' and not test_data and deleted_at is null limit 1;
+ insert into pg_temp.icsh_membership_activations(application_id,status,activated_at,contact_id,start_date,expiry_date) values(aid,'active',now(),'synthetic-read-only-link',current_date,current_date+365);
+ update pg_temp.icsh_membership_activations set status='active';
+ if not exists(select 1 from public.icsh_form_emails where source_id=aid and source_table='organiser:icsh_membership_applications:confirmed' and organiser_payload->>'stage'='confirmed') then raise exception 'Membership activation notice missing';end if;
+ select id,amount into strict did,value from public.icsh_donations where mode='live' limit 1;
+ insert into pg_temp.icsh_form_payments(source_kind,source_id,mode,status,paid_at,charge_id,refunded_amount,amount,currency) values('donation',did,'live','paid',now(),'synthetic-rolled-back',0,value,'gbp');
+ update pg_temp.icsh_form_payments set status='paid';
+ if not exists(select 1 from public.icsh_form_emails where source_id=did and source_table='organiser:icsh_donations:confirmed' and (organiser_payload->>'total')::int=value) then raise exception 'Donation receipt missing';end if;
+ if (select count(*) from public.icsh_form_emails where kind='organiser_notification')<>baseline+2 then raise exception 'Duplicate confirmation notice';end if;
+end $$;
 rollback to savepoint organiser_notification_tests;
