@@ -2,7 +2,8 @@ import 'server-only';
 import {after} from 'next/server';
 import {randomUUID} from 'node:crypto';
 import {createEventService} from '../event-forms/service.js';
-import {emailConfiguration,sendConfirmation,type Confirmation} from './core';
+import {emailConfiguration,sendConfirmation,sendTransactionalContent,type Confirmation} from './core';
+import {organiserAddress,organiserNoticeContent} from './organiser';
 import {eventWhen} from '../iftari/core';
 import type {BookingRow} from '../iftari/stripe';
 
@@ -12,9 +13,14 @@ export async function processFormEmails(maximum=1) {
   for(let i=0;i<Math.min(10,maximum);i++){
     const claim=randomUUID();const result=await db.rpc('icsh_form_email_claim',{p_claim:claim});
     if(result.error)throw new Error('EMAIL_QUEUE_UNAVAILABLE');if(!result.data)break;
-    const value=result.data as Confirmation;let outcome;
+    const value=result.data as Confirmation | {id:string;kind:'organiser_notification';recipient:string};let outcome;
     try{
-      if(value.kind==='membership_active'||value.kind==='membership_reminder'){
+      if(value.kind==='organiser_notification'){
+        if(value.recipient!==organiserAddress)throw new Error('ORGANISER_RECIPIENT_INVALID');
+        const source=await db.from('icsh_form_emails').select('organiser_payload').eq('id',value.id).eq('claim_id',claim).eq('status','sending').single();
+        if(source.error||!source.data?.organiser_payload)throw new Error('ORGANISER_DETAILS_UNAVAILABLE');
+        outcome=await sendTransactionalContent(value.id,organiserAddress,organiserNoticeContent(source.data.organiser_payload),process.env);
+      }else if(value.kind==='membership_active'||value.kind==='membership_reminder'){
         const ready=await db.rpc('icsh_membership_email_eligible',{p_id:value.id});
         if(ready.error)throw new Error('EMAIL_STATE_UNAVAILABLE');
         if(ready.data!==true)outcome={status:'failed',code:'MEMBERSHIP_STATE_CHANGED'};
@@ -39,7 +45,7 @@ export async function processFormEmails(maximum=1) {
   }
   return {enabled:true,processed};
 }
-export function scheduleFormEmails(request:Request,response:Response,maximum=1){
+export function scheduleFormEmails(request:Request,response:Response,maximum=4){
   if(request.method==='POST'&&response.ok&&process.env.ZOHO_TRANSACTIONAL_EMAIL_ENABLED==='true')after(async()=>{try{await processFormEmails(maximum);}catch{console.error('ICSH_FORM_EMAIL_PROCESSING_PENDING');}});
   return response;
 }

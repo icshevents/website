@@ -1,4 +1,5 @@
 import {capacityMessage} from '@/lib/events-hub/capacity';
+import {scheduleFormEmails} from '@/lib/form-emails/server';
 import {cookies} from 'next/headers';
 import {createHmac,createHash} from 'node:crypto';
 import {z} from 'zod';
@@ -9,6 +10,7 @@ import {boundedBody} from '@/lib/payments/server';
 import {limitPortal} from '@/lib/events-hub/session';
 import {publicCustomForm} from '@/lib/events-hub/custom-forms-server';
 export const dynamic='force-dynamic';
+export const maxDuration=60;
 const headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};
 const json=(value:unknown,status=200)=>Response.json(value,{status,headers});
 async function handle(req:Request,{params}:{params:Promise<{slug:string}>}){try{
@@ -31,4 +33,5 @@ async function handle(req:Request,{params}:{params:Promise<{slug:string}>}){try{
  const hash=createHash('sha256').update(JSON.stringify({slug,version:body.version,answers})).digest('hex');const r=await createEventService().rpc('icsh_custom_form_submit',{p_slug:slug,p_id:body.id,p_version:body.version,p_answers:answers,p_hash:hash});
  if(r.error)return json({error:r.error.code==='P2801'?capacityMessage:r.error.code==='22023'?'Please complete all required answers.':'The form changed or is closed. Reload before submitting.'},409);return json({reference:r.data.reference},201);
 }catch(e){if(e instanceof z.ZodError||e instanceof SyntaxError)return json({error:'Please check your answers.'},400);return json({error:e instanceof Error&&e.message.startsWith('Too many')?'Too many attempts. Please wait ten minutes.':'Event forms are temporarily unavailable. Please retry.'},503);}}
-export const GET=handle;export const POST=handle;
+export const GET=handle;
+export async function POST(req:Request,ctx:Parameters<typeof handle>[1]){return scheduleFormEmails(req,await handle(req,ctx));}
