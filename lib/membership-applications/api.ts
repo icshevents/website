@@ -3,7 +3,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto
 import { z } from 'zod';
 import { signedPublicSession } from '../event-forms/security.js';
 import { londonDate } from '../membership.ts';
-import { publicMembershipEligibility, membershipEligibilityMessage, type MembershipIdentity, type MembershipEligibility } from '../membership-eligibility.ts';
+import { membershipMobileKey, publicMembershipEligibility, membershipEligibilityMessage, type MembershipIdentity, type MembershipEligibility } from '../membership-eligibility.ts';
 import { getQuote, registrationAgeError, validateApplication, type MembershipAnswers } from '../membership-validation.ts';
 import type { MembershipApplication, MembershipBiginSyncOutcome, SaveMembershipApplicationInput } from './model.ts';
 import {testMembershipQuote,ownerTestEmail} from '../membership-test-pricing.ts';
@@ -222,7 +222,10 @@ export async function handleMembershipApplications(request: Request, deps: Membe
     }
     const input:SaveMembershipApplicationInput = {
       id: parsed.data.requestKey.toLowerCase(), mode: 'live', requestHash, capabilityHash: hash(parsed.data.receiptToken),
-      answers, category: quote.category, feePence: quote.fee * 100,
+      // Verification and the database binding must use the same number.
+      // Keep the original request hash so an earlier submission can still be retried.
+      answers: answers.mobileVerificationId ? { ...answers, mobile: membershipMobileKey(answers.mobile)! } : answers,
+      category: quote.category, feePence: quote.fee * 100,
       paymentStatus: quote.fee > 0 ? 'awaiting_payment' : 'not_required',
     };
     const resumed=deps.resume?await deps.resume(input):null;

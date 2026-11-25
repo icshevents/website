@@ -848,3 +848,21 @@ test('a name-only renewal change also requires proof through the registered mail
  assert.equal(context.calls.save[0][0].answers.firstName,'Updated');
  assert.doesNotMatch(await accepted.text(),new RegExp(proof));
 });
+
+test('a verified renewal stores the same international mobile format used by its code', async () => {
+  const challenge = 'f56aefee-629f-4d7f-b3d1-7bb09d6937a4';
+  const proof = 'c'.repeat(64);
+  const resumes = [];
+  const context = harness({
+    checkIdentity: async () => ({ status: 'allowed', mobileChanged: true }),
+    verifyMobileChange: async (answers, token) => answers.mobileVerificationId === challenge && token === proof,
+    resume: async input => { resumes.push(input); return null; },
+  });
+  const auth = await bootstrap(context);
+  // This national-format fixture expands to an international number at verification.
+  const application = answers({ kind: 'renewal', mobile: '123456780', mobileVerificationId: challenge });
+  const response = await handleMembershipApplications(post(auth, submission({ answers: application, mobileProofToken: proof })), context.deps);
+  assert.equal(response.status, 201);
+  assert.equal(resumes[0].answers.mobile, '+44123456780');
+  assert.equal(context.calls.save[0][0].answers.mobile, '+44123456780');
+});
