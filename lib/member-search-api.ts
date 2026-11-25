@@ -1,11 +1,11 @@
 import { createHmac } from 'node:crypto';
-import { MemberSearchInputError, parseMemberSearch, type MemberSearchInput, type MemberSearchResult } from './member-search.ts';
+import { MemberSearchInputError, parseMemberEmailSearch, type MemberEmailSearchInput, type MemberSearchResult } from './member-search.ts';
 import { ZohoError } from './zoho/client.ts';
 
 export type MemberSearchDependencies = {
   secret: string;
   rateLimit: (key: string, maximum: number) => Promise<boolean>;
-  lookup: (input: MemberSearchInput) => Promise<MemberSearchResult>;
+  lookup: (input: MemberEmailSearchInput) => Promise<MemberSearchResult>;
 };
 const headers = { 'Cache-Control': 'private, no-store, max-age=0', Pragma: 'no-cache', 'X-Robots-Tag': 'noindex, nofollow', 'X-Content-Type-Options': 'nosniff' };
 const reply = (value: unknown, status = 200, extra: Record<string, string> = {}) => Response.json(value, { status, headers: { ...headers, ...extra } });
@@ -19,7 +19,7 @@ export async function handleMemberSearch(request: Request, deps: MemberSearchDep
     const key = createHmac('sha256', deps.secret).update(`icsh-member-search:${address}`).digest('hex');
     if (!await deps.rateLimit('member-search:' + key, 15) || !await deps.rateLimit('member-search:global', 500)) return reply({ error: 'Too many searches. Please wait ten minutes and try again.' }, 429, { 'Retry-After': '600' });
     const reader = request.body?.getReader();
-    if (!reader) return reply({ error: 'Enter your search details.' }, 400);
+    if (!reader) return reply({ error: 'Enter your membership email address.' }, 400);
     const chunks: Uint8Array[] = [];
     let length = 0;
     try {
@@ -33,8 +33,8 @@ export async function handleMemberSearch(request: Request, deps: MemberSearchDep
     } finally { reader.releaseLock(); }
     let body: unknown;
     try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-    catch { return reply({ error: 'Enter your search details and try again.' }, 400); }
-    const input = parseMemberSearch(body);
+    catch { return reply({ error: 'Enter your membership email address and try again.' }, 400); }
+    const input = parseMemberEmailSearch(body);
     const result = await deps.lookup(input);
     // A second allowlist at the public boundary prevents accidental CRM leaks.
     if (result.status === 'found') return reply({ status: result.status, membershipDate: result.membershipDate, membershipExpiry: result.membershipExpiry, daysUntilExpiry: result.daysUntilExpiry });

@@ -3,11 +3,9 @@ import {formatUKLongDate} from '@/lib/uk-date-time';
 
 import Link from 'next/link';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import type { MemberSearchInput, MemberSearchResult } from '@/lib/member-search';
+import type { MemberEmailSearchInput, MemberSearchResult } from '@/lib/member-search';
 import styles from './MemberSearch.module.css';
 
-type Method = MemberSearchInput['method'];
-const options: { method: Method; label: string }[] = [{ method: 'email', label: 'Email address' }, { method: 'mobile', label: 'Phone number' }, { method: 'name', label: 'Full name' }];
 const renewalUrl = '/membership?category=renewal#join';
 const dateLabel = formatUKLongDate;
 function readResult(value: unknown): MemberSearchResult | null {
@@ -22,16 +20,13 @@ function readResult(value: unknown): MemberSearchResult | null {
 
 export default function MemberSearch() {
   const id = useId();
-  const [method, setMethod] = useState<Method>('email');
-  const [firstName, setFirstName] = useState(''), [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState(''), [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
   const [result, setResult] = useState<MemberSearchResult | null>(null);
   const [error, setError] = useState(''), [pending, setPending] = useState(false);
   const request = useRef<AbortController | null>(null), revision = useRef(0);
-  const feedback = useRef<HTMLDivElement>(null), firstInput = useRef<HTMLInputElement>(null);
+  const feedback = useRef<HTMLDivElement>(null);
   useEffect(() => () => request.current?.abort(), []);
   function clear() { revision.current++; request.current?.abort(); setResult(null); setError(''); setPending(false); }
-  function choose(next: Method, focus = false) { clear(); setMethod(next); if (focus) requestAnimationFrame(() => firstInput.current?.focus()); }
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     clear();
@@ -39,7 +34,7 @@ export default function MemberSearch() {
     const controller = new AbortController(); request.current = controller;
     const timeout = setTimeout(() => controller.abort(), 30_000);
     setPending(true);
-    const body: MemberSearchInput = method === 'name' ? { method, firstName, lastName } : method === 'email' ? { method, email } : { method, mobile };
+    const body: MemberEmailSearchInput = { method: 'email', email };
     try {
       const response = await fetch('/api/membership/search', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
       const data: unknown = await response.json();
@@ -60,14 +55,11 @@ export default function MemberSearch() {
     }
   }
   return <div className={styles.lookup} onKeyDown={event => event.stopPropagation()}>
-    <p className={styles.intro}>Choose <strong>one</strong> way to search using the details from your membership registration.</p>
+    <p className={styles.intro}>Enter the email address you used to register for ICSH membership.</p>
     <form onSubmit={search} aria-busy={pending}>
-      <fieldset className={styles.options}><legend>Search by</legend><div className={styles.methods}>{options.map(option => <label key={option.method} className={method === option.method ? styles.selected : ''}><input type="radio" name={`${id}-method`} value={option.method} checked={method === option.method} onChange={() => choose(option.method)}/><span>{option.label}</span></label>)}</div></fieldset>
-      <div key={method} className={styles.fields}>
-        {method === 'name' ? <div className={styles.names}>
-          <div><label htmlFor={`${id}-first`}>First name</label><input ref={firstInput} id={`${id}-first`} name="firstName" autoComplete="given-name" required maxLength={80} value={firstName} onChange={event => { clear(); setFirstName(event.target.value); }}/></div>
-          <div><label htmlFor={`${id}-last`}>Last name</label><input id={`${id}-last`} name="lastName" autoComplete="family-name" required maxLength={80} value={lastName} onChange={event => { clear(); setLastName(event.target.value); }}/></div>
-        </div> : method === 'email' ? <div><label htmlFor={`${id}-email`}>Email address</label><input ref={firstInput} id={`${id}-email`} name="email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={event => { clear(); setEmail(event.target.value); }}/></div> : <div><label htmlFor={`${id}-mobile`}>Phone number</label><input ref={firstInput} id={`${id}-mobile`} name="mobile" type="tel" autoComplete="tel" required maxLength={30} aria-describedby={`${id}-mobile-hint`} value={mobile} onChange={event => { clear(); setMobile(event.target.value); }}/><p id={`${id}-mobile-hint`} className={styles.hint}>UK numbers can start with 07 or +44. For other countries, include the country code.</p></div>}
+      <div className={styles.fields}>
+        <label htmlFor={`${id}-email`}>Email address</label>
+        <input id={`${id}-email`} name="email" type="email" autoComplete="email" required maxLength={254} value={email} onChange={event => { clear(); setEmail(event.target.value); }}/>
       </div>
       <button className={`button ${styles.submit}`} type="submit" disabled={pending}>{pending ? 'Checking membership…' : 'Find my membership'}<span aria-hidden="true">→</span></button>
     </form>
@@ -80,8 +72,8 @@ export default function MemberSearch() {
       </dl><p className={styles.hint}>Renewal is due on the expiry date.</p></section> : null}
       {result?.status === 'expired' ? <section className={styles.result} aria-label="Expired membership"><strong>Your membership expired on {dateLabel(result.membershipExpiry)}.</strong><p>Please renew your membership to continue enjoying ICSH member benefits.</p><Link className="button" href={renewalUrl}>Renew your membership <span aria-hidden="true">→</span></Link></section> : null}
       {result?.status === 'expired_undated' ? <section className={styles.result} aria-label="Expired membership"><strong>Your membership has expired.</strong><p>Please renew your membership to continue enjoying ICSH member benefits.</p><Link className="button" href={renewalUrl}>Renew your membership <span aria-hidden="true">→</span></Link></section> : null}
-      {result?.status === 'ambiguous' ? <div className={styles.message}><strong>We need a different way to find you.</strong><p>{method === 'mobile' ? 'This number is shared by more than one member. Please search using your unique email address.' : method === 'name' ? 'More than one record matches this name. Please search using your email address.' : 'This email matches more than one record. Please contact ICSH so we can check your membership.'}</p><div className={styles.alternatives}>{options.filter(option => option.method !== method).map(option => <button type="button" className="text-button" key={option.method} onClick={() => choose(option.method, true)}>Search by {option.method === 'name' ? 'name' : option.label.toLowerCase()}</button>)}</div><Link href="/contact">Contact ICSH</Link></div> : null}
-      {result?.status === 'not_found' ? <div className={styles.message}><strong>We cannot find any records under this {method === 'email' ? 'email address' : method === 'mobile' ? 'phone number' : 'name'}.</strong><p>Check the details you entered or try another search option using the details from your membership registration.</p><Link href="/contact">Contact ICSH for help</Link></div> : null}
+      {result?.status === 'ambiguous' ? <div className={styles.message}><strong>This email matches more than one membership record.</strong><p>Please contact ICSH so we can check your membership.</p><Link href="/contact">Contact ICSH</Link></div> : null}
+      {result?.status === 'not_found' ? <div className={styles.message}><strong>We cannot find a membership under this email address.</strong><p>Check that you entered the email address you used to register.</p><Link href="/contact">Contact ICSH for help</Link></div> : null}
       {result?.status === 'dates_unavailable' ? <div className={styles.message}><strong>We couldn’t confirm your membership dates.</strong><p>Please contact ICSH so we can check your record.</p><Link href="/contact">Contact ICSH</Link></div> : null}
     </div>
     <p className={styles.privacy}>Search details are not saved in your browser. <Link href="/privacy#member-search">Privacy information</Link>.</p>

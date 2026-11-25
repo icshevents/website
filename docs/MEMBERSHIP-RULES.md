@@ -15,6 +15,10 @@ Confirmed by ICSH on 25 November 2026. Change these rules only at the explicit r
 - Confirm a changed name or mobile number with a code sent to the registered email. The code screen tells the applicant to check **Spam or Junk**. Bind the proof to the requested changes and use the same international mobile format for verification and saving.
 - Hold the verified changes on the renewal application until it is confirmed. Update the existing Bigin record only after Stripe payment is verified and the renewed paid membership is active, or after the free renewal is successfully activated. Submitting an application or entering the email code leaves the details pending.
 
+## Membership status search
+
+The public Member Search Tool on the website and inside the renewal form uses the registered email address. Both the form and its endpoint accept email searches only. Multiple records under the same email are referred to ICSH and no dates are shown.
+
 ## Regression checks
 
 Run `pnpm test:membership-policy` before releasing membership changes. The GitHub **Membership policy** workflow runs the same suite for pull requests into `main` and pushes to `main`. The suite uses fictional data.

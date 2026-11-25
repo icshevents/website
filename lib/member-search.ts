@@ -1,9 +1,10 @@
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min';
 import { londonDate, parseDate } from './membership.ts';
 
+export type MemberEmailSearchInput = { method: 'email'; email: string };
 export type MemberSearchInput =
   | { method: 'name'; firstName: string; lastName: string }
-  | { method: 'email'; email: string }
+  | MemberEmailSearchInput
   | { method: 'mobile'; mobile: string };
 export type MemberSearchResult =
   | { status: 'found'; membershipDate: string; membershipExpiry: string; daysUntilExpiry: number }
@@ -40,17 +41,25 @@ export function parseMemberSearch(value: unknown): MemberSearchInput {
     if (name(firstName) && name(lastName)) return { method: 'name', firstName, lastName };
     throw new MemberSearchInputError('Enter both your first name and last name as registered with ICSH.');
   }
-  if (input.method === 'email' && only(['method', 'email'])) {
-    const email = string('email', 254).toLowerCase();
-    if (/^[^\s@<>\u0000-\u001f]+@[^\s@<>\u0000-\u001f]+\.[^\s@<>\u0000-\u001f]+$/.test(email)) return { method: 'email', email };
-    throw new MemberSearchInputError('Enter a valid email address.');
-  }
+  if (input.method === 'email') return parseMemberEmailSearch(input);
   if (input.method === 'mobile' && only(['method', 'mobile'])) {
     const mobile = normaliseMemberMobile(input.mobile);
     if (mobile) return { method: 'mobile', mobile };
     throw new MemberSearchInputError('Enter a valid mobile number, including the country code for numbers outside the UK.');
   }
   throw new MemberSearchInputError('Use your first and last name, OR email address, OR mobile number.');
+}
+
+export function parseMemberEmailSearch(value: unknown): MemberEmailSearchInput {
+  const error = 'Enter the email address you used to register for ICSH membership.';
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new MemberSearchInputError(error);
+  const input = value as Record<string, unknown>;
+  if (Object.keys(input).length !== 2 || input.method !== 'email' || typeof input.email !== 'string' || input.email.length > 254) {
+    throw new MemberSearchInputError(error);
+  }
+  const email = input.email.normalize('NFKC').trim().toLowerCase();
+  if (!/^[^\s@<>\u0000-\u001f]+@[^\s@<>\u0000-\u001f]+\.[^\s@<>\u0000-\u001f]+$/.test(email)) throw new MemberSearchInputError('Enter a valid email address.');
+  return { method: 'email', email };
 }
 
 export function projectMembershipSearch(input: MemberSearchInput, records: MembershipSearchRecord[], hasMore: boolean, on = londonDate()): MemberSearchResult {

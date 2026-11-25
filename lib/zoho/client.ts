@@ -2,7 +2,7 @@
 // point enforces the server-only boundary; this pure module is injectable in tests.
 import { membershipMobileKey, type MembershipRecordSearch } from '../membership-eligibility.ts';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min';
-import { parseMemberSearch, projectMembershipSearch, type MemberSearchInput, type MemberSearchResult, type MembershipSearchRecord } from '../member-search.ts';
+import { parseMemberEmailSearch, parseMemberSearch, projectMembershipSearch, type MemberEmailSearchInput, type MemberSearchInput, type MemberSearchResult, type MembershipSearchRecord } from '../member-search.ts';
 import {normaliseMemberName} from '../member-search.ts';
 import type {InvitationRequest} from '../whatsapp-invitations/core.ts';
 import {invitationWorkflowReady} from '../whatsapp-invitations/release.ts';
@@ -507,8 +507,8 @@ export function createZohoClient(env: ZohoEnvironment = process.env, fetchImpl: 
     return { records, hasMore: body.info.more_records };
   }
 
-  async function lookupBiginMembership(value: MemberSearchInput, on?: string): Promise<MemberSearchResult> {
-    const input = parseMemberSearch(value);
+  async function lookupBiginMembership(value: MemberEmailSearchInput, on?: string): Promise<MemberSearchResult> {
+    const input = parseMemberEmailSearch(value);
     const result = await searchBiginMembershipRecords(input);
     return projectMembershipSearch(input, result.records, result.hasMore, on);
   }

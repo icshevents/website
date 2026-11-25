@@ -7,7 +7,8 @@ import { checkMembershipEligibility } from '../lib/membership-eligibility.ts';
 
 const record = overrides => ({ id: '10001', fullName: 'Alex Smith', email: 'alex@example.invalid', mobile: '+447400123456', membershipStatus: 'Active', paymentStatus: 'Completed', membershipDate: '2025-12-27', membershipExpiry: '2026-12-27', ...overrides });
 const name = () => parseMemberSearch({ method: 'name', firstName: 'Alex', lastName: 'Smith' });
-const request = (body = name(), headers = {}) => new Request('https://icsh.test/api/membership/search', { method: 'POST', headers: { origin: 'https://icsh.test', 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+const email = () => ({ method: 'email', email: 'alex@example.invalid' });
+const request = (body = email(), headers = {}) => new Request('https://icsh.test/api/membership/search', { method: 'POST', headers: { origin: 'https://icsh.test', 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
 const deps = overrides => ({ secret: 'test-secret-'.repeat(4), rateLimit: async () => true, lookup: async () => ({ status: 'found', membershipDate: '2025-12-27', membershipExpiry: '2026-12-27', daysUntilExpiry: 66 }), ...overrides });
 
 test('one independent search option; both name fields required, even if identical', () => {
@@ -66,10 +67,14 @@ test('HTTP response returns only three date/count values, without submitted iden
 test('invalid, cross-origin, oversized and limited searches never reach Bigin', async () => {
   let lookups = 0;
   const dependencies = deps({ lookup: async () => { lookups++; return { status: 'not_found' }; } });
-  assert.equal((await handleMemberSearch(request(name(), { origin: 'https://other.test' }), dependencies)).status, 403);
-  assert.equal((await handleMemberSearch(request(name(), { 'content-type': 'text/plain' }), dependencies)).status, 415);
-  assert.equal((await handleMemberSearch(request({ ...name(), firstName: 'x'.repeat(2100) }), dependencies)).status, 413);
-  assert.equal((await handleMemberSearch(request({ ...name(), email: 'alex@example.invalid' }), dependencies)).status, 400);
+  assert.equal((await handleMemberSearch(request(email(), { origin: 'https://other.test' }), dependencies)).status, 403);
+  assert.equal((await handleMemberSearch(request(email(), { 'content-type': 'text/plain' }), dependencies)).status, 415);
+  assert.equal((await handleMemberSearch(request({ ...email(), email: 'x'.repeat(2100) }), dependencies)).status, 413);
+  for (const query of [name(), { method: 'mobile', mobile: '+447400123456' }, { ...email(), firstName: 'Alex' }]) {
+    const response = await handleMemberSearch(request(query), dependencies);
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /email address/);
+  }
   const limited = await handleMemberSearch(request(), deps({ ...dependencies, rateLimit: async () => false }));
   assert.equal(limited.status, 429); assert.equal(limited.headers.get('retry-after'), '600');
   assert.equal(lookups, 0);
@@ -100,13 +105,19 @@ test('Bigin lookup is a fixed GET search, validates exact identity and projects 
     if (calls.length === 1) return json({ access_token: 'fixture-token', expires_in: 3600, api_domain: env.ZOHO_BIGIN_API_DOMAIN });
     return json({ data: [{ id: '10001', Full_Name: 'Alex Smith', Email: 'alex@example.invalid', Mobile: '07400 123456', Membership_Status: 'Active', Payment_Status: 'Completed', Membership_Date: '2025-12-27', Expiry_Date: '2026-12-27', Member_ID: 'private', Created_Time: 'private' }], info: { more_records: false } });
   });
-  for (const input of [name(), { method: 'email', email: 'alex@example.invalid' }, { method: 'mobile', mobile: '+447400123456' }]) {
-    assert.deepEqual(await client.lookupBiginMembership(input, '2026-10-22'), { status: 'found', membershipDate: '2025-12-27', membershipExpiry: '2026-12-27', daysUntilExpiry: 66 });
+  for (const input of [name(), { method: 'mobile', mobile: '+447400123456' }]) {
+    await assert.rejects(client.lookupBiginMembership(input, '2026-10-22'), /email address/);
   }
-  assert.equal(calls.length, 8);
-  for (const call of calls.slice(1)) { assert.equal(call.init.method, 'GET'); assert.equal(call.url.pathname, '/bigin/v2/Contacts/search'); }
-  assert.equal(calls[1].url.searchParams.get('criteria'), '(Full_Name:equals:Alex Smith)');
-  assert.equal(calls[3].url.searchParams.get('phone'), '+447400123456');
+  assert.equal(calls.length, 0);
+  assert.deepEqual(await client.lookupBiginMembership({ method: 'email', email: ' ALEX@example.invalid ' }, '2026-10-22'), {
+    status: 'found', membershipDate: '2025-12-27', membershipExpiry: '2026-12-27', daysUntilExpiry: 66,
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].init.method, 'GET');
+  assert.equal(calls[1].url.pathname, '/bigin/v2/Contacts/search');
+  assert.equal(calls[1].url.searchParams.get('email'), 'alex@example.invalid');
+  assert.equal(calls[1].url.searchParams.has('phone'), false);
+  assert.equal(calls[1].url.searchParams.has('criteria'), false);
 });
 
 test('renewal matches a stored national test number when Bigin misses its country-code form', async () => {
@@ -141,7 +152,11 @@ test('shared phone-only searches remain ambiguous across number variants and fai
       }
       return json({ data: [saved], info: { more_records: false } });
     });
-    const check = () => client.lookupBiginMembership({method:'mobile',mobile:identity.mobile},'2026-10-28');
+    const check = async () => {
+      const input = { method: 'mobile', mobile: '+447400123456' };
+      const { records, hasMore } = await client.searchBiginMembershipRecords(input);
+      return projectMembershipSearch(input, records, hasMore, '2026-10-28');
+    };
     if (['changed', 'unavailable'].includes(mode)) await assert.rejects(check);
     else assert.deepEqual(await check(), { status: 'ambiguous' });
   }
@@ -155,8 +170,8 @@ test('Bigin 204 is no match; truncated or malformed provider results fail closed
       if (mode === 'more') return json({ data: [], info: { more_records: true } });
       return json({ data: [{ id: 123 }], info: { more_records: false } });
     });
-    if (mode === 'malformed') await assert.rejects(client.lookupBiginMembership(name()), e => e.code === 'ZOHO_INVALID_RESPONSE');
-    else assert.deepEqual(await client.lookupBiginMembership(name()), { status: mode === 'empty' ? 'not_found' : 'ambiguous' });
+    if (mode === 'malformed') await assert.rejects(client.lookupBiginMembership(email()), e => e.code === 'ZOHO_INVALID_RESPONSE');
+    else assert.deepEqual(await client.lookupBiginMembership(email()), { status: mode === 'empty' ? 'not_found' : 'ambiguous' });
   }
 });
 

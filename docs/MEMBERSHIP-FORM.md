@@ -104,6 +104,8 @@ Focused automated tests cover corrected-date precedence, unresolved inputs, Lond
 
 ## Member Search Tool — 22 October 2026
 
+This describes the original search options. The [live tool now uses email only](MEMBERSHIP-RULES.md#membership-status-search).
+
 The renewal guidance now opens an inline lookup without leaving or submitting
 the application form. A standalone lookup is at /membership/search. It accepts
 exactly one alternative: first AND last name, OR email address, OR mobile number.

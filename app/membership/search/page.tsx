@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import MemberSearch from '@/components/MemberSearch';
 
-export const metadata = { title: 'Member Search', description: 'Look up your ICSH membership dates using your name, email address or mobile number.', robots: { index: false, follow: false } };
+export const metadata = { title: 'Member Search', description: 'Look up your ICSH membership dates using your registered email address.', robots: { index: false, follow: false } };
 
 export default function MemberSearchPage() {
   return <section className="section white"><div className="wrap" style={{ maxWidth: 760 }}>
