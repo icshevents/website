@@ -17,6 +17,7 @@ export async function checkMembershipEligibilityWithOwnerTest(value:MembershipId
  // still have a unique email and its own matching Contact. Never select, bind,
  // or update the real member's Contact through this exception.
  const emailResult=await search({method:'email',email:identity.email});
- if(emailResult.records.some(r=>ownerTestEmail(r.email)&&!isOwnerSharedPhoneTestContact(r)))return {status:'identity_conflict' as const};
- return checkMembershipEligibility(identity,async()=>emailResult,on);
+ const decision=await checkMembershipEligibility(identity,async()=>emailResult,on);
+ if(decision.status==='allowed'&&emailResult.records.some(r=>ownerTestEmail(r.email)&&!isOwnerSharedPhoneTestContact(r)))return {status:'identity_conflict' as const};
+ return decision;
 }

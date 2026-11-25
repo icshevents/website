@@ -45,9 +45,6 @@ export async function handleMembershipEligibility(request: Request, deps: Member
     }
     catch { return reply({ error: 'Enter a valid full name, email address and phone number.' }, 400); }
     const result = publicMembershipEligibility(await deps.check(identity));
-    // Copy only the public decision. CRM identifiers and contact details stay private.
-    if (result.status === 'active') return reply({ status: 'active', membershipDate: result.membershipDate, membershipExpiry: result.membershipExpiry, daysUntilExpiry: result.daysUntilExpiry });
-    if (!['allowed', 'identity_conflict', 'review_required', 'renewal_required', 'new_required'].includes(result.status)) throw new Error('Invalid decision');
     if(result.status==='allowed'&&quoteInput){
       const quote=testMembershipQuote(getQuote({...EMPTY_ANSWERS,...identity,...quoteInput},(deps.today??londonDate)()),identity.email,deps.testPricingEnabled);
       if(!quote||registrationAgeError(quote))return reply({error:'Enter a valid date of birth and membership category.'},400);

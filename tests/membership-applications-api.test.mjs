@@ -662,14 +662,15 @@ test('ambiguous completion preserves the saved-application message and a retry c
 });
 
 
-test('an active member is blocked at final submission even without a browser eligibility check', async () => {
-  const active = { status: 'active', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19', daysUntilExpiry: 89 };
-  for (const kind of ['new', 'renewal']) {
-    const context = harness({ checkIdentity: async () => active, get: async () => null });
+test('an existing email blocks final New Member submission before storage or Bigin writes', async () => {
+  for (const decision of [{ status: 'renewal_required', active: true }, { status: 'renewal_required' }]) {
+    const context = harness({ checkIdentity: async () => decision, get: async () => null });
     const auth = await bootstrap(context);
-    const body = await json(await handleMembershipApplications(post(auth, submission({ answers: answers({ kind, email: 'member@example.com' }) })), context.deps), 409);
-    assert.deepEqual(body.eligibility, active);
+    const body = await json(await handleMembershipApplications(post(auth, submission({ answers: answers({ kind: 'new', email: 'member@example.com' }) })), context.deps), 409);
+    assert.deepEqual(body.eligibility, decision);
     assert.equal(body.error.code, 'MEMBERSHIP_CHECK_BLOCKED');
+    assert.match(body.error.message, /choose Membership Renewal/);
+    if (decision.active) assert.match(body.error.message, /active ICSH member/);
     assert.equal(context.calls.checkIdentity.length, 1);
     assert.equal(context.calls.save.length, 0);
     noProviderCalls(context);
@@ -688,7 +689,7 @@ test('conflicting identifiers, missing records for renewal and provider outages 
 
 test('a retry can recover the same saved receipt if membership became active after saving', async () => {
   const stored = application({ requestHash: hash(JSON.stringify({ answers: answers(), mode: 'live', policy: '2026-10-22-live' })) });
-  const context = harness({ checkIdentity: async () => ({ status: 'active', membershipDate: '2026-10-22', membershipExpiry: '2027-10-22', daysUntilExpiry: 365 }), get: async () => stored });
+  const context = harness({ checkIdentity: async () => ({ status: 'renewal_required', active: true }), get: async () => stored });
   const auth = await bootstrap(context);
   const response = await json(await handleMembershipApplications(post(auth), context.deps), 200);
   assert.equal(response.application.id, id);

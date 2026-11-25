@@ -11,13 +11,13 @@ import {MEMBERSHIP_PRICING} from '@/lib/membership-pricing';
 import {EMPTY_ANSWERS,getQuote,validateStep,validateApplication,updateAnswer,errorStep,registrationAgeError,type MembershipAnswers,type FieldErrors} from '@/lib/membership-validation';
 function eligibilityResult(value:unknown):MembershipEligibility|null {
  if(!object(value)||typeof value.status!=='string')return null;
- if(value.status==='active'){if(typeof value.membershipDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value.membershipDate)||!Number.isFinite(Date.parse(value.membershipDate))||typeof value.membershipExpiry!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value.membershipExpiry)||!Number.isFinite(Date.parse(value.membershipExpiry))||!Number.isSafeInteger(value.daysUntilExpiry)||Number(value.daysUntilExpiry)<1)return null;return {status:'active',membershipDate:value.membershipDate,membershipExpiry:value.membershipExpiry,daysUntilExpiry:Number(value.daysUntilExpiry)};}
+ if(value.status==='renewal_required')return {status:'renewal_required',...(value.active===true?{active:true}:{})};
  if(value.status==='allowed'){
   const renewal=parseRenewalStatus(value.renewal);
   if(value.renewal!==undefined&&!renewal)return null;
   return {status:'allowed',...(value.mobileChanged===true?{mobileChanged:true}:{}),...(value.nameChanged===true?{nameChanged:true}:{}),...(renewal?{renewal}:{})};
  }
- return ['identity_conflict','review_required','renewal_required','new_required'].includes(value.status)?{status:value.status} as MembershipEligibility:null;
+ return ['identity_conflict','review_required','new_required'].includes(value.status)?{status:value.status} as MembershipEligibility:null;
 }
 const steps=['Personal details','Review & Declaration','Confirmation'];
 const screenForError=(key:keyof MembershipAnswers)=>errorStep(key)>=3?2:1;
@@ -198,9 +198,8 @@ export default function MembershipForm({today:initialToday,renewal=false,newMemb
     </>}
 
     {step===1&&(eligibility||membershipCheckError)&&<div className="membership-check-result" role="status" aria-live="polite" tabIndex={-1} ref={membershipNotice}>
-     <strong>{membershipCheckError?'Membership check unavailable':eligibility?.status==='active'?'Your membership is still active':eligibility?.status==='allowed'?'Membership check complete':'Please check your membership details'}</strong>
+     <strong>{membershipCheckError?'Membership check unavailable':eligibility?.status==='renewal_required'?(eligibility.active?'Active ICSH member':'Email already registered'):eligibility?.status==='allowed'?'Membership check complete':'Please check your membership details'}</strong>
      <p>{membershipCheckError||(eligibility&&membershipEligibilityMessage(eligibility))}</p>
-     {eligibility?.status==='active'&&<><dl><div><dt>Membership Date</dt><dd>{membershipDateLabel(eligibility.membershipDate)}</dd></div><div><dt>Membership Expiry</dt><dd>{membershipDateLabel(eligibility.membershipExpiry)}</dd></div></dl><p>Approximately {eligibility.daysUntilExpiry} {eligibility.daysUntilExpiry===1?'day':'days'} remaining.</p></>}
      {eligibility?.status==='renewal_required'&&<button className="button outline" type="button" onClick={()=>change('kind','renewal')}>Switch to Membership Renewal</button>}
      {eligibility?.status==='new_required'&&<button className="button outline" type="button" onClick={()=>change('kind','new')}>Switch to New Member</button>}
      {(membershipCheckError||eligibility?.status==='identity_conflict'||eligibility?.status==='review_required')&&<Link href="/contact">Contact ICSH</Link>}

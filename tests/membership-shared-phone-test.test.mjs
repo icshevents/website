@@ -19,10 +19,10 @@ test('shared-number registrations are allowed without an owner-test exception an
  const blocked=search();assert.equal((await checkMembershipEligibilityWithOwnerTest(identity,blocked.lookup,{...settings,ICSH_MEMBERSHIP_SHARED_PHONE_TEST_ENABLED:'false'},today)).status,'allowed');assert.deepEqual(blocked.calls,[{method:'email',email}]);
 });
 
-test('the shared-phone exception retains owner email uniqueness, identity, active-term and incomplete-result checks',async()=>{
- assert.equal((await checkMembershipEligibilityWithOwnerTest(identity,search([owner]).lookup,settings,today)).status,'active');
- for(const record of [{...owner,fullName:'Someone Else'},{...owner,mobile:'+447700900994'}])assert.equal((await checkMembershipEligibilityWithOwnerTest(identity,search([record]).lookup,settings,today)).status,'identity_conflict');
- assert.equal((await checkMembershipEligibilityWithOwnerTest(identity,search([owner,{...owner,id:'201'}]).lookup,settings,today)).status,'review_required');
+test('the shared-phone exception still blocks duplicate email addresses regardless of name or phone',async()=>{
+ assert.deepEqual(await checkMembershipEligibilityWithOwnerTest(identity,search([owner]).lookup,settings,today),{status:'renewal_required',active:true});
+ for(const record of [{...owner,fullName:'Someone Else'},{...owner,mobile:'+447700900994'}])assert.deepEqual(await checkMembershipEligibilityWithOwnerTest(identity,search([record]).lookup,settings,today),{status:'renewal_required',active:true});
+ assert.equal((await checkMembershipEligibilityWithOwnerTest(identity,search([owner,{...owner,id:'201'}]).lookup,settings,today)).status,'renewal_required');
  assert.equal((await checkMembershipEligibilityWithOwnerTest(identity,async()=>({records:[],hasMore:true}),settings,today)).status,'review_required');
 });
 

@@ -61,7 +61,7 @@ test('application save recomputes the discount server-side and does not accept a
  assert.equal((await saveUsingApi(true,answers({email:'other@gmail.com'}))).saved.feePence,2000);
  const forged=await saveUsingApi(true,answers(),{feePence:1});assert.equal(forged.response.status,400);assert.equal(forged.saved,null);
  const free=await saveUsingApi(true,answers({dob:'01/01/2006',education:'yes',studentDeclaration:true,whatsappInvitation:false}));assert.equal(free.saved.feePence,0);
- const blocked=await saveUsingApi(true,answers(),{},{checkIdentity:async()=>({status:'active',membershipDate:'2026-01-01',membershipExpiry:'2027-01-01',daysUntilExpiry:57})});assert.equal(blocked.response.status,409);assert.equal(blocked.saved,null);
+ const blocked=await saveUsingApi(true,answers(),{},{checkIdentity:async()=>({status:'renewal_required',active:true})});assert.equal(blocked.response.status,409);assert.equal(blocked.saved,null);
 });
 
 test('new one-pound checkouts require the active profile, while settled evidence survives disabling it',async()=>{

@@ -5,14 +5,15 @@ import { handleMembershipEligibility } from '../lib/membership-eligibility-api.t
 const identity = { kind: 'new', firstName: 'Test', lastName: 'Member', email: 'member@example.invalid', mobile: '07700900123' };
 const record = { id: '123456789', fullName: 'Test Member', email: identity.email, mobile: '+447700900123', membershipStatus: 'Active', paymentStatus: 'Completed', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19' };
 const activeRenewal = { status: 'allowed', renewal: { status: 'active', currentExpiry: '2027-01-19', renewedExpiry: '2028-01-19' } };
+const activeDuplicate = { status: 'renewal_required', active: true };
 const inactiveRenewal = { status: 'allowed', renewal: { status: 'inactive' } };
 const search = records => async () => ({ records, hasMore: false });
 const check = (value = identity, records = [record], on = '2026-10-22') => checkMembershipEligibility(value, search(records), on);
 
 test('a verified existing member may renew early while New Member remains blocked', async () => {
-  assert.deepEqual(await check(identity), { status: 'active', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19', daysUntilExpiry: 89 });
+  assert.deepEqual(await check(identity), activeDuplicate);
   assert.deepEqual(await check({ ...identity, kind: 'renewal' }), activeRenewal);
-  assert.equal((await check({ ...identity, firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' })).status, 'active');
+  assert.deepEqual(await check({ ...identity, firstName: ' Test ', lastName: 'MEMBER', email: ' MEMBER@EXAMPLE.INVALID ', mobile: '0044 7700 900123' }), activeDuplicate);
   assert.deepEqual(await check({ ...identity, kind: 'renewal', firstName: ' Test ', lastName: 'MEMBER', email: 'MEMBER@EXAMPLE.INVALID', mobile: '0044 7700 900123' }), { ...activeRenewal, nameChanged: true });
 });
 
@@ -22,31 +23,39 @@ test('different people with identical names are allowed when their email is uniq
   assert.equal((await check({ ...identity, kind: 'renewal' }, [])).status, 'new_required');
 });
 
-test('details must match the email-selected member and cannot expose another person’s dates', async () => {
+test('new applications with a duplicate email are blocked regardless of name or mobile', async () => {
   for (const changes of [
-    { mobile: '07700900999' }, { firstName: 'Another' },
-  ]) assert.deepEqual(await check({ ...identity, ...changes }), { status: 'identity_conflict' });
+    { mobile: '07700900999' }, { firstName: 'Another' }, { firstName: 'Another', mobile: '07700900999' },
+  ]) assert.deepEqual(await check({ ...identity, ...changes }), activeDuplicate);
   const other = { ...record, id: '999999999', email: 'other@example.invalid' };
-  assert.deepEqual(await check(identity, [{ ...record, mobile: '07700900999' }, other]), { status: 'identity_conflict' });
+  assert.deepEqual(await check(identity, [{ ...record, fullName: null, mobile: null }, other]), activeDuplicate);
 });
 
-test('duplicate email and incomplete email searches require review without consulting shared phones', async () => {
-  assert.deepEqual(await check(identity, [record, { ...record, id: '222222222' }]), { status: 'review_required' });
-  assert.deepEqual(await checkMembershipEligibility(identity, async () => ({ records: [record], hasMore: true }), '2026-10-22'), { status: 'review_required' });
-  const calls=[];assert.equal((await checkMembershipEligibility(identity, async input => {calls.push(input);if(input.method!=='email')throw new Error('Phone lookups must not gate membership');return {records:[record,{...record,id:'other',email:'other@example.invalid'}],hasMore:false};}, '2026-10-22')).status,'active');assert.deepEqual(calls,[{method:'email',email:identity.email}]);
+test('multiple known email matches block new applications without assigning a record to the renewal', async () => {
+  const duplicates = [record, { ...record, id: '222222222' }];
+  assert.deepEqual(await check(identity, duplicates), { status: 'renewal_required' });
+  assert.deepEqual(await check({ ...identity, kind: 'renewal' }, duplicates), { status: 'review_required' });
+  assert.deepEqual(await checkMembershipEligibility(identity, async () => ({ records: [record], hasMore: true }), '2026-10-22'), { status: 'renewal_required' });
+  assert.deepEqual(await checkMembershipEligibility(identity, async () => ({ records: [], hasMore: true }), '2026-10-22'), { status: 'review_required' });
+  const calls = [];
+  const result = await checkMembershipEligibility(identity, async input => {
+    calls.push(input);
+    return { records: [record, { ...record, id: 'other', email: 'other@example.invalid' }], hasMore: false };
+  }, '2026-10-22');
+  assert.deepEqual(result, activeDuplicate);
+  assert.deepEqual(calls, [{ method: 'email', email: identity.email }]);
 });
 
-test('expired and undated members are directed to renewal while invalid or inconsistent terms require review', async () => {
+test('expired and undated members are directed to renewal while inconsistent records need review during renewal', async () => {
   for (const changes of [{ membershipExpiry: '2026-10-22' }, { membershipDate: null }, { membershipExpiry: '' }]) {
-    assert.equal((await check(identity, [{ ...record, ...changes }])).status, 'renewal_required');
+    assert.deepEqual(await check(identity, [{ ...record, ...changes }]), { status: 'renewal_required' });
     assert.deepEqual(await check({ ...identity, kind: 'renewal' }, [{ ...record, ...changes }]), inactiveRenewal);
   }
   for (const changes of [{ membershipDate: '2026-02-30' }, { membershipDate: '2026-12-01' }, { membershipStatus: 'Inactive' }, { membershipExpiry: '2025-01-19' }]) {
-    assert.equal((await check(identity, [{ ...record, ...changes }])).status, 'review_required');
+    assert.deepEqual(await check(identity, [{ ...record, ...changes }]), { status: 'renewal_required' });
+    assert.deepEqual(await check({ ...identity, kind: 'renewal' }, [{ ...record, ...changes }]), { status: 'review_required' });
   }
-  assert.deepEqual(await check({ ...identity, kind: 'renewal' }, [{ ...record, membershipStatus: 'Inactive' }]), { status: 'review_required' });
-  // Free memberships can be active without a fee payment; status and term govern.
-  assert.equal((await check(identity, [{ ...record, paymentStatus: 'Not required' }])).status, 'active');
+  assert.deepEqual(await check(identity, [{ ...record, paymentStatus: 'Not required' }]), activeDuplicate);
 });
 
 test('invalid identifiers stop before provider calls and provider failures never become permission to continue', async () => {
@@ -73,12 +82,12 @@ test('eligibility endpoint checks origin, input and rate limits before reading C
   assert.equal(checked, 0);
 });
 
-test('eligibility response only returns decision and verified dates, with no stored or cached contact data', async () => {
-  const response = await handleMembershipEligibility(request(), { ...deps, check: async () => ({ status: 'active', membershipDate: '2026-01-19', membershipExpiry: '2027-01-19', daysUntilExpiry: 89, id: 'secret-contact-id', email: identity.email }) });
+test('duplicate email response contains the decision without revealing or caching contact data', async () => {
+  const response = await handleMembershipEligibility(request(), { ...deps, check: async () => ({ ...activeDuplicate, membershipExpiry: '2027-01-19', id: 'secret-contact-id', email: identity.email }) });
   assert.equal(response.status, 200);
   assert.match(response.headers.get('cache-control'), /no-store/);
   const body = await response.json();
-  assert.deepEqual(Object.keys(body).sort(), ['status', 'membershipDate', 'membershipExpiry', 'daysUntilExpiry'].sort());
+  assert.deepEqual(body, activeDuplicate);
   const unavailable = await handleMembershipEligibility(request(), { ...deps, check: async () => { throw new Error('private token'); } });
   assert.equal(unavailable.status, 503);
   assert.doesNotMatch(JSON.stringify(await unavailable.json()), /private token/);

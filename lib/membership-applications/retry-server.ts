@@ -9,7 +9,7 @@ import {sameRetryAnswers} from './retry';
 
 export async function checkRetryMembershipEligibility(identity:MembershipIdentity){
  const decision=await checkMembershipEligibilityWithOwnerTest(identity,searchBiginMembershipRecords,process.env);
- if(!['review_required','renewal_required'].includes(decision.status))return decision;
+ if(identity.kind!=='renewal'||decision.status!=='review_required')return decision;
  const r=await createEventService().rpc('icsh_membership_retry_identity',{p_identity:identity});
  if(r.error)throw new Error('MEMBERSHIP_RETRY_UNAVAILABLE');
  return r.data===true?{status:'allowed' as const}:decision;
