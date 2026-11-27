@@ -105,9 +105,11 @@ export async function verifyMember(value: string, lookup: BookingLookup, on = lo
   } catch { return 'unavailable'; }
 }
 /** One fresh lead-booker lookup qualifies all member-priced tickets in this booking. */
-export async function verifyMemberTickets(input: BookingInput, lookup: BookingLookup) {
+export async function verifyMemberTickets(input: Pick<QuoteInput, 'email' | 'quantities'>, lookup: BookingLookup) {
   if (!input.quantities.member) return;
-  const status = await verifyMember(input.email, lookup);
+  const address = email.safeParse(input.email);
+  if (!address.success) throw new IftariError('Enter your membership email to check the member ticket price.', 409);
+  const status = await verifyMember(address.data, lookup);
   if (status !== 'active') throw new IftariError(`Lead booker: ${membershipMessages[status]}`, status === 'unavailable' ? 503 : 409);
 }
 export function eventWhen(settings: Pick<Settings, 'date' | 'time'>) {

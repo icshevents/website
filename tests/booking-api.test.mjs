@@ -56,3 +56,75 @@ test('provider failures require retry or explicit non-member pricing; fallback c
 test('duplicates log a private keyed issue and never expose Contact IDs to anonymous visitors',async t=>{freeze(t);const f=fixture(),read=async()=>({records:[contact,{...contact,id:'20002'}],hasMore:false});const r=await call(f,'booking/quote',query(),read);assert.equal(r.body.quote.memberStatus,'ambiguous');assert.equal(r.body.quote.unitAmount,null);assert.doesNotMatch(JSON.stringify(r.body),/10001|20002|member@example/);assert.equal(f.tables.icsh_audit_events[0].action,'event.membership.duplicate_email');assert.doesNotMatch(JSON.stringify(f.tables.icsh_audit_events),/member@example/);});
 test('organiser-only diagnostic view returns raw membership evidence and applied rules, without credentials',async t=>{freeze(t);const f=fixture();const blocked=await call(f,'admin/booking-pricing',query());assert.equal(blocked.status,401);const allowed=await call(f,'admin/booking-pricing',query(),undefined,true);assert.equal(allowed.status,200);assert.equal(allowed.body.diagnostics.emailSearched,'member@example.com');assert.equal(allowed.body.diagnostics.records[0].contactId,'10001');assert.equal(allowed.body.diagnostics.records[0].membershipExpiry,'2027-01-19');assert.equal(allowed.body.diagnostics.finalEventPrice,1500);assert.doesNotMatch(JSON.stringify(allowed.body),/access_token|refresh_token|client_secret|fixture-secret/);});
 test('prototype forms are shareable but excluded from real event announcements',()=>{const d=eventDirectory({events:[event],festivalConfig:null,stallForms:[]});assert.equal(d.events.length,0);});
+
+test('ICSH10 uses Winter Lunch group rates and an exclusive 23:59 UK cutoff',async t=>{
+ const cutoff='2026-12-08T23:59:00Z';
+ t.mock.timers.enable({apis:['Date'],now:new Date('2026-12-08T23:58:59.999Z')});
+ const f=fixture();
+ Object.assign(f.tables.icsh_forms[0].configuration,{
+  title:'ICSH Winter Lunch 2026',slug:'icsh-winter-lunch-2026',prototype:false,
+  startsAt:'2026-12-27T13:00:00Z',endsAt:'2026-12-27T16:00:00Z',membershipPricingRule:'active',
+  rates:{member:1850,pensioner:1850,student:1850,nonmember:2050,child:925,childNonmember:1025}
+ });
+ f.tables.icsh_event_discounts.push({
+  id:randomUUID(),scope_kind:'tickets',scope_id:event.id,code:'ICSH10',name:'Promotional Discount',
+  active:true,audience:'active',basis:'percentage',value:10,categories:'all',application:'per_booking',
+  redemption_basis:'booking',maximum:100,per_customer_maximum:null,starts_at:'2026-11-24T00:00:00Z',expires_at:cutoff,version:1
+ });
+ const q={...query(),childQuantity:1,discountCode:'icsh10'};
+ const active=async()=>({records:[{...contact,paymentStatus:'Not required'}],hasMore:false});
+ const quoted=await call(f,'booking/quote',q,active);
+ assert.equal(quoted.body.quote.total,2775);
+ const p=quoted.body.quote.promotion;
+ assert.deepEqual([p.grossPence,p.discountPence,p.payablePence],[2775,278,2497]);
+
+ const submission={...booking(quoted.body.quote),childQuantity:1,discountCode:'ICSH10'};
+ Object.assign(submission.expectedQuote,{discountPence:p.discountPence,payablePence:p.payablePence});
+ const saved=await call(f,'booking/registrations',submission,active);
+ assert.equal(saved.status,201);
+ const record=f.tables.icsh_submissions[0].answers.record;
+ assert.deepEqual([record.total,...record.attendees.map(a=>a.unitAmount)],[2497,1850,925]);
+
+ const {WebsiteStripeClient}=await import('../lib/payments/core.ts');
+ const {paidTicketEmailContent}=await import('../lib/ticket-emails/core.ts');
+ const {sendTransactionalContent}=await import('../lib/form-emails/core.ts');
+ const config={key:'rk_test_fixture',account:'acct_fixture',mode:'test',origin:'https://website-fixture-icsh.vercel.app'};
+ const source={kind:'event',id:record.id,mode:'test',amount:record.total,currency:'gbp',reference:record.reference,description:record.eventTitle,email:'audit-fixture@icsh.org.uk',capabilityHash:record.capabilityHash,eligible:true};
+ const client=new WebsiteStripeClient(config,async(url,options)=>{
+  if(url.endsWith('/account'))return Response.json({id:config.account,charges_enabled:true});
+  assert.equal(options.body.get('line_items[0][price_data][unit_amount]'),'2497');
+  return Response.json({id:'cs_test_winter_fixture',livemode:false,mode:'payment',currency:'gbp',amount_total:2497,client_reference_id:record.id,metadata:{purpose:'icsh_website_payment_v1',source_kind:'event',source_id:record.id,account_id:config.account}});
+ });
+ await client.create(source);
+ const id=randomUUID();
+ const content=paidTicketEmailContent({id,recipient:source.email,reference:record.reference,name:record.contact.name,title:record.eventTitle,venue:'Lahore, Eastcote',startsAt:record.eventStartsAt,endsAt:'2026-12-27T16:00:00Z',total:source.amount,discountPence:p.discountPence,discountCode:p.code,discountName:p.name,attendees:record.attendees});
+ const inbox=[];
+ const mail=await sendTransactionalContent(id,source.email,content,
+  {ZOHO_TRANSACTIONAL_EMAIL_ENABLED:'true',ZOHO_TRANSACTIONAL_API_ORIGIN:'https://cpaas.zoho.eu',ZOHO_TRANSACTIONAL_SEND_KEY:'fake',ZOHO_TRANSACTIONAL_FROM:source.email},
+  async(url,options)=>{inbox.push(JSON.parse(options.body));return Response.json({message:'OK',data:[{code:'EM_104'}],request_id:'winter-fixture'});});
+ assert.equal(mail.status,'accepted');
+ assert.equal(inbox[0].to[0].email_address.address,source.email);
+ for(const expected of ['£27.75','-£2.78','Total paid: £24.97'])assert.ok(inbox[0].textbody.includes(expected));
+
+ for(const records of [[{...contact,membershipExpiry:'2026-12-07'}],[]]){
+  const rejected=await call(f,'booking/quote',q,async()=>({records,hasMore:false}));
+  assert.equal(rejected.body.quote.total,3075);
+  assert.equal(rejected.body.quote.promotion,undefined);
+  assert.match(rejected.body.discountError,/active ICSH members only/);
+ }
+ const invalid=await call(f,'booking/quote',{...q,discountCode:'WRONG'},active);
+ assert.match(invalid.body.discountError,/Invalid discount/);
+ t.mock.timers.setTime(Date.parse(cutoff));
+ for(const offset of [0,1]){
+  t.mock.timers.setTime(Date.parse(cutoff)+offset);
+  const rejected=await call(f,'booking/quote',q,active);
+  assert.match(rejected.body.discountError,/expired/);
+  assert.equal(rejected.body.quote.total,2775);
+  assert.equal(rejected.body.quote.promotion,undefined);
+ }
+ const expired=await call(f,'booking/registrations',{...submission,idempotencyKey:randomUUID()},active);
+ assert.equal(expired.status,409);
+ assert.match(expired.body.error,/expired/);
+ assert.equal(expired.body.quote.total,2775);
+ assert.equal(f.writes,1);
+});

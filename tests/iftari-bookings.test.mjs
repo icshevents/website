@@ -57,3 +57,57 @@ test('approved under-5 places are free and still count towards guest totals',()=
  assert.equal(q.total,2800);assert.equal(q.guests,3);
  assert.deepEqual(q.lines.find(l=>l.key==='under5'),{key:'under5',label:'Children under 5',quantity:2,unitAmount:0,amount:0});
 });
+
+test('ICSH10 mixed Iftari booking discounts all paid tickets and preserves the full donation through Checkout and email',async t=>{
+ const cutoff='2026-12-08T23:59:00Z';
+ t.mock.timers.enable({apis:['Date'],now:new Date('2026-12-08T23:58:59.999Z')});
+ const {verifiedIftariPromotion}=await import('../lib/event-discounts/server.ts');
+ const {sendConfirmation}=await import('../lib/form-emails/core.ts');
+ const booking=row();
+ booking.event_snapshot={...defaultSettings,prices:{member:2400,nonmember:2800,child:1200,under5:0}};
+ booking.quantities={member:1,nonmember:1,child:1,under5:1};
+ booking.contact.email='audit-fixture@icsh.org.uk';
+ const base=quoteBooking(booking.event_snapshot,{quantities:booking.quantities,donation:'10'});
+ assert.equal(base.total,7400);
+ const scopeId=randomUUID();
+ const discount={id:randomUUID(),scope_kind:'iftari',scope_id:scopeId,code:'ICSH10',name:'Promotional Discount',
+  active:true,audience:'active',basis:'percentage',value:10,categories:'all',application:'per_booking',
+  redemption_basis:'booking',maximum:100,per_customer_maximum:null,starts_at:'2026-11-24T00:00:00Z',expires_at:cutoff,version:2};
+ const db={from(table){const q={select(){return q;},eq(){return q;},in(){return {data:[],error:null};},maybeSingle(){return {data:table==='icsh_event_discounts'?discount:null,error:null};}};return q;},async rpc(){return {data:0,error:null};}};
+ const args={db,scopeId,code:'icsh10',email:booking.contact.email,quote:base,secret:'fixture'};
+ const active=lookup([member({email:args.email})]);
+ await verifyMemberTickets({email:args.email,quantities:booking.quantities},active);
+ const p=await verifiedIftariPromotion({...args,lookup:active});
+ assert.deepEqual([p.grossPence,p.discountPence,p.netPence,p.units],[7400,640,6760,1]);
+ booking.quote={...base,total:p.netPence,promotion:{...p,payablePence:p.netPence}};
+ booking.total=p.netPence;
+ const client=new IftariStripeClient(config,async(url,options)=>{
+  if(url.endsWith('/account'))return Response.json({id:config.account,charges_enabled:true});
+  assert.equal(options.body.get('line_items[0][price_data][unit_amount]'),'5760');
+  assert.equal(options.body.get('line_items[1][price_data][unit_amount]'),'1000');
+  assert.equal(options.body.get('metadata[discount_code]'),'ICSH10');
+  return Response.json(session(booking,{amount_total:6760}));
+ });
+ await client.createBooking(booking);
+
+ const inbox=[];
+ const mail=await sendConfirmation({id:randomUUID(),kind:'event',recipient:args.email,reference:booking.reference,event_title:booking.event_snapshot.title,test:true,
+  iftari:{venue:booking.event_snapshot.venue,when:eventWhen(booking.event_snapshot),lines:booking.quote.lines,donation:1000,total:booking.total,guests:4,discountPence:p.discountPence,discountCode:p.code,discountName:p.name}},
+  {ZOHO_TRANSACTIONAL_EMAIL_ENABLED:'true',ZOHO_TRANSACTIONAL_API_ORIGIN:'https://cpaas.zoho.eu',ZOHO_TRANSACTIONAL_SEND_KEY:'fake',ZOHO_TRANSACTIONAL_FROM:'fixture@example.invalid'},
+  async(url,options)=>{inbox.push(JSON.parse(options.body));return Response.json({message:'OK',data:[{code:'EM_104'}],request_id:'fixture-1'});});
+ assert.equal(mail.status,'accepted');
+ assert.deepEqual(inbox.map(email=>email.to[0].email_address.address),[args.email]);
+ for(const expected of ['£74.00','-£6.40','£10.00','Total paid: £67.60'])assert.ok(inbox[0].textbody.includes(expected));
+
+ const regular=quoteBooking(booking.event_snapshot,{quantities:{member:0,nonmember:1,child:1,under5:0},donation:'0'});
+ assert.equal(regular.total,4000);
+ for(const records of [[member({email:args.email,membershipExpiry:'2026-12-07'})],[]]){
+  await assert.rejects(verifiedIftariPromotion({...args,quote:regular,lookup:lookup(records)}),/active ICSH members only/);
+  await assert.rejects(verifyMemberTickets({email:args.email,quantities:booking.quantities},lookup(records)),/Lead booker/);
+ }
+ await assert.rejects(verifyMemberTickets({quantities:booking.quantities},active),/Enter your membership email/);
+ for(const offset of [0,1]){
+  t.mock.timers.setTime(Date.parse(cutoff)+offset);
+  await assert.rejects(verifiedIftariPromotion({...args,lookup:active}),/expired/);
+ }
+});

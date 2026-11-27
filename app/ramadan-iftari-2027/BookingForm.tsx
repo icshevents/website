@@ -62,6 +62,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
   const attendeeSlots=ticketKeys.flatMap(ticket=>Array.from({length:quantities[ticket]},(_,index)=>({ticket,index,key:ticket+'-'+index})));
   const attendees:Attendee[]=attendeeSlots.map(s=>({ticket:s.ticket,firstName:attendeeNames[s.key]?.firstName||'',lastName:attendeeNames[s.key]?.lastName||''}));
   const [donationChoice, setDonationChoice] = useState('0'), [customDonation, setCustomDonation] = useState('');
+  const [quoteRefresh, setQuoteRefresh] = useState(0);
   const [quote, setQuote] = useState<Quote | null>(null), [quoteError, setQuoteError] = useState(''), [quotePending, setQuotePending] = useState(false);
   const [discountAvailable,setDiscountAvailable]=useState(false),[codeInput,setCodeInput]=useState(''),[appliedCode,setAppliedCode]=useState(''),[discountFeedback,setDiscountFeedback]=useState('');
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [saved, setSaved] = useState<{ id: string; capability: string } | null>(null);
@@ -79,16 +80,32 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
     setQuote(null); setQuoteError('');
     if (ticketKeys.every(key => quantities[key] === 0)) { setQuotePending(false); return; }
     setQuotePending(true);
+    if (appliedCode) setDiscountFeedback('Checking code…');
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch('/api/iftari/quote', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ quantities, donation,...(appliedCode?{discountCode:appliedCode,email}:{} ) }) });
-        const data = await response.json(); if (turn !== quoteSequence.current) return;
-        if (!response.ok) throw new Error(data.error); setQuote(data.quote);if(appliedCode&&data.quote.promotion)setDiscountFeedback(data.quote.promotion.name+' applied · '+gbp(data.quote.promotion.discountPence)+' saved.');
-      } catch (e) { if (turn === quoteSequence.current && !(e instanceof Error && e.name === 'AbortError')) {if(e instanceof Error&&e.message===capacityMessage)setFull(true);setQuoteError(e instanceof Error ? e.message : 'Unable to calculate the total.');if(appliedCode)setDiscountFeedback(e instanceof Error?e.message:'Unable to verify discount code.');} }
+        const response = await fetch('/api/iftari/quote', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ quantities, donation,...(appliedCode ? {discountCode:appliedCode} : {}), ...((appliedCode || quantities.member) ? {email} : {}) }) });
+        const data = await response.json(); if (turn !== quoteSequence.current || controller.signal.aborted) return;
+        if (!response.ok) throw new Error(data.error);
+        setQuote(data.quote);
+        if (data.discountError) setDiscountFeedback('Code not applied. ' + data.discountError);
+        else if (data.quote.promotion) setDiscountFeedback(data.quote.promotion.name + ' applied · ' + gbp(data.quote.promotion.discountPence) + ' saved.');
+      } catch (e) { if (turn === quoteSequence.current && !(e instanceof Error && e.name === 'AbortError')) {if(e instanceof Error&&e.message===capacityMessage)setFull(true);setQuoteError(e instanceof Error ? e.message : 'Unable to calculate the total.');if(appliedCode)setDiscountFeedback('Code not applied. ' + (e instanceof Error ? e.message : 'Unable to verify discount code.'));} }
       finally { if (turn === quoteSequence.current) setQuotePending(false); }
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [quantities, donation, csrf, appliedCode, email]);
+  }, [quantities, donation, csrf, appliedCode, email, quoteRefresh]);
+  function applyCode() {
+    const code = codeInput.trim().toUpperCase();
+    if (!code) return;
+    if (!attendeeSlots.length) {
+      setDiscountFeedback('Select tickets before applying a discount code.');
+      return;
+    }
+    setQuote(null);
+    setQuotePending(true);
+    setAppliedCode(code);
+    setQuoteRefresh(n => n + 1);
+  }
   function quantityChange(key: TicketKey, value: number) {
     if (!Number.isSafeInteger(value) || value < 0 || value > (settings?.maxGuests || 12)) return;
     setQuote(null); setQuotePending(true); setQuantities(v => ({ ...v, [key]: value }));
@@ -101,7 +118,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
       // Retain the same booking after a lost response. A retry never creates a second charge.
       sessionStorage.setItem('icsh-iftari-' + identity.id, identity.capability);
       setSaved(identity);
-      const response = await fetch('/api/iftari/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ ...identity, firstName, lastName, email, mobile, quantities, attendees, donation, notes, expectedVersion: quote.version, expectedTotal: quote.total,...(appliedCode?{discountCode:appliedCode}:{}), website }) });
+      const response = await fetch('/api/iftari/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ ...identity, firstName, lastName, email, mobile, quantities, attendees, donation, notes, expectedVersion: quote.version, expectedTotal: quote.total,...(quote.promotion?{discountCode:quote.promotion.code}:{}), website }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error);
       window.location.assign(data.url || data.returnUrl);
     } catch (e) {
@@ -109,7 +126,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
       // A rejected request with no persisted booking is safe to correct and resubmit.
       try {
         const check = await fetch('/api/iftari/bookings/' + identity.id, { headers: { 'x-booking-token': identity.capability } });
-        if (check.status === 404) { setSaved(null); sessionStorage.removeItem('icsh-iftari-' + identity.id); }
+        if (check.status === 404) { setSaved(null); sessionStorage.removeItem('icsh-iftari-' + identity.id); setQuoteRefresh(n => n + 1); }
       } catch { /* Keep the same request identity when the save outcome is uncertain. */ }
     }
     finally { setBusy(false); }
@@ -125,7 +142,7 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
           <fieldset disabled={busy || Boolean(saved)}><legend><span>01</span> Lead booker details</legend><p>Book places for yourself, your family and friends. Non-members are welcome.</p><div className={styles.grid}>
             <label className={styles.field}>First name<input required autoComplete="given-name" maxLength={80} value={firstName} onChange={e => setFirstName(e.target.value)} /></label>
             <label className={styles.field}>Last name<input required autoComplete="family-name" maxLength={80} value={lastName} onChange={e => setLastName(e.target.value)} /></label>
-            <MembershipEmail label="Email address" value={email} onChange={setEmail} csrf={csrf} />
+            <MembershipEmail label="Email address" value={email} onChange={value => { if (appliedCode || quantities.member) setQuote(null); setEmail(value); }} csrf={csrf} />
             <label className={styles.field}>UK mobile number<input type="tel" required autoComplete="tel" maxLength={25} placeholder="07… or +447…" value={mobile} onChange={e => setMobile(e.target.value)} /></label>
           </div></fieldset>
           <fieldset disabled={busy || Boolean(saved)}><legend><span>02</span> Book Tickets</legend><p>Anyone aged 12 or above needs an adult ticket. Children aged 5–11 pay the same price whether members or non-members. Member-priced tickets require an active membership for the lead booker.</p>
@@ -139,10 +156,10 @@ export default function BookingForm({menu}:{menu?:IftariMenu}) {
             {donationChoice === 'other' && <label className={styles.field}>Donation amount (£)<input type="text" inputMode="decimal" required maxLength={12} placeholder="0.00" value={customDonation} onChange={e => { setQuote(null); setQuotePending(true); setCustomDonation(e.target.value); }} /></label>}<p className={styles.note}>Entirely optional. Your donation defaults to £0.</p>
           </fieldset>
           {discountAvailable&&<fieldset disabled={busy||Boolean(saved)}><legend><span>05</span> Discounts</legend><p>Have a discount code? Apply it to see the revised booking total before payment. Only one code can be used per booking.</p>
-            <label className={styles.field}>Have a discount code?<input type="text" maxLength={32} autoComplete="off" placeholder="Enter your code" value={codeInput} onChange={e=>{setCodeInput(e.target.value.toUpperCase());if(appliedCode){setAppliedCode('');setDiscountFeedback('Apply the new code to see the discount.');}}}/></label>
+            <label className={styles.field}>Have a discount code?<input type="text" maxLength={32} autoComplete="off" placeholder="Enter your code" value={codeInput} onChange={e=>{setCodeInput(e.target.value.toUpperCase());if(appliedCode){setQuote(null);setAppliedCode('');setDiscountFeedback('Apply the new code to see the discount.');}}} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); applyCode(); } }}/></label>
             <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-              <button type="button" className={styles.linkButton} disabled={!codeInput.trim()} onClick={()=>{setDiscountFeedback('Checking code…');setAppliedCode(codeInput.trim().toUpperCase());}}>Apply Code</button>
-              {appliedCode&&<button type="button" className={styles.linkButton} onClick={()=>{setAppliedCode('');setCodeInput('');setDiscountFeedback('Discount code removed.');}}>Remove code</button>}
+              <button type="button" className={styles.linkButton} disabled={!codeInput.trim()} onClick={applyCode}>Apply Code</button>
+              {appliedCode&&<button type="button" className={styles.linkButton} onClick={()=>{setQuote(null);setAppliedCode('');setCodeInput('');setDiscountFeedback('Discount code removed.');}}>Remove code</button>}
             </div>
             <p className={styles.note} role="status" aria-live="polite">{discountFeedback}</p>
           </fieldset>}

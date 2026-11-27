@@ -48,7 +48,7 @@ export function createBookingUI({api,esc,money,main,go,submitAction}){
     if(hasDiscounts){$('#booking-remove-code').classList.toggle('hidden',!promoCode);if(promotion)$('#booking-promo-message').textContent=promotion.name+' applied · '+money(promotion.discountPence)+' off your tickets.';}
    $('#booking-calculation').textContent=q?.canRegister?'Each selected ticket tier is itemised above.':priceKnown?'Select your tickets to see the booking total.':'Your prices appear after the membership check.';
    $('#booking-check').innerHTML=priceKnown?`<div class="membership-result ${q.discountEligible?'active':''}"><strong>${esc(statusLabel(q))}</strong><p>Your Event Price: ${money(q.unitAmount)} ${hasChildren?'per adult':'per person'}${hasChildren?` · ${money(q.discountEligible?e.rates.child:e.rates.childNonmember)} per child under 12`:''}</p>${q.memberStatus==='active'&&!q.discountEligible?'<p class="small">The standard rate applies. Event discounts require an active membership with completed membership payment.</p>':''}</div>`:message?`<div class="notice">${esc(message)}</div>`:'<p class="small">Enter your email to see your event price.</p>';
-   const retry=Boolean(q&&!priceKnown);$('#booking-retry').classList.toggle('hidden',!retry);$('#booking-nonmember').classList.toggle('hidden',!retry);button.disabled=!q?.canRegister;
+   const retry=Boolean(q&&!priceKnown);$('#booking-retry').classList.toggle('hidden',!retry);$('#booking-nonmember').classList.toggle('hidden',!retry);button.disabled=form.dataset.capacityReached==='true'||!q?.canRegister;
   }
   async function check(force=false){
    clearTimeout(timer);if(!email.value||!email.checkValidity()||(quantity.value&&!quantity.checkValidity())||(childQuantity?.value&&!childQuantity.checkValidity())||ticketCount()<0||ticketCount()>12){current=null;renderQuote(null);return;}
@@ -66,6 +66,12 @@ export function createBookingUI({api,esc,money,main,go,submitAction}){
     }
     current={key:key(),quote:result.quote};renderQuote(result.quote,result.message);
     }catch(error){if(id!==generation||queryKey!==key())return;current=null;
+     if(error.message===capacityMessage){
+      form.dataset.capacityReached='true';
+      renderQuote(null,capacityMessage);
+      capacityNotice();
+      return;
+     }
      const message=promoCode&&error instanceof Error?error.message:"We couldn't verify your ICSH membership automatically. Please try again or continue as a non-member.";
      renderQuote({memberStatus:'unavailable',canRegister:false,unitAmount:null,total:null},message);
      if(hasDiscounts&&promoCode)$('#booking-promo-message').textContent=message;
@@ -77,7 +83,12 @@ export function createBookingUI({api,esc,money,main,go,submitAction}){
   $('#booking-retry').onclick=()=>{fallback=false;check(true);};$('#booking-nonmember').onclick=()=>{fallback=true;check(true);};
    if(hasDiscounts){
     $('#booking-apply-code').onclick=()=>{
-     showDiscountStatus('');const value=$('#booking-promo-code').value.trim();if(!value){$('#booking-promo-message').textContent='Enter a discount code.';return;}if(ticketCount()===0){$('#booking-promo-message').textContent='Select tickets before applying a discount code.';return;}promoCode=value.toUpperCase();$('#booking-promo-message').textContent='Checking code…';check(true);};
+     showDiscountStatus('');
+     if(!email.value||!email.checkValidity()){$('#booking-promo-message').textContent='Enter your email before applying a discount code.';return;}
+     const value=$('#booking-promo-code').value.trim();if(!value){$('#booking-promo-message').textContent='Enter a discount code.';return;}if(ticketCount()===0){$('#booking-promo-message').textContent='Select tickets before applying a discount code.';return;}promoCode=value.toUpperCase();$('#booking-promo-message').textContent='Checking code…';check(true);};
+    $('#booking-promo-code').addEventListener('keydown',event=>{
+     if(event.key==='Enter'){event.preventDefault();$('#booking-apply-code').click();}
+    });
     $('#booking-remove-code').onclick=()=>{showDiscountStatus('');promoCode='';$('#booking-promo-code').value='';$('#booking-promo-message').textContent='Discount code removed.';check(true);};
     $('#booking-promo-code').addEventListener('input',()=>{showDiscountStatus('');if(promoCode){promoCode='';$('#booking-promo-message').textContent='Apply the new code to see your discount.';check(true);}});
    }
@@ -86,7 +97,12 @@ export function createBookingUI({api,esc,money,main,go,submitAction}){
     const data=new FormData(form),q=current.quote;
     const input={eventId:e.id,idempotencyKey:requestKey,firstName:String(data.get('firstName')).trim(),lastName:String(data.get('lastName')).trim(),email:email.value.trim().toLowerCase(),mobile:String(data.get('mobile')).trim(),quantity:ticketCount(),childQuantity:Number(childQuantity?.value||0),attendees:[...$('#booking-attendees').querySelectorAll('[data-person]')].map(row=>({firstName:row.querySelector('[data-first]').value.trim(),lastName:row.querySelector('[data-last]').value.trim()})),dietaryRequirements:String(data.get('dietaryRequirements')||''),additionalNotes:String(data.get('additionalNotes')||''),terms:true,continueAsNonMember:fallback,website:String(data.get('website')||''),expectedQuote:{configurationVersion:q.configurationVersion,unitAmount:q.unitAmount,total:q.total,...(q.promotion?{discountPence:q.promotion.discountPence,payablePence:q.promotion.payablePence}:{})},...(promoCode?{discountCode:promoCode}:{})};
     const result=await api('booking/registrations',{method:'POST',body:input,capability});sessionStorage.setItem('icsh-registration-'+result.registration.id,result.token);if(result.registration.total>0&&result.registration.mode==='live'){try{await openFormCheckout('event',result.registration.id,result.token);return;}catch{/* The saved confirmation provides a payment retry. */}}go('/checkout/'+result.registration.id);
-   }catch(error){if(error.quote){if(error.quote.configurationVersion!==e.version){current=null;renderQuote(null,'Event settings have changed. Reload this page to review the latest details, terms and prices.');return;}current={key:key(),quote:error.quote};renderQuote(error.quote,error.message);$('#booking-submit-message').textContent=error.message;return;}throw error;}
+   }catch(error){if(error.quote){if(error.quote.configurationVersion!==e.version){current=null;renderQuote(null,'Event settings have changed. Reload this page to review the latest details, terms and prices.');return;}if(hasDiscounts&&promoCode&&!error.quote.promotion){
+      promoCode='';
+      $('#booking-promo-message').textContent=error.message;
+      showDiscountStatus(error.message);
+     }
+     current={key:key(),quote:error.quote};renderQuote(error.quote,error.message);$('#booking-submit-message').textContent=error.message;return;}throw error;}
    finally{form.inert=false;}
   });if(form.isConnected)button.disabled=form.dataset.capacityReached==='true'||!current?.quote.canRegister;};
  }

@@ -22,12 +22,12 @@ async function discountScope(){
  if(r.error||!r.data)throw new IftariError('Iftari discount settings are not available.',503);
  return r.data.id as string;
 }
-async function withDiscount(quote:ReturnType<typeof quoteBooking>,input:{discountCode?:string;email?:string}){
+async function withDiscount(quote:ReturnType<typeof quoteBooking>,input:{discountCode?:string;email?:string}, lookup=searchBiginMembershipRecords){
  if(!input.discountCode?.trim())return {quote,promotion:null as VerifiedIftariPromotion|null};
  const scopeId=await discountScope();
  const promotion=await verifiedIftariPromotion({
   db:createEventService(),scopeId,code:input.discountCode,email:input.email||'',
-  quote,lookup:searchBiginMembershipRecords,secret:process.env.SUPABASE_SECRET_KEY||''
+  quote,lookup,secret:process.env.SUPABASE_SECRET_KEY||''
  });
  if(!promotion)return {quote,promotion:null};
  return {quote:{...quote,total:promotion.netPence,promotion:{
@@ -149,13 +149,29 @@ export async function handleIftari(request: Request, path: string) {
       return json({ settings: settingsSchema.parse(result.data) });
     }
     const settings = await iftariSettings();
-    if (path === 'quote') {const input=quoteInputSchema.parse(body);const output=await withDiscount(quoteBooking(settings,input),input);return json({quote:output.quote});}
     if (path === 'membership') {
       const value = z.object({ email: z.string().trim().pipe(z.email().max(254)) }).strict().parse(body);
       const status = await verifyMember(value.email, searchBiginMembershipRecords);
       return json({ status, message: membershipMessages[status] });
     }
-    if (path === 'bookings') {
+    if (path === 'quote' || path === 'bookings') {
+      // Both checks use the same fresh lead-booker lookup within this request.
+      let leadMembership: ReturnType<typeof searchBiginMembershipRecords> | undefined;
+      const lookup: typeof searchBiginMembershipRecords = input =>
+        leadMembership ??= searchBiginMembershipRecords(input);
+
+      if (path === 'quote') {
+        const input = quoteInputSchema.parse(body);
+        const quote = quoteBooking(settings, input);
+        await verifyMemberTickets(input, lookup);
+        try {
+          const output = await withDiscount(quote, input, lookup);
+          return json({ quote: output.quote });
+        } catch (error) {
+          if (!(error instanceof IftariError)) throw error;
+          return json({ quote, discountError: error.message });
+        }
+      }
       const input = bookingInputSchema.parse(body);
       const configured = websitePaymentConfiguration(), config = configured && paymentRequestOrigin(configured, request.url);
       if (!config) throw new IftariError('Secure payment is currently unavailable. Please try again later.', 503);
@@ -166,10 +182,10 @@ export async function handleIftari(request: Request, path: string) {
         return openCheckout(request, old, input.capability);
       }
       const originalQuote=quoteBooking(settings,input);
-      const {quote,promotion}=await withDiscount(originalQuote,input);
+      const {quote,promotion}=await withDiscount(originalQuote,input,lookup);
       if (settings.version !== input.expectedVersion || quote.total !== input.expectedTotal) throw new IftariError(databaseErrors.P2703, 409);
       if (settings.status !== 'published') throw new IftariError(databaseErrors.P2702, 409);
-      await verifyMemberTickets(input, searchBiginMembershipRecords);
+      await verifyMemberTickets(input, lookup);
       const saved = await createEventService().rpc(promotion?'icsh_iftari_reserve_discount':'icsh_iftari_reserve', {
         p_id: input.id, p_request_hash: requestHash, p_capability_hash: digest(input.capability),
         p_contact: { firstName: input.firstName, lastName: input.lastName, email: input.email, mobile: membershipMobileKey(input.mobile), notes: input.notes, attendees:input.attendees },
